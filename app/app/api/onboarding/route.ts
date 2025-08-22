@@ -5,14 +5,22 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    // Simulate N8N webhook integration
-    const webhookUrl = 'https://n8n.vivativa.com.br/webhook/onboarding'; // Replace with actual N8N webhook URL
+    // N8N webhook integration
+    const webhookUrl = process.env.N8N_WEBHOOK_URL || 'https://your-n8n-instance.com/webhook/onboarding';
     
     const payload = {
       timestamp: new Date().toISOString(),
-      source: 'vivativa-onboarding',
+      source: 'medical-onboarding',
       data: {
-        doctor: body?.doctor ?? {},
+        real_phone: body?.real_phone ?? '',
+        clinic_name: body?.clinic_name ?? '',
+        admin_email: body?.admin_email ?? '',
+        doctor_name: body?.doctor_name ?? '',
+        doctor_crm: body?.doctor_crm ?? '',
+        speciality: body?.speciality ?? '',
+        consultation_duration: body?.consultation_duration ?? '',
+        establishment_type: body?.establishment_type ?? '',
+        plan_type: body?.plan_type ?? '',
         qualifications: body?.qualifications ?? [],
         metadata: {
           userAgent: request.headers.get('user-agent'),
@@ -22,15 +30,24 @@ export async function POST(request: NextRequest) {
     };
 
     // In production, make actual webhook call
-    // const webhookResponse = await fetch(webhookUrl, {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify(payload)
-    // });
+    try {
+      const webhookResponse = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
 
-    // For now, just log the data
+      if (!webhookResponse.ok) {
+        console.error('Webhook call failed:', webhookResponse.statusText);
+      }
+    } catch (webhookError) {
+      console.error('Webhook error:', webhookError);
+      // Continue execution even if webhook fails
+    }
+
+    // Log the data
     console.log('Onboarding data received:', payload);
 
     return NextResponse.json({ 
@@ -54,7 +71,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   return NextResponse.json({ 
-    message: 'API de onboarding Vivativa ativa',
+    message: 'API de onboarding médico ativa',
     timestamp: new Date().toISOString()
   });
 }

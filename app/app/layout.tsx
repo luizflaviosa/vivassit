@@ -6,12 +6,9 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Vivativa - Onboarding | Transforme sua prática médica',
-  description: 'Bem-vindo ao Vivativa! Configure sua conta e descubra como revolucionar sua prática médica com nossa plataforma inovadora.',
-  keywords: ['medicina', 'telemedicina', 'gestão médica', 'clínica', 'onboarding'],
-  authors: [{ name: 'Vivativa' }],
-  creator: 'Vivativa',
-  publisher: 'Vivativa',
+  title: 'Cadastro Médico | Transforme sua prática médica',
+  description: 'Configure sua conta e descubra como revolucionar sua prática médica com nossa plataforma inovadora.',
+  keywords: ['medicina', 'telemedicina', 'gestão médica', 'clínica', 'cadastro'],
   robots: {
     index: false,
     follow: false,

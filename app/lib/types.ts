@@ -1,19 +1,14 @@
 
-export interface DoctorData {
-  name: string;
-  specialty: string;
-  crm: string;
-  email: string;
-  clinic: {
-    name: string;
-    email: string;
-    type: string;
-  };
-  consultation: {
-    duration: number;
-    plan: string;
-  };
-  progress: number;
+export interface OnboardingData {
+  real_phone: string;
+  clinic_name: string;
+  admin_email: string;
+  doctor_name: string;
+  doctor_crm: string;
+  speciality: string;
+  consultation_duration: string;
+  establishment_type: string;
+  plan_type: string;
 }
 
 export interface ValueBlock {
@@ -27,3 +22,41 @@ export interface QualificationOption {
   label: string;
   selected: boolean;
 }
+
+export interface WizardStep {
+  id: number;
+  title: string;
+  description: string;
+  fields: string[];
+}
+
+export const ESTABLISHMENT_TYPES = {
+  small_clinic: 'Clínica Pequena',
+  medium_clinic: 'Clínica Média',
+  large_clinic: 'Clínica Grande',
+  hospital: 'Hospital',
+  private_practice: 'Consultório Particular'
+} as const;
+
+export const PLAN_TYPES = {
+  basic: 'Básico',
+  professional: 'Profissional',
+  premium: 'Premium',
+  enterprise: 'Corporativo'
+} as const;
+
+export const SPECIALITIES = [
+  'cardiologia',
+  'dermatologia',
+  'endocrinologia',
+  'gastroenterologia',
+  'ginecologia',
+  'neurologia',
+  'oftalmologia',
+  'ortopedia',
+  'pediatria',
+  'pneumologia',
+  'psiquiatria',
+  'urologia',
+  'outras'
+] as const;
