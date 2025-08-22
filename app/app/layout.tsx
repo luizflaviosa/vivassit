@@ -6,9 +6,9 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Cadastro Médico | Transforme sua prática médica',
-  description: 'Configure sua conta e descubra como revolucionar sua prática médica com nossa plataforma inovadora.',
-  keywords: ['medicina', 'telemedicina', 'gestão médica', 'clínica', 'cadastro'],
+  title: 'Vivassit | Transforme sua prática médica em minutos',
+  description: 'Junte-se a mais de 5.000 médicos que já modernizaram sua prática. Do cadastro ao primeiro paciente: simples assim.',
+  keywords: ['vivassit', 'medicina', 'telemedicina', 'gestão médica', 'clínica', 'onboarding'],
   robots: {
     index: false,
     follow: false,

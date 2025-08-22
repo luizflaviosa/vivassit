@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import { 
   Clock, 
   Heart, 
@@ -21,7 +22,10 @@ import {
   Phone,
   User,
   FileText,
-  Settings
+  Settings,
+  Shield,
+  Zap,
+  Star
 } from 'lucide-react';
 import { 
   OnboardingData, 
@@ -36,18 +40,18 @@ import {
 const VALUE_BLOCKS: ValueBlock[] = [
   {
     icon: 'clock',
-    title: 'Economize Tempo',
-    description: 'Automatize processos e tenha mais tempo para o que realmente importa: seus pacientes.'
+    title: 'Mais tempo para o que importa',
+    description: 'Com agendamento inteligente e lembretes automáticos, você foca nos pacientes enquanto a Vivassit cuida da burocracia.'
   },
   {
     icon: 'heart',
-    title: 'Conexão Genuína',
-    description: 'Fortaleça o vínculo com seus pacientes através de um atendimento personalizado e eficiente.'
+    title: 'Uma ponte direta com seus pacientes',
+    description: 'Comunicação fluida via WhatsApp e histórico 100% digital que centraliza cada detalhe do atendimento.'
   },
   {
     icon: 'trending-up',
-    title: 'Cresça Sustentavelmente',
-    description: 'Expanda sua prática médica com insights inteligentes e ferramentas de gestão avançadas.'
+    title: 'Sua prática, mais forte e lucrativa',
+    description: 'Reduza faltas em até 60% e receba pagamentos seguros, enquanto nossos relatórios mostram o caminho do crescimento.'
   }
 ];
 
@@ -105,8 +109,35 @@ export default function OnboardingPage() {
   const [qualifications, setQualifications] = useState<QualificationOption[]>(INITIAL_QUALIFICATIONS);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Partial<OnboardingData>>({});
+  const [todaySignups, setTodaySignups] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
 
   const progress = ((currentStep + 1) / WIZARD_STEPS.length) * 100;
+
+  // Animate counters
+  useEffect(() => {
+    const signupTarget = 347;
+    const usersTarget = 5247;
+    
+    const signupTimer = setInterval(() => {
+      setTodaySignups(prev => {
+        const increment = Math.ceil((signupTarget - prev) / 20);
+        return prev + increment < signupTarget ? prev + increment : signupTarget;
+      });
+    }, 50);
+
+    const usersTimer = setInterval(() => {
+      setTotalUsers(prev => {
+        const increment = Math.ceil((usersTarget - prev) / 30);
+        return prev + increment < usersTarget ? prev + increment : usersTarget;
+      });
+    }, 40);
+
+    return () => {
+      clearInterval(signupTimer);
+      clearInterval(usersTimer);
+    };
+  }, []);
 
   const handleInputChange = (field: keyof OnboardingData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -546,19 +577,95 @@ export default function OnboardingPage() {
 
       <div className="relative z-10 container mx-auto px-4 py-8 max-w-4xl">
         
+        {/* Top Header with Logo and Stats */}
+        <motion.div 
+          className="flex flex-col md:flex-row justify-between items-center mb-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          {/* Logo */}
+          <div className="logo-container mb-4 md:mb-0">
+            <Image
+              src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
+              alt="Vivassit"
+              width={180}
+              height={60}
+              className="h-12 w-auto"
+              priority
+            />
+          </div>
+
+          {/* Stats Counter */}
+          <div className="flex gap-4">
+            <motion.div 
+              className="stats-counter px-4 py-2 rounded-full text-sm font-semibold"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <span className="opacity-90">Hoje:</span> +{todaySignups} cadastros
+            </motion.div>
+            <motion.div 
+              className="stats-counter px-4 py-2 rounded-full text-sm font-semibold"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+            >
+              <span className="opacity-90">Total:</span> {totalUsers.toLocaleString()} médicos
+            </motion.div>
+          </div>
+        </motion.div>
+
+        {/* Social Proof Badge */}
+        <motion.div 
+          className="text-center mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <div className="social-proof-badge inline-flex items-center gap-2 px-6 py-3 rounded-full text-blue-700 font-medium text-sm mb-6">
+            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+            <span>Mais de 5.000 médicos já modernizaram sua prática</span>
+            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+          </div>
+        </motion.div>
+        
         {/* Header Section */}
         <motion.div 
           className="text-center mb-12"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
         >
           <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
-            Cadastro Médico
+            Transforme sua prática médica
+            <span className="bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent"> em minutos</span>
           </h1>
           <p className="text-xl text-gray-600 mb-8">
-            Configure sua conta e transforme sua prática médica
+            Do cadastro ao primeiro paciente: <strong>simples assim</strong>
           </p>
+
+          {/* Trust Signals */}
+          <motion.div 
+            className="flex flex-wrap justify-center gap-4 md:gap-8 mb-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+          >
+            <div className="trust-signal flex items-center gap-2 px-4 py-2 rounded-lg">
+              <Shield className="w-4 h-4 text-green-600" />
+              <span className="text-sm text-gray-700">Dados 100% seguros</span>
+            </div>
+            <div className="trust-signal flex items-center gap-2 px-4 py-2 rounded-lg">
+              <Zap className="w-4 h-4 text-blue-600" />
+              <span className="text-sm text-gray-700">Configuração em 5 minutos</span>
+            </div>
+            <div className="trust-signal flex items-center gap-2 px-4 py-2 rounded-lg">
+              <Users className="w-4 h-4 text-purple-600" />
+              <span className="text-sm text-gray-700">Suporte especializado incluso</span>
+            </div>
+          </motion.div>
 
           {/* Progress Bar */}
           <div className="glass-card rounded-2xl p-6 mb-8">
@@ -612,10 +719,10 @@ export default function OnboardingPage() {
             >
               <div className="text-center mb-8">
                 <h2 className="text-3xl font-bold text-gray-800 mb-4">
-                  Revolucione sua prática médica
+                  Desbloqueie o potencial da sua clínica
                 </h2>
                 <p className="text-lg text-gray-600">
-                  Junte-se a milhares de médicos que transformaram sua rotina
+                  Junte-se a milhares de médicos que já <strong>transformaram</strong> sua prática
                 </p>
               </div>
 
