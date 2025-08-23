@@ -134,6 +134,27 @@ export default function LandingPage() {
   const [todaySignups, setTodaySignups] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [successTenantId, setSuccessTenantId] = useState('');
+
+  // Check for success parameters in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const successParam = urlParams.get('success');
+    const tenantParam = urlParams.get('tenant');
+    
+    if (successParam === 'true') {
+      setShowSuccessMessage(true);
+      setSuccessTenantId(tenantParam || '');
+      
+      // Auto-hide success message after 10 seconds
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }, 10000);
+    }
+  }, []);
 
   // Animate counters
   useEffect(() => {
@@ -183,6 +204,45 @@ export default function LandingPage() {
       </div>
 
       <div className="relative z-10">
+        {/* Success Message */}
+        <AnimatePresence>
+          {showSuccessMessage && (
+            <motion.div
+              className="fixed top-4 left-4 right-4 z-50 mx-auto max-w-2xl"
+              initial={{ opacity: 0, y: -50, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -50, scale: 0.95 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white p-6 rounded-2xl shadow-2xl border border-green-300">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-xl font-bold">🎉 Cadastro Realizado com Sucesso!</h3>
+                  <button 
+                    onClick={() => setShowSuccessMessage(false)}
+                    className="ml-auto text-white/80 hover:text-white transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-green-50 mb-2">
+                  Sua conta Vivassit foi criada e nosso time já iniciou a configuração da sua clínica.
+                </p>
+                {successTenantId && (
+                  <p className="text-sm text-green-100 bg-green-600/30 px-3 py-1 rounded-full inline-block">
+                    <strong>ID do Tenant:</strong> {successTenantId}
+                  </p>
+                )}
+                <p className="text-xs text-green-100 mt-3 opacity-90">
+                  📧 Verifique seu email nos próximos minutos para instruções de acesso.
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Header */}
         <header className="container mx-auto px-4 py-6 flex justify-between items-center">
           <div className="logo-container">

@@ -101,7 +101,7 @@ export default function OnboardingPage() {
   const [formData, setFormData] = useState<OnboardingData>(INITIAL_DATA);
   const [qualifications, setQualifications] = useState<QualificationOption[]>(INITIAL_QUALIFICATIONS);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<Partial<OnboardingData>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [todaySignups, setTodaySignups] = useState(0);
 
   const progress = ((currentStep + 1) / WIZARD_STEPS.length) * 100;
@@ -123,7 +123,11 @@ export default function OnboardingPage() {
   const handleInputChange = (field: keyof OnboardingData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
     }
   };
 
@@ -136,13 +140,13 @@ export default function OnboardingPage() {
   };
 
   const validateStep = (step: number): boolean => {
-    const newErrors: Partial<OnboardingData> = {};
+    const newErrors: Record<string, string> = {};
     const stepFields = WIZARD_STEPS[step]?.fields || [];
 
     stepFields.forEach(field => {
       const value = formData[field as keyof OnboardingData];
-      if (!value || value.trim() === '') {
-        newErrors[field as keyof OnboardingData] = 'Este campo é obrigatório';
+      if (!value || (typeof value === 'string' && value.trim() === '')) {
+        newErrors[field] = 'Este campo é obrigatório';
       }
     });
 
@@ -184,28 +188,59 @@ export default function OnboardingPage() {
       const payload = {
         ...formData,
         qualifications: selectedQualifications,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        source: 'onboarding-wizard',
+        user_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
       };
 
       const response = await fetch('/api/onboarding', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Client-Version': '2.0.0'
+        },
         body: JSON.stringify(payload)
       });
 
-      if (response.ok) {
-        // Success message
-        alert('🎉 Parabéns! Sua conta Vivassit foi criada com sucesso!\n\nEm alguns minutos você receberá um email com os próximos passos.');
-        // Redirect to success page or dashboard
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Success message with tenant_id
+        const tenantId = result.data?.tenant_id || 'N/A';
+        const clinicName = result.data?.clinic_name || formData.clinic_name;
+        
+        alert(`🎉 Parabéns! Sua conta Vivassit foi criada com sucesso!\n\n📋 Dados da sua clínica:\n• Nome: ${clinicName}\n• ID do Tenant: ${tenantId}\n\n📧 Em alguns minutos você receberá um email com os próximos passos e instruções de acesso.\n\n💪 Bem-vindo à revolução da medicina digital!`);
+        
+        // Redirect to landing page with success parameter
         setTimeout(() => {
-          window.location.href = '/';
-        }, 2000);
+          window.location.href = '/landing?success=true&tenant=' + encodeURIComponent(tenantId);
+        }, 3000);
       } else {
-        throw new Error('Erro ao enviar dados');
+        // Handle API errors with more detail
+        const errorMessage = result.message || 'Erro desconhecido';
+        const missingFields = result.missing_fields || [];
+        
+        if (missingFields.length > 0) {
+          alert(`⚠️ Campos obrigatórios não preenchidos:\n\n${missingFields.map((field: string) => '• ' + field).join('\n')}\n\nPor favor, volte e preencha todos os campos obrigatórios.`);
+        } else {
+          alert(`❌ Erro no cadastro: ${errorMessage}\n\nTente novamente ou entre em contato com nosso suporte.`);
+        }
+        
+        throw new Error(errorMessage);
       }
-    } catch (error) {
-      console.error('Erro ao enviar dados:', error);
-      alert('❌ Ops! Algo deu errado. Tente novamente ou entre em contato com nosso suporte.');
+    } catch (error: unknown) {
+      console.error('❌ Erro ao enviar dados:', error);
+      
+      // More specific error messages
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        alert('🔌 Erro de conexão. Verifique sua internet e tente novamente.');
+      } else if (error instanceof Error && error.message.includes('400')) {
+        alert('📝 Dados incompletos ou inválidos. Verifique os campos e tente novamente.');
+      } else if (error instanceof Error && error.message.includes('500')) {
+        alert('🔧 Erro no servidor. Nossa equipe foi notificada e irá resolver o problema em breve.');
+      } else {
+        alert('❌ Ops! Algo deu errado.\n\nTente novamente em alguns minutos ou entre em contato com nosso suporte:\n📞 WhatsApp: +55 11 99999-9999\n📧 Email: suporte@vivassit.com.br');
+      }
     } finally {
       setIsSubmitting(false);
     }

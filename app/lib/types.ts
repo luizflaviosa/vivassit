@@ -9,6 +9,47 @@ export interface OnboardingData {
   consultation_duration: string;
   establishment_type: string;
   plan_type: string;
+  qualifications?: string[];
+  timestamp?: string;
+  source?: string;
+  user_timezone?: string;
+}
+
+// Tipos para resposta da API
+export interface ApiResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    tenant_id: string;
+    clinic_name: string;
+    doctor_name: string;
+    status: string;
+  };
+  missing_fields?: string[];
+  error_code?: string;
+}
+
+// Payload completo enviado para o webhook
+export interface WebhookPayload {
+  real_phone: string;
+  clinic_name: string;
+  admin_email: string;
+  doctor_name: string;
+  doctor_crm: string;
+  speciality: string;
+  consultation_duration: number;
+  establishment_type: string;
+  plan_type: string;
+  selected_features: string[];
+  tenant_id: string;
+  source: string;
+  version: string;
+  timestamp: string;
+  user_agent: string;
+  ip_address: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ValueBlock {
