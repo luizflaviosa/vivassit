@@ -1,0 +1,162 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste Webhook Vivassit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen py-8">
+    <div class="max-w-4xl mx-auto px-4">
+        <div class="bg-white rounded-2xl shadow-xl p-8">
+            <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">
+                🧪 Teste Webhook Vivassit
+            </h1>
+            
+            <!-- Webhook URL Config -->
+            <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+                <h2 class="text-lg font-semibold mb-2 text-blue-800">🔗 Configuração do Webhook</h2>
+                <div class="flex gap-2">
+                    <input type="text" id="webhookUrl" 
+                           value="https://webhook.site/unique-id-here" 
+                           placeholder="Cole sua URL do webhook.site aqui"
+                           class="flex-1 px-3 py-2 border border-blue-300 rounded-md">
+                    <button onclick="updateWebhookUrl()" 
+                            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                        Atualizar
+                    </button>
+                </div>
+                <p class="text-sm text-blue-600 mt-2">
+                    💡 Vá em <a href="https://webhook.site" target="_blank" class="underline">webhook.site</a> e copie sua URL única aqui
+                </p>
+            </div>
+
+            <!-- Test Form -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">📞 Telefone</label>
+                    <input type="tel" id="real_phone" value="+5511987654321" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">🏥 Nome da Clínica</label>
+                    <input type="text" id="clinic_name" value="Clínica Teste Webhook" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">📧 Email Admin</label>
+                    <input type="email" id="admin_email" value="admin@clinicateste.com.br" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">👨‍⚕️ Nome do Médico</label>
+                    <input type="text" id="doctor_name" value="Dr. João Teste Silva" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">🆔 CRM</label>
+                    <input type="text" id="doctor_crm" value="CRM/SP 123456" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">🩺 Especialidade</label>
+                    <select id="speciality" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="cardiologia">Cardiologia</option>
+                        <option value="dermatologia">Dermatologia</option>
+                        <option value="pediatria">Pediatria</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Test Button -->
+            <div class="text-center mb-6">
+                <button onclick="testWebhook()" 
+                        class="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all">
+                    🚀 Testar Webhook
+                </button>
+            </div>
+
+            <!-- Results -->
+            <div id="results" class="hidden">
+                <h3 class="text-lg font-semibold mb-3">📊 Resultado do Teste:</h3>
+                <pre id="resultContent" class="bg-gray-900 text-green-400 p-4 rounded-lg text-sm overflow-auto max-h-96"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentWebhookUrl = 'https://webhook.site/unique-id-here';
+        
+        function updateWebhookUrl() {
+            const url = document.getElementById('webhookUrl').value;
+            if (url && url.includes('webhook.site')) {
+                currentWebhookUrl = url;
+                alert('✅ URL do webhook atualizada!');
+            } else {
+                alert('❌ Por favor, insira uma URL válida do webhook.site');
+            }
+        }
+        
+        async function testWebhook() {
+            const resultsDiv = document.getElementById('results');
+            const resultContent = document.getElementById('resultContent');
+            
+            // Coleta dados do formulário
+            const testData = {
+                real_phone: document.getElementById('real_phone').value,
+                clinic_name: document.getElementById('clinic_name').value,
+                admin_email: document.getElementById('admin_email').value,
+                doctor_name: document.getElementById('doctor_name').value,
+                doctor_crm: document.getElementById('doctor_crm').value,
+                speciality: document.getElementById('speciality').value,
+                consultation_duration: '30',
+                establishment_type: 'small_clinic',
+                plan_type: 'professional',
+                qualifications: ['Telemedicina', 'Agenda Online'],
+                source: 'webhook-test',
+                user_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            };
+            
+            try {
+                resultContent.textContent = '⏳ Enviando dados para o webhook...\n\n' + 
+                                          JSON.stringify(testData, null, 2);
+                resultsDiv.classList.remove('hidden');
+                
+                // Testa diretamente no webhook configurado
+                const webhookResponse = await fetch(currentWebhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Source': 'vivassit-test',
+                        'X-Version': '2.0.0'
+                    },
+                    body: JSON.stringify({
+                        ...testData,
+                        tenant_id: `teste-webhook-${Date.now()}`,
+                        timestamp: new Date().toISOString(),
+                        status: 'test'
+                    })
+                });
+                
+                resultContent.textContent = `✅ WEBHOOK TESTADO COM SUCESSO!\n\n` +
+                                          `Status: ${webhookResponse.status}\n` +
+                                          `URL: ${currentWebhookUrl}\n\n` +
+                                          `Dados enviados:\n` +
+                                          JSON.stringify(testData, null, 2) + '\n\n' +
+                                          `💡 Verifique o webhook.site para ver os dados recebidos!`;
+                
+            } catch (error) {
+                resultContent.textContent = `❌ ERRO NO TESTE:\n\n${error.message}\n\n` +
+                                          `Dados que tentamos enviar:\n` +
+                                          JSON.stringify(testData, null, 2);
+            }
+        }
+    </script>
+</body>
+</html>

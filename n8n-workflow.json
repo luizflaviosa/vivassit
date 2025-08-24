@@ -1,0 +1,182 @@
+
+{
+  "name": "Vivassit Onboarding Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/vivassit-onboarding",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-vivassit",
+      "name": "Webhook Vivassit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "vivassit-onboarding-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.source}}",
+              "operation": "equal",
+              "value2": "vivassit-onboarding"
+            }
+          ]
+        }
+      },
+      "id": "filter-vivassit",
+      "name": "Filter Vivassit",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Processa dados do Vivassit para Singular/NBN\nconst data = $input.first().json;\n\n// Extrai dados principais\nconst processed = {\n  // Dados básicos\n  tenant_id: data.tenant_id,\n  clinic_name: data.clinic_name,\n  doctor_name: data.doctor_name,\n  doctor_crm: data.doctor_crm,\n  admin_email: data.admin_email,\n  real_phone: data.real_phone,\n  speciality: data.speciality,\n  \n  // Configurações\n  consultation_duration: data.consultation_duration,\n  establishment_type: data.establishment_type,\n  plan_type: data.plan_type,\n  \n  // Features selecionadas\n  selected_features: data.selected_features || [],\n  \n  // Metadados\n  created_at: data.created_at,\n  source: data.source,\n  version: data.version,\n  status: data.status,\n  \n  // Dados de rastreamento\n  user_agent: data.user_agent,\n  ip_address: data.ip_address,\n  \n  // Timestamp de processamento\n  processed_at: new Date().toISOString(),\n  workflow_id: 'vivassit-onboarding-v2'\n};\n\n// Log para debug\nconsole.log('📋 Processando onboarding:', processed.tenant_id);\nconsole.log('🏥 Clínica:', processed.clinic_name);\nconsole.log('👨‍⚕️ Médico:', processed.doctor_name);\n\nreturn { json: processed };"
+      },
+      "id": "process-data",
+      "name": "Process Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        680,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.singular-platform.com/v1/tenants",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "httpMethod": "POST",
+        "jsonParameters": true,
+        "parametersJson": "={\n  \"tenant_id\": \"{{$json.tenant_id}}\",\n  \"name\": \"{{$json.clinic_name}}\",\n  \"admin_email\": \"{{$json.admin_email}}\",\n  \"phone\": \"{{$json.real_phone}}\",\n  \"plan\": \"{{$json.plan_type}}\",\n  \"specialty\": \"{{$json.speciality}}\",\n  \"metadata\": {\n    \"doctor_name\": \"{{$json.doctor_name}}\",\n    \"doctor_crm\": \"{{$json.doctor_crm}}\",\n    \"establishment_type\": \"{{$json.establishment_type}}\",\n    \"consultation_duration\": {{$json.consultation_duration}},\n    \"selected_features\": {{$json.selected_features}},\n    \"source\": \"{{$json.source}}\",\n    \"version\": \"{{$json.version}}\"\n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "create-tenant-singular",
+      "name": "Create Tenant (Singular)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        900,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.nbn-platform.com/v1/clinics/onboard",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "httpMethod": "POST",
+        "jsonParameters": true,
+        "parametersJson": "={\n  \"clinic_id\": \"{{$json.tenant_id}}\",\n  \"clinic_name\": \"{{$json.clinic_name}}\",\n  \"primary_contact\": {\n    \"name\": \"{{$json.doctor_name}}\",\n    \"email\": \"{{$json.admin_email}}\",\n    \"phone\": \"{{$json.real_phone}}\",\n    \"crm\": \"{{$json.doctor_crm}}\",\n    \"specialty\": \"{{$json.speciality}}\"\n  },\n  \"settings\": {\n    \"appointment_duration\": {{$json.consultation_duration}},\n    \"establishment_type\": \"{{$json.establishment_type}}\",\n    \"plan_type\": \"{{$json.plan_type}}\"\n  },\n  \"features\": {{$json.selected_features}},\n  \"source_metadata\": {\n    \"origin\": \"{{$json.source}}\",\n    \"version\": \"{{$json.version}}\",\n    \"created_at\": \"{{$json.created_at}}\",\n    \"user_agent\": \"{{$json.user_agent}}\",\n    \"ip_address\": \"{{$json.ip_address}}\"\n  }\n}",
+        "options": {
+          "timeout": 30000\n        }\n      },\n      \"id\": \"create-clinic-nbn\",\n      \"name\": \"Create Clinic (NBN)\",\n      \"type\": \"n8n-nodes-base.httpRequest\",\n      \"typeVersion\": 3,\n      \"position\": [\n        900,\n        400\n      ]\n    },\n    {\n      \"parameters\": {\n        \"to\": \"={{$json.admin_email}}\",\n        \"subject\": \"🎉 Bem-vindo ao Vivassit - Sua clínica está sendo configurada!\",\n        \"emailType\": \"html\",\n        \"message\": \"=<!DOCTYPE html>\\n<html>\\n<head>\\n    <meta charset=\\\"utf-8\\\">\\n    <title>Bem-vindo ao Vivassit</title>\\n</head>\\n<body style=\\\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;\\\">\\n    <div style=\\\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; text-align: center;\\\">\\n        <h1>🏥 Bem-vindo ao Vivassit!</h1>\\n        <p style=\\\"font-size: 18px;\\\">Sua clínica {{$json.clinic_name}} foi cadastrada com sucesso!</p>\\n    </div>\\n    \\n    <div style=\\\"padding: 30px; background: #f8f9fa; border-radius: 10px; margin: 20px 0;\\\">\\n        <h2>📋 Dados da sua clínica:</h2>\\n        <ul style=\\\"line-height: 1.8;\\\">\\n            <li><strong>🆔 ID do Tenant:</strong> {{$json.tenant_id}}</li>\\n            <li><strong>🏥 Nome:</strong> {{$json.clinic_name}}</li>\\n            <li><strong>👨‍⚕️ Médico:</strong> {{$json.doctor_name}}</li>\\n            <li><strong>📧 Email:</strong> {{$json.admin_email}}</li>\\n            <li><strong>📞 Telefone:</strong> {{$json.real_phone}}</li>\\n            <li><strong>🩺 Especialidade:</strong> {{$json.speciality}}</li>\\n            <li><strong>📅 Plano:</strong> {{$json.plan_type}}</li>\\n        </ul>\\n    </div>\\n    \\n    <div style=\\\"padding: 20px; border: 2px solid #28a745; border-radius: 10px; background: #d4edda;\\\">\\n        <h3 style=\\\"color: #155724; margin-top: 0;\\\">🚀 Próximos passos:</h3>\\n        <ol style=\\\"color: #155724; line-height: 1.8;\\\">\\n            <li>Nossa equipe está configurando sua clínica</li>\\n            <li>Você receberá um email com seus dados de acesso em até 24h</li>\\n            <li>Após receber o acesso, faça login na plataforma</li>\\n            <li>Configure seu perfil e comece a atender pacientes!</li>\\n        </ol>\\n    </div>\\n    \\n    <div style=\\\"text-align: center; margin: 30px 0; padding: 20px;\\\">\\n        <p>Precisa de ajuda? Entre em contato:</p>\\n        <p>\\n            📞 <strong>WhatsApp:</strong> +55 11 99999-9999<br>\\n            📧 <strong>Email:</strong> suporte@vivassit.com.br\\n        </p>\\n    </div>\\n    \\n    <div style=\\\"text-align: center; color: #6c757d; font-size: 14px; border-top: 1px solid #dee2e6; padding-top: 20px;\\\">\\n        <p>Vivassit - Transformando práticas médicas desde 2024</p>\\n        <p>Este email foi enviado automaticamente pelo sistema de onboarding.</p>\\n    </div>\\n</body>\\n</html>\"\n      },\n      \"id\": \"send-welcome-email\",\n      \"name\": \"Send Welcome Email\",\n      \"type\": \"n8n-nodes-base.emailSend\",\n      \"typeVersion\": 2,\n      \"position\": [\n        1120,\n        300\n      ]\n    },\n    {\n      \"parameters\": {\n        \"functionCode\": \"// Log de erro e notificação\\nconst error = $input.first().json;\\n\\nconsole.error('❌ Erro no onboarding Vivassit:', error);\\n\\n// Notificar equipe de suporte\\nreturn {\\n  json: {\\n    error_type: 'onboarding_failure',\\n    tenant_id: error.tenant_id || 'unknown',\\n    clinic_name: error.clinic_name || 'unknown',\\n    error_details: error,\\n    timestamp: new Date().toISOString(),\\n    requires_manual_intervention: true\\n  }\\n};\"\n      },\n      \"id\": \"handle-error\",\n      \"name\": \"Handle Error\",\n      \"type\": \"n8n-nodes-base.function\",\n      \"typeVersion\": 1,\n      \"position\": [\n        680,\n        400\n      ]\n    }\n  ],\n  \"connections\": {\n    \"Webhook Vivassit\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Filter Vivassit\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Filter Vivassit\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Process Data\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ],\n        [\n          {\n            \"node\": \"Handle Error\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Process Data\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Create Tenant (Singular)\",\n            \"type\": \"main\",\n            \"index\": 0\n          },\n          {\n            \"node\": \"Create Clinic (NBN)\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Create Tenant (Singular)\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Send Welcome Email\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Create Clinic (NBN)\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Send Welcome Email\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    }\n  },\n  \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n  \"id\": \"vivassit-onboarding-workflow\",\n  \"settings\": {\n    \"timezone\": \"America/Sao_Paulo\"\n  },\n  \"tags\": [\n    {\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"id\": \"vivassit\",\n      \"name\": \"vivassit\",\n      \"updatedAt\": \"2025-01-01T00:00:00.000Z\"\n    },\n    {\n      \"createdAt\": \"2025-01-01T00:00:00.000Z\",\n      \"id\": \"onboarding\",\n      \"name\": \"onboarding\",\n      \"updatedAt\": \"2025-01-01T00:00:00.000Z\"\n    }\n  ],\n  \"triggerCount\": 0,\n  \"updatedAt\": \"2025-01-01T00:00:00.000Z\",\n  \"versionId\": \"1\"\n}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Vivassit": {
+      "main": [
+        [
+          {
+            "node": "Filter Vivassit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Vivassit": {
+      "main": [
+        [
+          {
+            "node": "Process Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Data": {
+      "main": [
+        [
+          {
+            "node": "Create Tenant (Singular)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Clinic (NBN)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Tenant (Singular)": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Clinic (NBN)": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-01-01T00:00:00.000Z",
+  "id": "vivassit-onboarding-workflow",
+  "settings": {
+    "timezone": "America/Sao_Paulo"
+  },
+  "tags": [
+    {
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "id": "vivassit",
+      "name": "vivassit",
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    },
+    {
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "id": "onboarding", 
+      "name": "onboarding",
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
