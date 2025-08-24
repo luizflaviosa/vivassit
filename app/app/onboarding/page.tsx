@@ -103,6 +103,7 @@ export default function OnboardingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [todaySignups, setTodaySignups] = useState(0);
+  const [formStartTime] = useState(new Date().toISOString()); // Tempo de início do formulário
 
   const progress = ((currentStep + 1) / WIZARD_STEPS.length) * 100;
 
@@ -185,19 +186,27 @@ export default function OnboardingPage() {
     try {
       const selectedQualifications = qualifications?.filter(q => q?.selected)?.map(q => q?.label) ?? [];
       
+      const formEndTime = new Date().toISOString();
+      const formCompletionTime = Math.round((new Date().getTime() - new Date(formStartTime).getTime()) / 1000); // segundos
+
       const payload = {
         ...formData,
         qualifications: selectedQualifications,
-        timestamp: new Date().toISOString(),
-        source: 'onboarding-wizard',
-        user_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        timestamp: formEndTime,
+        source: 'vivassit-onboarding-wizard', // Identificação específica para N8N
+        user_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        form_start_time: formStartTime,
+        form_end_time: formEndTime,
+        form_completion_time: formCompletionTime,
+        workflow_version: '4.0' // Versão alinhada com N8N workflow
       };
 
       const response = await fetch('/api/onboarding', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'X-Client-Version': '2.0.0'
+          'X-Client-Version': '4.0.0',
+          'X-Workflow-Target': 'n8n-v4'
         },
         body: JSON.stringify(payload)
       });

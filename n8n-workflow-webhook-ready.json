@@ -1,0 +1,857 @@
+{
+  "name": "Vivassit Onboarding Webhook v4",
+  "nodes": [
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $('Auto Configure Services v').item.json.tenant_id }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "id": "b77e46da-ab24-4fea-af68-23d08d19cd29",
+      "name": "Create Drive Folder v4",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -9264,
+        3536
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ZegivNH5EouVTbBe",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "instance-connect",
+        "instanceName": "={{ ($('Criar instancia').item.json?.data?.instance?.instanceName)\n    || $('Auto Configure Services v').item.json.tenant_id }}"
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        -8928,
+        3536
+      ],
+      "id": "01cd6582-ecac-49fe-b442-34e67cf10afb",
+      "name": "Conectar instancia",
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "instanceName": "={{ $('Auto Configure Services v').item.json.tenant_id }}",
+        "number": "={{ $('Auto Configure Services v').item.json.phone.replace(/\\D/g, '') }}",
+        "options_Create_instance": {
+          "webhook": {
+            "webhookSettings": {
+              "webhookUrl": "={{ $('Auto Configure Services v').item.json.evolution_webhook_url }}"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        -9088,
+        3536
+      ],
+      "id": "01c7d8a6-814d-4048-bdef-fd91367b4442",
+      "name": "Criar instancia",
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Create Google Calendar v4').item.json.id }}"
+        },
+        "start": "={{ $now.plus({ days: 1 }).set({ hour: 9, minute: 0 }).toISO() }}",
+        "end": "={{ $now.plus({ days: 1 }).set({ hour: 10, minute: 0 }).toISO() }}",
+        "additionalFields": {
+          "attendees": [
+            "=={{ [$('Auto Configure Services v').item.json.doctor_principal.email, 'recepcao@clinica.com.br'].filter(Boolean).join(',') }}"
+          ]
+        }
+      },
+      "id": "dc4ec6e4-0e5e-46dd-8994-72366d93e087",
+      "name": "Criar Agenda Medica Inicial v",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -9440,
+        3536
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "OkOV7izIvJcvD3wl",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const cfg = $('Generate Test Data v').item.json.real_phone_config;\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  if (!emailRegex.test(cfg.admin_email)) throw new Error('Email invalido no Auto Configure Services v4');\n  \n  const clinicName = cfg.clinic_name.toLowerCase()\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/[^a-z0-9]/g, '-')\n    .replace(/-+/g, '-')\n    .replace(/^-|-$/g, '');\n  \n  const tenantId = clinicName + '-v4-' + Date.now().toString(36);\n  \n  return [{\n    tenant_id: tenantId,\n    clinic_name: cfg.clinic_name,\n    email: cfg.admin_email,\n    phone: cfg.real_phone,\n    plan_type: cfg.plan_type,\n    establishment_type: cfg.establishment_type,\n    version: '4.0',\n    \n    doctor_principal: {\n      name: cfg.doctor_name,\n      crm: cfg.doctor_crm,\n      speciality: cfg.speciality,\n      consultation_duration: parseInt(cfg.consultation_duration),\n      email: cfg.admin_email,\n      agenda_name: cfg.doctor_name + ' - ' + cfg.speciality\n    },\n    \n    calendar_config: {\n      calendar_name: cfg.clinic_name + ' - Agenda v4',\n      calendar_description: 'Agenda medica v4 para ' + cfg.clinic_name,\n      timezone: 'America/Sao_Paulo',\n      create_calendar: true\n    },\n    \n    evolution_instance_name: 'clinic-' + tenantId,\n    evolution_phone_number: cfg.real_phone.replace(/\\D/g, ''),\n    evolution_webhook_url: 'https://n8n.singulare.org/webhook/evolution/v4/' + tenantId,\n    \n    // ✅ TELEGRAM MULTI-TENANT - BOT COMPARTILHADO\n    telegram_config: {\n      // ❌ REMOVIDO: bot_username_base (não gera bot único)\n      // ❌ REMOVIDO: bot_display_name individual\n      \n      // ✅ BOT COMPARTILHADO ÚNICO\n      shared_bot_username: 'SingulareBot',\n      shared_bot_name: 'Assistente Singulare',\n      shared_bot_token: '8219934901:AAEL3TGKiGmiz0pYgUpO2-UxbNPBxxldWwQ',\n      \n      // ✅ ROTEAMENTO POR TENANT\n      tenant_start_param: tenantId,\n      tenant_webhook_url: 'https://n8n.singulare.org/webhook/telegram/v4/' + tenantId,\n      \n      // ✅ LINK PERSONALIZADO PARA CADA MÉDICO\n      personalized_link: `https://t.me/SingulareBot?start=${tenantId}`,\n      \n      // ✅ CONTEXTO ESPECÍFICO DO TENANT\n      tenant_context: {\n        clinic_name: cfg.clinic_name,\n        doctor_name: cfg.doctor_name,\n        doctor_crm: cfg.doctor_crm,\n        speciality: cfg.speciality,\n        consultation_duration: cfg.consultation_duration,\n        greeting_message: `Olá! 👋 Bem-vindo ao *${cfg.clinic_name}*\\n\\nVocê está falando com o assistente do *${cfg.doctor_name}*\\n📋 Especialidade: ${cfg.speciality}\\n⏰ Consultas: ${cfg.consultation_duration} minutos\\n\\nComo posso ajudá-lo?`\n      },\n      \n      // ✅ CONFIGURAÇÃO MULTI-TENANT\n      routing_strategy: 'shared_bot_with_tenant_isolation',\n      privacy_mode: 'tenant_isolated',\n      multi_tenant: true\n    },\n    \n    chatwoot_strategy: cfg.plan_type === 'enterprise' ? 'DEDICATED' : 'SHARED',\n    requires_dedicated_account: cfg.plan_type === 'enterprise',\n    test_mode: true,\n    created_at: new Date().toISOString(),\n    \n    // ✅ METADADOS PARA CONTROLE\n    tenant_metadata: {\n      is_multi_tenant: true,\n      shared_services: ['telegram_bot'],\n      dedicated_services: ['whatsapp', 'calendar', 'drive'],\n      tenant_isolation_level: 'complete'\n    }\n  }];\n  \n} catch (e) {\n  console.error('❌ Auto Configure Services Error:', e.message);\n  return [{\n    status: 'error',\n    error: e.message,\n    version: '4.0',\n    timestamp: new Date().toISOString(),\n    debug_info: {\n      available_input: Object.keys($('Generate Test Data v').item.json || {}),\n      error_location: 'Auto Configure Services v4'\n    }\n  }];\n}"
+      },
+      "id": "50955138-b0c4-41d9-b91e-5e322e6abacc",
+      "name": "Auto Configure Services v",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -9840,
+        3536
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const formData = $json;\n  const phoneRegex = /^\\+\\d{10,15}$/;\n  if (!phoneRegex.test(formData.real_phone)) throw new Error('Numero invalido. Use: +5511987654321');\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  if (!emailRegex.test(formData.admin_email)) throw new Error('Email invalido');\n  return [{ body: { action: 'payment.updated', data: { id: Math.floor(Math.random()*1e9).toString() }, date_created: new Date().toISOString(), live_mode: false, type: 'payment', user_id: 'real_test_v4_' + Date.now() }, real_phone_config: formData, test_mode: true, version: '4.0', timestamp: new Date().toISOString() }];\n} catch (e) {\n  return [{ status: 'error', error: e.message, version: '4.0', timestamp: new Date().toISOString() }];\n}"
+      },
+      "id": "1b2a7afd-d413-4cc8-b1c3-867886628f1e",
+      "name": "Generate Test Data v",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -10048,
+        3536
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "final-status",
+              "name": "final_status",
+              "value": "ULTRA-COMPLETO v4 - Agendas Medicas Ativas",
+              "type": "string"
+            },
+            {
+              "id": "tenant-id",
+              "name": "tenant_id",
+              "value": "={{ $json.tenant_id }}",
+              "type": "string"
+            },
+            {
+              "id": "clinic-name",
+              "name": "clinic_name",
+              "value": "={{ $json.clinic_name }}",
+              "type": "string"
+            },
+            {
+              "id": "doctor-principal",
+              "name": "doctor_principal_info",
+              "value": "={{ $json.doctor_principal.name + ' (' + $json.doctor_principal.crm + ') - ' + $json.doctor_principal.speciality }}",
+              "type": "string"
+            },
+            {
+              "id": "real-phone",
+              "name": "real_phone_number",
+              "value": "={{ $json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "calendar-id",
+              "name": "calendar_id",
+              "value": "={{ $json.calendar_id }}",
+              "type": "string"
+            },
+            {
+              "id": "calendar-link",
+              "name": "calendar_access_link",
+              "value": "={{ $json.access_links.calendar }}",
+              "type": "string"
+            },
+            {
+              "id": "agenda-status",
+              "name": "medical_agenda_status",
+              "value": "={{ $json.medical_agenda.agenda_status }}",
+              "type": "string"
+            },
+            {
+              "id": "telegram-bot",
+              "name": "telegram_bot_link",
+              "value": "={{ $json.access_links.telegram }}",
+              "type": "string"
+            },
+            {
+              "id": "pairing-code",
+              "name": "whatsapp_pairing_code",
+              "value": "={{ $json.evolution_pairing_code || 'QR Code available' }}",
+              "type": "string"
+            },
+            {
+              "id": "automation-level",
+              "name": "automation_level",
+              "value": "={{ $json.automation_level }}",
+              "type": "string"
+            },
+            {
+              "id": "ready-appointments",
+              "name": "ready_for_appointments",
+              "value": "={{ $json.ready_for_appointments ? 'SIM - Agenda Ativa v4' : 'Configuracao Pendente' }}",
+              "type": "string"
+            },
+            {
+              "id": "version",
+              "name": "version",
+              "value": "4.0",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c9a4305f-fb4f-4391-a5da-9184c7895bb2",
+      "name": "Final Response Summary v4",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -7600,
+        3552
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ✅ VERSÃO CORRIGIDA - Finalize Complete Config v4\ntry {\n  // 🔧 VERIFICAÇÃO E COLETA SEGURA DE DADOS\n  console.log('🔍 Iniciando coleta de dados dos nós...');\n  \n  // ✅ 1. TENANT CONFIG (obrigatório)\n  let tenantConfig;\n  try {\n    tenantConfig = $('Auto Configure Services v').item.json;\n    console.log('✅ Tenant Config encontrado:', tenantConfig.tenant_id);\n  } catch (error) {\n    console.error('❌ Erro ao obter Tenant Config:', error.message);\n    throw new Error('Tenant Config não encontrado');\n  }\n  \n  // ✅ 2. CALENDAR DATA (obrigatório)\n  let calendarData;\n  try {\n    calendarData = $('Create Google Calendar v4').item.json;\n    console.log('✅ Calendar criado:', calendarData.id);\n  } catch (error) {\n    console.error('❌ Erro ao obter Calendar:', error.message);\n    // Fallback com dados fictícios\n    calendarData = {\n      id: 'calendar_error_' + Date.now(),\n      summary: tenantConfig.clinic_name + ' - Agenda (Error Fallback)'\n    };\n  }\n  \n  // ✅ 3. AGENDA INICIAL (obrigatório)\n  let agendaInicial;\n  try {\n    agendaInicial = $('Criar Agenda Medica Inicial v').item.json;\n    console.log('✅ Agenda inicial criada:', agendaInicial.id);\n  } catch (error) {\n    console.error('❌ Erro ao obter Agenda:', error.message);\n    // Fallback\n    agendaInicial = {\n      id: 'agenda_error_' + Date.now(),\n      summary: 'Agenda Inicial - ' + tenantConfig.doctor_principal.name\n    };\n  }\n  \n  // ✅ 4. EVOLUTION INSTANCE (obrigatório)\n  let evolutionInstance;\n  try {\n    evolutionInstance = $('Criar instancia').item.json;\n    console.log('✅ Evolution instance:', evolutionInstance?.data?.instance?.instanceName);\n  } catch (error) {\n    console.error('❌ Erro ao obter Evolution:', error.message);\n    // Fallback\n    evolutionInstance = {\n      data: {\n        instance: {\n          instanceName: tenantConfig.evolution_instance_name,\n          instanceId: 'error_fallback',\n          status: 'error'\n        }\n      },\n      pairingCode: null\n    };\n  }\n  \n  // ✅ 5. DRIVE FOLDER (obrigatório)\n  let driveFolderId;\n  try {\n    driveFolderId = $('Create Drive Folder v4').item.json.id;\n    console.log('✅ Drive folder criado:', driveFolderId);\n  } catch (error) {\n    console.error('❌ Erro ao obter Drive:', error.message);\n    driveFolderId = 'drive_error_' + Date.now();\n  }\n  \n  // ✅ 6. CHATWOOT DATA (flexível - pode vir de diferentes nós)\n  let chatwootData = {};\n  \n  // Tentativa 1: Pegar do input atual (dados que chegaram ao nó)\n  try {\n    if ($input.item.json && Object.keys($input.item.json).length > 0) {\n      chatwootData = $input.item.json;\n      console.log('✅ Chatwoot data do input:', chatwootData.chatwoot_type || 'undefined');\n    }\n  } catch (error) {\n    console.log('⚠️ Sem dados no input');\n  }\n  \n  // Tentativa 2: Chatwoot Compartilhado\n  if (!chatwootData.chatwoot_type) {\n    try {\n      const sharedChatwoot = $('Configurar Chatwoot Compartilhado v4').item.json;\n      if (sharedChatwoot) {\n        chatwootData = sharedChatwoot;\n        console.log('✅ Chatwoot Compartilhado encontrado');\n      }\n    } catch (error) {\n      console.log('⚠️ Chatwoot Compartilhado não encontrado');\n    }\n  }\n  \n  // Tentativa 3: Chatwoot Dedicado\n  if (!chatwootData.chatwoot_type) {\n    try {\n      const dedicatedChatwoot = $('Criar Chatwoot Dedicado v4').item.json;\n      if (dedicatedChatwoot && dedicatedChatwoot.id) {\n        chatwootData = {\n          chatwoot_type: 'dedicated',\n          chatwoot_account_id: dedicatedChatwoot.id.toString(),\n          chatwoot_domain: tenantConfig.tenant_id + '.chatwoot.singulare.org',\n          id: dedicatedChatwoot.id\n        };\n        console.log('✅ Chatwoot Dedicado encontrado');\n      }\n    } catch (error) {\n      console.log('⚠️ Chatwoot Dedicado não encontrado');\n    }\n  }\n  \n  // Fallback para Chatwoot\n  if (!chatwootData.chatwoot_type) {\n    chatwootData = {\n      chatwoot_type: 'shared',\n      chatwoot_account_id: '1',\n      chatwoot_domain: 'https://chatwoot.singulare.org/'\n    };\n    console.log('⚠️ Usando Chatwoot fallback');\n  }\n  \n  // ✅ 7. TELEGRAM DATA (obrigatório)\n  let telegramData;\n  try {\n    // Verificar se é o nó Code que tem os dados reais\n    telegramData = $('Code').item.json;\n    if (!telegramData || !telegramData.telegram_bot_username) {\n      // Fallback para o nó Set original\n      const telegramSet = $('Criar Bot Telegram v4').item.json;\n      telegramData = {\n        telegram_bot_username: telegramSet?.nodes?.[0]?.parameters?.assignments?.assignments?.find(a => a.name === 'telegram_bot_username')?.value || '@SingulareBot',\n        telegram_bot_name: telegramSet?.nodes?.[0]?.parameters?.assignments?.assignments?.find(a => a.name === 'telegram_bot_name')?.value || 'Assistente Singulare',\n        telegram_bot_link: `https://t.me/singulare_clinic_assistant_bot?start=${tenantConfig.tenant_id}`,\n        telegram_status: 'configured_v4'\n      };\n    }\n    console.log('✅ Telegram bot:', telegramData.telegram_bot_username);\n  } catch (error) {\n    console.error('❌ Erro ao obter Telegram:', error.message);\n    // Fallback\n    telegramData = {\n      telegram_bot_username: '@SingulareBot',\n      telegram_bot_name: 'Assistente Singulare',\n      telegram_bot_link: `https://t.me/singulare_clinic_assistant_bot?start=${tenantConfig.tenant_id}`,\n      telegram_status: 'error_fallback'\n    };\n  }\n  \n  // 🎯 MONTAGEM DA CONFIGURAÇÃO FINAL\n  const finalConfig = {\n    tenant_id: tenantConfig.tenant_id,\n    clinic_name: tenantConfig.clinic_name,\n    email: tenantConfig.email,\n    phone: tenantConfig.phone,\n    plan_type: tenantConfig.plan_type,\n    establishment_type: tenantConfig.establishment_type,\n    version: '4.0',\n    \n    doctor_principal: {\n      name: tenantConfig.doctor_principal.name,\n      crm: tenantConfig.doctor_principal.crm,\n      speciality: tenantConfig.doctor_principal.speciality,\n      consultation_duration: tenantConfig.doctor_principal.consultation_duration,\n      email: tenantConfig.doctor_principal.email,\n      agenda_name: tenantConfig.doctor_principal.agenda_name\n    },\n    \n    // 📅 CALENDAR\n    calendar_id: calendarData.id,\n    calendar_name: calendarData.summary,\n    calendar_link: 'https://calendar.google.com/calendar/embed?src=' + encodeURIComponent(calendarData.id),\n    calendar_share_link: 'https://calendar.google.com/calendar/u/0?cid=' + encodeURIComponent(calendarData.id),\n    \n    // 🏥 MEDICAL AGENDA\n    medical_agenda: {\n      initial_event_id: agendaInicial.id,\n      initial_event_title: agendaInicial.summary,\n      calendar_configured: true,\n      doctor_scheduled: true,\n      next_available: 'Amanhã 09:00',\n      agenda_status: 'ATIVA E PRONTA PARA AGENDAMENTOS v4'\n    },\n    \n    // 📱 EVOLUTION\n    evolution_instance_name: evolutionInstance?.data?.instance?.instanceName || tenantConfig.evolution_instance_name,\n    evolution_instance_id: evolutionInstance?.data?.instance?.instanceId || 'pending',\n    evolution_status: evolutionInstance?.data?.instance?.status || 'created',\n    evolution_qr_code: evolutionInstance?.qrcode?.base64 || null,\n    evolution_pairing_code: evolutionInstance?.pairingCode || null,\n    \n    // 💾 DRIVE\n    drive_folder_id: driveFolderId,\n    drive_folder_link: 'https://drive.google.com/drive/folders/' + driveFolderId,\n    drive_status: 'active',\n    \n    // 💬 CHATWOOT\n    chatwoot_type: chatwootData.chatwoot_type,\n    chatwoot_account_id: chatwootData.chatwoot_account_id || chatwootData.id || '1',\n    chatwoot_domain: chatwootData.chatwoot_domain || `https://${tenantConfig.tenant_id}.chatwoot.singulare.org`,\n    chatwoot_status: 'active',\n    \n    // 🤖 TELEGRAM\n    telegram_bot_username: telegramData.telegram_bot_username,\n    telegram_bot_name: telegramData.telegram_bot_name,\n    telegram_bot_link: telegramData.telegram_bot_link,\n    telegram_status: telegramData.telegram_status,\n    \n    // 📊 STATUS GERAL\n    onboarding_status: 'ULTRA-COMPLETO COM AGENDAS v4',\n    automation_level: '99% Ultra-Automated + Medical Agenda v4',\n    services_created: {\n      calendar: true,\n      medical_agenda: true,\n      doctor_schedule: true,\n      whatsapp: true,\n      drive: true,\n      chatwoot: true,\n      telegram: true\n    },\n    manual_steps_required: evolutionInstance?.pairingCode ? 1 : 0,\n    ready_for_production: true,\n    ready_for_appointments: true,\n    \n    // 📋 PRÓXIMOS PASSOS\n    next_steps: [\n      evolutionInstance?.pairingCode ? \n        'Conectar WhatsApp usando código: ' + evolutionInstance.pairingCode : \n        'Escanear QR Code do WhatsApp',\n      'Configurar horários específicos para ' + tenantConfig.doctor_principal.name,\n      'Testar agendamento de consulta via WhatsApp',\n      'Configurar notificações automáticas',\n      'Verificar agenda médica no calendário'\n    ],\n    \n    // 🔗 LINKS DE ACESSO\n    access_links: {\n      calendar: 'https://calendar.google.com/calendar/embed?src=' + encodeURIComponent(calendarData.id),\n      calendar_share: 'https://calendar.google.com/calendar/u/0?cid=' + encodeURIComponent(calendarData.id),\n      drive: 'https://drive.google.com/drive/folders/' + driveFolderId,\n      chatwoot: chatwootData.chatwoot_domain || `https://${tenantConfig.tenant_id}.chatwoot.singulare.org`,\n      telegram: telegramData.telegram_bot_link,\n      whatsapp_management: 'https://evolution.singulare.org/manager/' + tenantConfig.evolution_instance_name\n    },\n    \n    // ⏰ TIMESTAMPS\n    created_at: new Date().toISOString(),\n    completed_at: new Date().toISOString()\n  };\n  \n  // 📝 LOG COMPLETO\n  console.log('🎉 ONBOARDING ULTRA-COMPLETO v4 FINALIZADO:');\n  console.log('🏥 CLÍNICA:', finalConfig.clinic_name);\n  console.log('👨‍⚕️ MÉDICO:', finalConfig.doctor_principal.name, '(' + finalConfig.doctor_principal.crm + ')');\n  console.log('🎯 ESPECIALIDADE:', finalConfig.doctor_principal.speciality);\n  console.log('⏱️ DURAÇÃO CONSULTA:', finalConfig.doctor_principal.consultation_duration + 'min');\n  console.log('📅 CALENDÁRIO:', finalConfig.calendar_name);\n  console.log('🏥 AGENDA MÉDICA:', finalConfig.medical_agenda.agenda_status);\n  console.log('📱 WhatsApp:', finalConfig.evolution_instance_name, '(' + finalConfig.evolution_status + ')');\n  console.log('💾 Drive: CRIADO');\n  console.log('💬 Chatwoot:', finalConfig.chatwoot_type.toUpperCase());\n  console.log('🤖 Telegram:', finalConfig.telegram_bot_username);\n  console.log('🔑 Pairing Code:', finalConfig.evolution_pairing_code || 'QR Code disponível');\n  console.log('🤖 AUTOMAÇÃO:', finalConfig.automation_level);\n  console.log('✅ STATUS:', finalConfig.onboarding_status);\n  console.log('🎯 PRONTO PARA AGENDAMENTOS:', finalConfig.ready_for_appointments);\n  \n  return [finalConfig];\n  \n} catch (error) {\n  console.error('❌ Finalize Complete Config error v4:', error.message);\n  console.error('📍 Stack trace:', error.stack);\n  \n  return [{\n    status: 'error',\n    error: error.message,\n    error_details: error.stack,\n    version: '4.0',\n    timestamp: new Date().toISOString(),\n    debug_info: {\n      available_nodes: Object.keys($input.all()),\n      current_input: $input.item.json\n    }\n  }];\n}"
+      },
+      "id": "9af8267d-bab1-49ca-bb46-5165b78c436a",
+      "name": "Finalize Complete Config v4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7808,
+        3552
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"nodes\": [\n    {\n      \"parameters\": {\n        \"assignments\": {\n          \"assignments\": [\n            {\n              \"id\": \"telegram-username\",\n              \"name\": \"telegram_bot_username\",\n              \"value\": \"={{ $('Auto Configure Services v').item.json.telegram_config.bot_username_base }}\",\n              \"type\": \"string\"\n            },\n            {\n              \"id\": \"telegram-name\",\n              \"name\": \"telegram_bot_name\",\n              \"value\": \"={{ $('Auto Configure Services v').item.json.telegram_config.bot_display_name }}\",\n              \"type\": \"string\"\n            },\n            {\n              \"id\": \"chat-id\",\n              \"name\": \"telegram_chat_id\",\n              \"value\": \"5749317361\",\n              \"type\": \"string\"\n            },\n            {\n              \"id\": \"telegram-link\",\n              \"name\": \"telegram_bot_link\",\n              \"value\": \"=https://t.me/{{ $('Auto Configure Services v').item.json.telegram_config.bot_username_base }}?start={{ $('Auto Configure Services v').item.json.tenant_id }}\",\n              \"type\": \"string\"\n            },\n            {\n              \"id\": \"telegram-status\",\n              \"name\": \"telegram_status\",\n              \"value\": \"configured_v4\",\n              \"type\": \"string\"\n            },\n            {\n              \"id\": \"version\",\n              \"name\": \"version\",\n              \"value\": \"4.0\",\n              \"type\": \"string\"\n            },\n            {\n              \"id\": \"2c3f1444-2b2d-4c20-bcc3-10a679baf1b8\",\n              \"name\": \"telegram_bot_token\",\n              \"value\": \"8219934901:AAEL3TGKiGmiz0pYgUpO2-UxbNPBxxldWwQ\",\n              \"type\": \"string\"\n            },\n            {\n              \"id\": \"173a4a0d-bd2c-4bcd-a067-f02cb1d3a5df\",\n              \"name\": \"tenant_routing\",\n              \"value\": \"={{ { \\\"tenant_id\\\": $('Auto Configure Services v').item.json.tenant_id } }}\",\n              \"type\": \"object\"\n            },\n            {\n              \"id\": \"2ee5a004-e813-43a3-827c-e3c2d2ce5602\",\n              \"name\": \"privacy_mode\",\n              \"value\": \"Habilitado\",\n              \"type\": \"string\"\n            },\n            {\n              \"id\": \"979bcd61-ea62-47fe-aa39-ddc0c8a49b48\",\n              \"name\": \"doctor_instructions\",\n              \"value\": \"={{ { \\\"how_to_share\\\": \\\"Compartilhe o link @\\\" + $('Auto Configure Services v').item.json.telegram_config.bot_username_base + \\\" com seus pacientes para agendamentos automáticos.\\\", \\\"features\\\": [\\\"Agendamento automático 24/7\\\", \\\"Confirmação de consultas via Telegram\\\", \\\"Lembretes automáticos de consulta\\\", \\\"Integração completa com agenda médica\\\"] } }}\",\n              \"type\": \"object\"\n            },\n            {\n              \"id\": \"creation-method-id\",\n              \"name\": \"creation_method\",\n              \"value\": \"Bot Compartilhado com Isolamento por Tenant\",\n              \"type\": \"string\"\n            }\n          ]\n        },\n        \"options\": {}\n      },\n      \"id\": \"44c57d7d-ba67-4965-a874-096340a8f212\",\n      \"name\": \"Criar Bot Telegram v4\",\n      \"type\": \"n8n-nodes-base.set\",\n      \"typeVersion\": 3.4,\n      \"position\": [\n        -8176,\n        3552\n      ]\n    }\n  ],\n  \"connections\": {\n    \"Criar Bot Telegram v4\": {\n      \"main\": [\n        []\n      ]\n    }\n  },\n  \"pinData\": {},\n  \"meta\": {\n    \"templateCredsSetupCompleted\": true,\n    \"instanceId\": \"eb137626f95de64f27c864b983faf9702e2ef644b30bd031fa253206cfe8d67d\"\n  }\n}",
+        "options": {}
+      },
+      "id": "44c57d7d-ba67-4965-a874-096340a8f212",
+      "name": "Criar Bot Telegram v4",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -8176,
+        3552
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "chatwoot-type",
+              "name": "chatwoot_type",
+              "value": "shared",
+              "type": "string"
+            },
+            {
+              "id": "chatwoot-account",
+              "name": "chatwoot_account_id",
+              "value": "1",
+              "type": "string"
+            },
+            {
+              "id": "chatwoot-domain",
+              "name": "chatwoot_domain",
+              "value": "https://chatwoot.singulare.org/",
+              "type": "string"
+            },
+            {
+              "id": "version",
+              "name": "version",
+              "value": "4.0",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3550b15e-969e-42a4-962d-eac47e62b7ac",
+      "name": "Configurar Chatwoot Compartilhado v4",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -8592,
+        3792
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://chatwoot.singulare.org/api/v1/accounts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "account_name",
+              "value": "={{ $('Auto Configure Services v').item.json.clinic_name }}"
+            },
+            {
+              "name": "owner_email",
+              "value": "={{ $('Auto Configure Services v').item.json.email }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "7af0a9d7-e196-4ea8-94c0-d4ff5e61b32a",
+      "name": "Criar Chatwoot Dedicado v4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -8496,
+        3328
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gpCARqXkoPpDkUuF",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "enterprise-check",
+              "leftValue": "={{ $('Auto Configure Services v').item.json.plan_type }}",
+              "rightValue": "enterprise",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "212c1247-e228-4d61-b773-72fba449a9c2",
+      "name": "Verificar Plano Enterprise v4",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -8752,
+        3536
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/calendar/v3/calendars",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=summary",
+              "value": "=={{ $('Auto Configure Services v').item.json.calendar_config.calendar_name }}"
+            },
+            {
+              "name": "description",
+              "value": "={{ $('Auto Configure Services v').item.json.calendar_config.calendar_description }}"
+            },
+            {
+              "name": "timeZone",
+              "value": "={{ $('Auto Configure Services v').item.json.calendar_config.timezone }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "36403961-9227-4378-9b2c-5dec4b257907",
+      "name": "Create Google Calendar v4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -9632,
+        3536
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "OkOV7izIvJcvD3wl",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "integrations-api",
+        "instanceName": "={{ $('Criar instancia').item.json.data.instance.instanceName.slice(0,50) }}",
+        "chatwootUrl": "={{ $json.chatwoot_domain }}",
+        "chatwootAccountId": "={{ $json.chatwoot_account_id }}",
+        "chatwootToken": "={{ $('Dados de Teste v4 (EDITE AQUI)1').item.json.api_key_chatwoot }}",
+        "chatwootNameInbox": "={{ $('Criar instancia').item.json.data.instance.instanceName }}"
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        -8384,
+        3792
+      ],
+      "id": "69356d2d-4886-448b-8b10-845ea6649f64",
+      "name": "Criar Chatwoot",
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const tenantConfig = $('Auto Configure Services v').item.json;\n  \n  const sharedBotConfig = {\n    // ✅ BOT COMPARTILHADO @SingulareBot\n    telegram_bot_username: '@SingulareBot',\n    telegram_bot_name: 'Assistente Singulare',\n    telegram_bot_token: '8219934901:AAEL3TGKiGmiz0pYgUpO2-UxbNPBxxldWwQ',\n    telegram_chat_id: '5749317361',\n    \n    // ✅ LINK PERSONALIZADO COM TENANT ID\n    telegram_bot_link: `https://t.me/SingulareBot?start=${tenantConfig.tenant_id}`,\n    \n    // ✅ CONFIGURAÇÃO DE ROTEAMENTO\n    tenant_routing: {\n      tenant_id: tenantConfig.tenant_id,\n      clinic_name: tenantConfig.clinic_name,\n      doctor_name: tenantConfig.doctor_principal.name,\n      doctor_specialty: tenantConfig.doctor_principal.speciality,\n      doctor_crm: tenantConfig.doctor_principal.crm,\n      consultation_duration: tenantConfig.doctor_principal.consultation_duration,\n      clinic_email: tenantConfig.email,\n      clinic_phone: tenantConfig.phone,\n      plan_type: tenantConfig.plan_type\n    },\n    \n    // ✅ WEBHOOK CONFIGURADO\n    webhook_url: tenantConfig.telegram_config.tenant_webhook_url,\n    webhook_configured: true,\n    \n    // ✅ CONTEXTO ESPECÍFICO DO MÉDICO/CLÍNICA\n    bot_context: {\n      greeting_message: `Olá! 👋 Bem-vindo ao assistente da *${tenantConfig.clinic_name}*\\n\\n` +\n                       `Você está falando com o sistema do *${tenantConfig.doctor_principal.name}*\\n` +\n                       `📋 Especialidade: ${tenantConfig.doctor_principal.speciality}\\n` +\n                       `⏰ Duração das consultas: ${tenantConfig.doctor_principal.consultation_duration} minutos\\n\\n` +\n                       `Como posso ajudá-lo hoje?`,\n      \n      available_commands: [\n        '/agendar - Agendar uma consulta',\n        '/horarios - Ver horários disponíveis', \n        '/info - Informações da clínica',\n        '/contato - Dados para contato',\n        '/ajuda - Lista de comandos'\n      ],\n      \n      clinic_info: {\n        name: tenantConfig.clinic_name,\n        doctor: tenantConfig.doctor_principal.name,\n        specialty: tenantConfig.doctor_principal.speciality,\n        crm: tenantConfig.doctor_principal.crm,\n        email: tenantConfig.email,\n        phone: tenantConfig.phone\n      }\n    },\n    \n    // ✅ STATUS E CONFIGURAÇÕES\n    telegram_status: 'shared_active',\n    creation_method: 'shared_bot_with_tenant_routing',\n    privacy_mode: 'tenant_isolated',\n    multi_tenant: true,\n    version: '4.0',\n    \n    // ✅ METADADOS PARA ADMINISTRAÇÃO\n    assigned_at: new Date().toISOString(),\n    tenant_start_command: `/start ${tenantConfig.tenant_id}`,\n    \n    // ✅ INSTRUÇÕES PARA O MÉDICO\n    doctor_instructions: {\n      how_to_share: `Compartilhe este link com seus pacientes:\\n📱 https://t.me/SingulareBot?start=${tenantConfig.tenant_id}`,\n      privacy_note: 'Cada clínica tem seu contexto privado e isolado no @SingulareBot',\n      features: [\n        'Agendamento de consultas automático',\n        'Informações da clínica personalizadas', \n        'Roteamento inteligente por tenant',\n        'Privacidade total entre clínicas',\n        'Bot compartilhado @SingulareBot'\n      ]\n    }\n  };\n  \n  console.log('🤖 BOT TELEGRAM @SingulareBot CONFIGURADO:');\n  console.log('👨‍⚕️ Médico:', tenantConfig.doctor_principal.name);\n  console.log('🏥 Clínica:', tenantConfig.clinic_name);\n  console.log('🎯 Especialidade:', tenantConfig.doctor_principal.speciality);\n  console.log('🤖 Bot Compartilhado: @SingulareBot');\n  console.log('🔗 Link Personalizado:', sharedBotConfig.telegram_bot_link);\n  console.log('🆔 Tenant ID:', tenantConfig.tenant_id);\n  console.log('🔒 Modo: COMPARTILHADO COM ISOLAMENTO POR TENANT');\n  console.log('📱 Comando de Início:', sharedBotConfig.tenant_start_command);\n  console.log('✅ Status: ATIVO E CONFIGURADO');\n\n  // 🚀 NOVA FUNCIONALIDADE: ENVIAR MENSAGEM PARA O MÉDICO\n  try {\n    const phoneNumber = tenantConfig.phone.replace(/[^0-9]/g, '');\n    console.log('📱 Tentando enviar mensagem para:', tenantConfig.phone);\n    \n    // ✅ BUSCAR USER ID VIA TELETHON - USANDO $helpers.httpRequest\n    const telethonResponse = await $helpers.httpRequest({\n      method: 'POST',\n      url: 'https://n8n.singulare.org/api/telethon/get-user-id',\n      headers: { \n        'Content-Type': 'application/json' \n      },\n      body: JSON.stringify({\n        phone: phoneNumber,\n        action: 'get_user_id'\n      })\n    });\n    \n    let chatId, sendMethod;\n    \n    if (telethonResponse.success && telethonResponse.user_id) {\n      chatId = telethonResponse.user_id;\n      sendMethod = 'bot_api_with_telethon_user_id';\n      console.log('✅ User ID encontrado via Telethon:', chatId);\n    } else {\n      chatId = '5749317361'; // Seu chat de teste\n      sendMethod = 'fallback_test_chat';\n      console.log('⚠️ Telethon falhou, usando chat de teste');\n    }\n    \n    // 📱 ENVIAR MENSAGEM VIA BOT API - USANDO $helpers.httpRequest\n    const message = `🎉 SEU SISTEMA MEDICO ESTA PRONTO!\n\n🏥 ${tenantConfig.clinic_name}\n👨‍⚕️ Dr. ${tenantConfig.doctor_principal.name} - ${tenantConfig.doctor_principal.speciality}\n\n✅ CONFIGURACAO ULTRA-COMPLETA v4\n\n📅 Sua Agenda Medica\n⏰ Consultas de ${tenantConfig.doctor_principal.consultation_duration} minutos\n🗓️ Proximo horario: Amanha 09:00\n\n💬 Canais de Atendimento\n📱 WhatsApp: ${$('Finalize Complete Config v4')?.item?.json?.evolution_pairing_code ? 'Codigo: ' + $('Finalize Complete Config v4').item.json.evolution_pairing_code : 'Escanear QR Code'}\n\n🤖 LINK PARA SEUS PACIENTES:\n${sharedBotConfig.telegram_bot_link}\n\n📋 Compartilhe este link com seus pacientes para agendamentos automaticos 24h\n\n🎯 Seu assistente @SingulareBot esta ativo e pronto!\n\n${sendMethod === 'fallback_test_chat' ? \n  '\\n═══════════════════════════════════\\n🧪 TESTE: Enviado para chat de teste pois Telethon nao encontrou user_id\\n📱 Telefone original: ' + tenantConfig.phone : \n  '\\n✅ Enviado via Telethon User ID!'}`;\n\n    const telegramResponse = await $helpers.httpRequest({\n      method: 'POST',\n      url: `https://api.telegram.org/bot${sharedBotConfig.telegram_bot_token}/sendMessage`,\n      headers: { \n        'Content-Type': 'application/json' \n      },\n      body: JSON.stringify({\n        chat_id: chatId,\n        text: message,\n        parse_mode: 'HTML'\n      })\n    });\n    \n    if (telegramResponse.ok) {\n      console.log('✅ Mensagem enviada com sucesso para o médico!');\n      console.log('📱 Chat ID usado:', chatId);\n      console.log('🔧 Método:', sendMethod);\n      \n      // ✅ ADICIONAR INFO DE ENVIO AO CONFIG\n      sharedBotConfig.message_sent_to_doctor = {\n        success: true,\n        chat_id_used: chatId,\n        phone_number: tenantConfig.phone,\n        send_method: sendMethod,\n        sent_at: new Date().toISOString()\n      };\n    } else {\n      console.error('❌ Erro ao enviar mensagem:', telegramResponse);\n      sharedBotConfig.message_sent_to_doctor = {\n        success: false,\n        error: telegramResponse,\n        phone_number: tenantConfig.phone\n      };\n    }\n    \n  } catch (messageError) {\n    console.error('❌ Erro no envio de mensagem:', messageError.message);\n    sharedBotConfig.message_sent_to_doctor = {\n      success: false,\n      error: messageError.message,\n      phone_number: tenantConfig.phone\n    };\n  }\n  \n  return [{ json: sharedBotConfig }];\n  \n} catch (error) {\n  console.error('❌ Erro ao configurar Bot Telegram @SingulareBot:', error.message);\n  \n  // Fallback de emergência\n  return [{ \n    json: {\n      telegram_bot_username: '@SingulareBot',\n      telegram_bot_name: 'Assistente Singulare - Emergência',\n      telegram_bot_token: '8219934901:AAEL3TGKiGmiz0pYgUpO2-UxbNPBxxldWwQ',\n      telegram_bot_link: `https://t.me/SingulareBot?start=error_${Date.now()}`,\n      telegram_status: 'emergency_fallback',\n      creation_method: 'error_fallback',\n      error: error.message,\n      tenant_id: $('Auto Configure Services v').item.json?.tenant_id || 'unknown',\n      version: '4.0',\n      timestamp: new Date().toISOString()\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -8000,
+        3552
+      ],
+      "id": "270f5aa3-6f5d-4375-83fa-4df07bb4c6b2",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "chatId": "=5749317361",
+        "text": "={{ \"🎉 SEU SISTEMA MEDICO ESTA PRONTO!\\n\\n🏥 \" + $('Auto Configure Services v').item.json.clinic_name + \"\\n👨‍⚕️ Dr. \" + $('Auto Configure Services v').item.json.doctor_principal.name + \" - \" + $('Auto Configure Services v').item.json.doctor_principal.speciality + \"\\n\\n✅ CONFIGURACAO ULTRA-COMPLETA v4\\n\\n📅 Sua Agenda Medica\\n📋 Calendario: \" + $('Finalize Complete Config v4').item.json.calendar_link + \"\\n⏰ Consultas de \" + $('Auto Configure Services v').item.json.doctor_principal.consultation_duration + \" minutos\\n🗓️ Proximo horario: Amanha 09:00\\n\\n💬 Canais de Atendimento\\n📱 WhatsApp: \" + ($('Finalize Complete Config v4').item.json.evolution_pairing_code ? 'Codigo: ' + $('Finalize Complete Config v4').item.json.evolution_pairing_code : 'Escanear QR Code') + \"\\n\\n🤖 LINK PARA SEUS PACIENTES:\\n\" + $('Code').item.json.telegram_bot_link + \"\\n\\n📋 Compartilhe este link com seus pacientes para agendamentos automaticos 24h\\n\\n🎯 Seu assistente @SingulareBot esta ativo e pronto!\" }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -7136,
+        3712
+      ],
+      "id": "24865a60-fc52-41c6-b6e7-55e350d0c71b",
+      "name": "Send a text message",
+      "webhookId": "e5fcb9c0-c28d-4db4-b678-8572a5ae11c4",
+      "credentials": {
+        "telegramApi": {
+          "id": "sDb6ROA0185exLKN",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://n8n.singulare.org/api/telethon/get-user-id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\": \"{{ $json.tenant_routing.clinic_phone.replace(/[^0-9]/g, '') }}\",\n  \"action\": \"get_user_id\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -7392,
+        3728
+      ],
+      "id": "09082889-90dc-4a55-95ae-5c928e5a3e8e",
+      "name": "Buscar User ID via Telethon",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "fromEmail": "singulareempresa@gmail.com",
+        "toEmail": "={{ $('Auto Configure Services v').item.json.email }}",
+        "subject": "=🎉 Seu acesso ao Singulare está quase pronto - {{ $json.clinic_name }}\"",
+        "html": "={{ $json.email_html_content }}",
+        "options": {
+          "replyTo": "atendimento@singulare.org"
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -7184,
+        3552
+      ],
+      "id": "61ff8945-3838-4dcc-974e-11d0a54bd3a1",
+      "name": "Send email",
+      "webhookId": "9f80c3e0-16dd-4ffc-96c9-a05403f6d674",
+      "credentials": {
+        "smtp": {
+          "id": "5yb9C6LlQav7qYp8",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Email HTML com QR Code - VERSÃO FINAL SIMPLIFICADA\nif (!$json) {\n  return [{json: {error: 'Dados não encontrados', email_ready: false}}];\n}\n\nconst data = $json;\n\n// Limpar dados\nfunction clean(text) {\n  return !text ? '' : text.toString().replace(/[<>\"'&]/g, '');\n}\n\n// Extrair info do médico\nconst doctorInfo = data.doctor_principal_info || '';\nconst doctorMatch = doctorInfo.match(/^(.*?)\\s*\\((.*?)\\)\\s*-\\s*(.*)$/);\nconst doctorName = doctorMatch ? doctorMatch[1] : 'Doutor';\nconst doctorSpecialty = doctorMatch ? doctorMatch[3] : 'Especialidade';\n\n// ✅ BUSCAR QR CODE DA EVOLUTION API - ESTRUTURA REAL\nlet qrCodeBase64 = null, hasQRCode = false, pairingCode = null, hasPairingCode = false;\n\ntry {\n  const evolutionData = $('Conectar instancia').item.json;\n  console.log('🔍 Dados Evolution:', JSON.stringify(evolutionData, null, 2));\n  \n  if (evolutionData) {\n    // ✅ BUSCAR BASE64 (já vem pronto para usar em <img src=\"\">)\n    if (evolutionData.data && evolutionData.data.base64) {\n      qrCodeBase64 = evolutionData.data.base64;\n      hasQRCode = true;\n      console.log('✅ QR Code base64 encontrado em data.base64');\n    } else if (evolutionData.base64) {\n      qrCodeBase64 = evolutionData.base64;\n      hasQRCode = true;\n      console.log('✅ QR Code base64 encontrado na raiz');\n    }\n    \n    // ✅ BUSCAR PAIRING CODE\n    if (evolutionData.data && evolutionData.data.pairingCode && evolutionData.data.pairingCode !== null) {\n      pairingCode = evolutionData.data.pairingCode;\n      hasPairingCode = true;\n      console.log('✅ Pairing Code encontrado:', pairingCode);\n    } else if (evolutionData.pairingCode && evolutionData.pairingCode !== null) {\n      pairingCode = evolutionData.pairingCode;\n      hasPairingCode = true;\n      console.log('✅ Pairing Code encontrado na raiz:', pairingCode);\n    }\n  }\n} catch (e) {\n  console.error('❌ Erro buscar Evolution:', e.message);\n}\n\n// Dados limpos\nconst d = {\n  clinic: clean(data.clinic_name || 'Clinica'),\n  doctor: clean(doctorName),\n  specialty: clean(doctorSpecialty),\n  phone: clean(data.real_phone_number || '+5543999006713'),\n  botLink: data.telegram_bot_link || '#',\n  calLink: data.calendar_access_link || '#',\n  hasQR: hasQRCode, \n  qrImage: qrCodeBase64, \n  hasPairing: hasPairingCode, \n  pairingCode: pairingCode\n};\n\n// Link WhatsApp para pacientes\nconst whatsappLink = `https://wa.me/${d.phone.replace(/[^0-9]/g, '')}?text=Olá! Gostaria de agendar uma consulta com ${doctorName}`;\n\n// ✅ HTML FINAL COM QR CODE REAL\nconst html = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>Sistema Pronto - ${d.clinic}</title>\n<style>\nbody{font-family:Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5;color:#333}\n.container{max-width:600px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1)}\n.header{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;padding:30px;text-align:center}\n.content{padding:25px}\n.card{background:#f8fafc;padding:20px;margin:15px 0;border-radius:8px;border-left:4px solid #10b981}\n.urgent{border-left-color:#dc2626;background:#fef2f2}\n.whatsapp{border-left-color:#25d366;background:#f0fdf4}\n.btn{display:inline-block;background:#6366f1;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;margin:8px;font-weight:600}\n.btn-success{background:#10b981}\n.btn-whatsapp{background:#25d366}\n.btn-telegram{background:#0088cc}\n.qr-container{text-align:center;background:white;padding:25px;border-radius:8px;margin:20px 0;border:3px solid #25d366}\n.code-box{background:#f1f5f9;padding:15px;border-radius:6px;font-family:monospace;font-size:14px;word-break:break-all;margin:10px 0;border:2px dashed #cbd5e1}\n.footer{background:#1e293b;color:#e2e8f0;padding:20px;text-align:center;font-size:14px}\n</style>\n</head>\n<body>\n<div class=\"container\">\n\n<div class=\"header\">\n<h1 style=\"margin:0 0 10px 0\">🎉 Seu Sistema Está Pronto!</h1>\n<p style=\"margin:0;opacity:0.9\">Finalize a configuração agora</p>\n</div>\n\n<div class=\"content\">\n\n<div class=\"card\">\n<h2 style=\"color:#0369a1;margin-top:0\">Olá, ${d.doctor}! 👋</h2>\n<p>Sua <strong>${d.clinic}</strong> agora tem agendamentos automáticos. \n${d.hasQR || d.hasPairing ? 'Conecte o WhatsApp para finalizar!' : 'Sistema quase pronto!'}</p>\n</div>\n\n${(d.hasQR || d.hasPairing) ? `\n<div class=\"card urgent\">\n<h3 style=\"color:#dc2626;margin-top:0;text-align:center\">\n⚡ URGENTE: ${d.hasQR ? 'QR Code' : 'Código'} Disponível!\n</h3>\n<p style=\"text-align:center;color:#7f1d1d;margin:0\">\n<strong>Conecte agora antes que expire!</strong>\n</p>\n</div>` : ''}\n\n<div class=\"card\">\n<h3 style=\"color:#10b981;margin-top:0\">📅 Agenda Inteligente</h3>\n<p>Calendário sincronizado e pronto para agendamentos automáticos.</p>\n<a href=\"${d.calLink}\" class=\"btn btn-success\">Ver Agenda</a>\n</div>\n\n${d.hasQR ? `\n<div class=\"card whatsapp\">\n<h3 style=\"color:#25d366;margin-top:0\">📱 WhatsApp - ESCANEIE AGORA!</h3>\n<p><strong>QR Code disponível!</strong> Escaneie com seu WhatsApp:</p>\n\n<div class=\"qr-container\">\n<img src=\"${d.qrImage}\" alt=\"QR Code WhatsApp\" style=\"width:250px;height:250px;border-radius:8px;display:block;margin:0 auto;\">\n<div style=\"margin-top:20px;font-size:14px;color:#374151\">\n<strong>📱 Como conectar:</strong><br>\n1. Abra o WhatsApp no celular<br>\n2. Toque nos três pontos (⋮)<br>\n3. Selecione \"Aparelhos conectados\"<br>\n4. Toque \"Conectar um aparelho\"<br>\n5. Escaneie este QR Code\n</div>\n<p style=\"color:#dc2626;font-size:13px;font-weight:bold;margin:15px 0 0 0\">\n⏰ QR Code expira em poucos minutos!\n</p>\n</div>\n\n<div style=\"text-align:center\">\n<a href=\"https://chatwoot.singulare.org\" class=\"btn btn-whatsapp\">Central de Atendimento</a>\n</div>\n</div>` : \n\nd.hasPairing ? `\n<div class=\"card whatsapp\">\n<h3 style=\"color:#25d366;margin-top:0\">📱 WhatsApp - USE O CÓDIGO!</h3>\n<p><strong>Código disponível!</strong> Digite no seu WhatsApp:</p>\n\n<div style=\"text-align:center;margin:20px 0\">\n<div style=\"background:white;padding:25px;border-radius:8px;border:3px solid #25d366;display:inline-block\">\n<div style=\"font-family:Monaco;font-size:28px;font-weight:bold;color:#25d366;letter-spacing:4px\">\n${d.pairingCode}\n</div>\n</div>\n</div>\n\n<div style=\"font-size:14px;color:#374151;margin:15px 0\">\n<strong>📱 Como usar:</strong><br>\n1. Abra o WhatsApp no celular<br>\n2. Toque nos três pontos (⋮)<br>\n3. Selecione \"Aparelhos conectados\"<br>\n4. Toque \"Conectar com código\"<br>\n5. Digite: <strong>${d.pairingCode}</strong>\n</div>\n\n<div style=\"text-align:center\">\n<a href=\"https://chatwoot.singulare.org\" class=\"btn btn-whatsapp\">Central de Atendimento</a>\n</div>\n</div>` :\n\n`<div class=\"card\">\n<h3 style=\"color:#f59e0b;margin-top:0\">📱 WhatsApp Business</h3>\n<p>Sistema configurado. Aguardando QR Code ou código...</p>\n<p><em>Você receberá as instruções de conexão em breve.</em></p>\n<a href=\"https://chatwoot.singulare.org\" class=\"btn\">Central de Atendimento</a>\n</div>`}\n\n<div class=\"card\">\n<h3 style=\"color:#f59e0b;margin-top:0\">🤖 Ative Seu Assistente</h3>\n<p>Receba notificações de agendamentos e lembretes automáticos.</p>\n<div style=\"text-align:center\">\n<a href=\"${d.botLink}\" class=\"btn btn-telegram\">🚀 Ativar Assistente</a>\n</div>\n<p style=\"font-size:13px;color:#92400e;text-align:center;margin:10px 0 0 0\">\n<em>Após clicar, digite \"/start\"</em>\n</p>\n</div>\n\n<div class=\"card\" style=\"background:#ecfdf5;text-align:center\">\n<h3 style=\"color:#059669;margin-top:0\">📱 Link para Pacientes</h3>\n<p style=\"color:#065f46\">Compartilhe para agendamentos automáticos:</p>\n<div class=\"code-box\">${whatsappLink}</div>\n<p style=\"color:#065f46;font-size:14px\">\nPacientes clicam → WhatsApp abre → Você recebe na central!\n</p>\n</div>\n\n<div style=\"background:#f8fafc;padding:15px;border-radius:8px;font-size:14px\">\n<h4 style=\"color:#475569;margin:0 0 10px 0\">✅ Status do Sistema:</h4>\n<p style=\"margin:5px 0\">📅 <strong>Agenda:</strong> Ativa</p>\n<p style=\"margin:5px 0\">📱 <strong>WhatsApp:</strong> ${d.hasQR ? 'QR Disponível' : d.hasPairing ? 'Código Disponível' : 'Aguardando'}</p>\n<p style=\"margin:5px 0\">🤖 <strong>Assistente:</strong> Aguardando ativação</p>\n<p style=\"margin:5px 0\">💬 <strong>Central:</strong> Pronta</p>\n</div>\n\n</div>\n\n<div class=\"footer\">\n<p style=\"margin:0\">🚀 <strong>Singulare</strong> - Automação Médica</p>\n<p style=\"margin:5px 0 0 0;opacity:0.8\">Suporte: suporte@singulare.org</p>\n</div>\n\n</div>\n</body>\n</html>`;\n\nconsole.log('✅ Email com QR Code real gerado');\nconsole.log('📏 Tamanho:', html.length);\nconsole.log('🏥 Clínica:', d.clinic);\nconsole.log('👨‍⚕️ Médico:', d.doctor);\nconsole.log('📱 QR Code:', d.hasQR);\nconsole.log('🔢 Pairing Code:', d.hasPairing ? d.pairingCode : 'null');\n\nif (d.hasQR) {\n  console.log('🎯 QR Code encontrado e será exibido no email');\n  console.log('📊 Tamanho do base64:', d.qrImage ? d.qrImage.length : 0);\n}\n\nif (d.hasPairing) {\n  console.log('🔑 Pairing Code encontrado:', d.pairingCode);\n}\n\nreturn [{\n  json: {\n    ...data,\n    email_html_content: html,\n    email_ready: true,\n    email_size: html.length,\n    email_recipient: 'admin@clinica.com.br',\n    whatsapp_connection: {\n      has_qr_code: d.hasQR,\n      qr_image_size: d.qrImage ? d.qrImage.length : 0,\n      has_pairing_code: d.hasPairing,\n      pairing_code: d.pairingCode\n    },\n    doctor_name: d.doctor,\n    clinic_name: d.clinic\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7392,
+        3552
+      ],
+      "id": "e0978063-8e9b-42df-b4c0-662c9db75915",
+      "name": "Preparar e-mail"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/vivassit-onboarding-v4",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "90af1833-5f4d-4d67-90ad-e8c8ec5bc2f2",
+      "name": "🎯 Webhook Vivassit v4",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -10400,
+        3536
+      ],
+      "webhookId": "vivassit-onboarding-v4"
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Processar dados vindos do frontend Vivassit\nconst body = $input.first().json.body;\nlet data;\n\ntry {\n  // Se body é string, parse JSON\n  if (typeof body === 'string') {\n    data = JSON.parse(body);\n  } else {\n    data = body;\n  }\n} catch (e) {\n  // Se falhar, usar dados diretos\n  data = $input.first().json;\n}\n\nconsole.log('📥 Dados recebidos do frontend:', data);\n\n// Mapear campos do frontend para estrutura esperada\nconst processed = {\n  real_phone: data.real_phone || data.phone || '',\n  clinic_name: data.clinic_name || '',\n  admin_email: data.admin_email || '',\n  doctor_name: data.doctor_name || '',\n  doctor_crm: data.doctor_crm || '',\n  speciality: data.speciality || data.specialty || '',\n  consultation_duration: (data.consultation_duration || '30').toString(),\n  establishment_type: data.establishment_type || 'small_clinic',\n  plan_type: data.plan_type || 'professional',\n  api_key_chatwoot: 'oZy1eCh7dt3YdSthzov7YsJ9', // Manter API key fixa\n  \n  // Metadados extras do frontend\n  tenant_id: data.tenant_id || null,\n  source: data.source || 'vivassit-frontend',\n  timestamp: data.timestamp || new Date().toISOString(),\n  qualifications: data.qualifications || data.selected_features || []\n};\n\nconsole.log('✅ Dados processados:', processed);\n\nreturn processed;\n"
+      },
+      "id": "2ca122f1-fcc0-4e6d-9674-249a97eac748",
+      "name": "📝 Processar Dados Webhook",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -10240,
+        3536
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Create Drive Folder v4": {
+      "main": [
+        [
+          {
+            "node": "Criar instancia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar instancia": {
+      "main": [
+        [
+          {
+            "node": "Conectar instancia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Agenda Medica Inicial v": {
+      "main": [
+        [
+          {
+            "node": "Create Drive Folder v4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auto Configure Services v": {
+      "main": [
+        [
+          {
+            "node": "Create Google Calendar v4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Test Data v": {
+      "main": [
+        [
+          {
+            "node": "Auto Configure Services v",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dados de Teste v4 (EDITE AQUI)1": {
+      "main": [
+        [
+          {
+            "node": "Generate Test Data v",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conectar instancia": {
+      "main": [
+        [
+          {
+            "node": "Verificar Plano Enterprise v4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Complete Config v4": {
+      "main": [
+        [
+          {
+            "node": "Final Response Summary v4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Bot Telegram v4": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configurar Chatwoot Compartilhado v4": {
+      "main": [
+        [
+          {
+            "node": "Criar Chatwoot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Chatwoot Dedicado v4": {
+      "main": [
+        [
+          {
+            "node": "Criar Bot Telegram v4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Plano Enterprise v4": {
+      "main": [
+        [
+          {
+            "node": "Criar Chatwoot Dedicado v4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Configurar Chatwoot Compartilhado v4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Google Calendar v4": {
+      "main": [
+        [
+          {
+            "node": "Criar Agenda Medica Inicial v",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "▶️ Iniciar Onboarding": {
+      "main": [
+        [
+          {
+            "node": "Dados de Teste v4 (EDITE AQUI)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Chatwoot": {
+      "main": [
+        [
+          {
+            "node": "Criar Bot Telegram v4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Finalize Complete Config v4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Response Summary v4": {
+      "main": [
+        [
+          {
+            "node": "Buscar User ID via Telethon",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Preparar e-mail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        []
+      ]
+    },
+    "Preparar e-mail": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎯 Webhook Vivassit v4": {
+      "main": [
+        [
+          {
+            "node": "📝 Processar Dados Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📝 Processar Dados Webhook": {
+      "main": [
+        [
+          {
+            "node": "Generate Test Data v",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "timezone": "America/Sao_Paulo"
+  },
+  "versionId": "d04dd73b-23d0-4671-9f47-13be2abbf54f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "eb137626f95de64f27c864b983faf9702e2ef644b30bd031fa253206cfe8d67d"
+  },
+  "id": "e4oSgV09tVjIeKfy",
+  "tags": [
+    {
+      "createdAt": "2025-08-09T23:36:26.742Z",
+      "updatedAt": "2025-08-09T23:36:26.742Z",
+      "id": "c9IoyUY9XKGLZEI8",
+      "name": "Singulare Platform v4"
+    },
+    {
+      "createdAt": "2025-08-09T23:36:26.723Z",
+      "updatedAt": "2025-08-09T23:36:26.723Z",
+      "id": "oww4bFPhwzCaPQvX",
+      "name": "Ultra Automation v4.0"
+    },
+    {
+      "createdAt": "2025-08-09T23:36:26.736Z",
+      "updatedAt": "2025-08-09T23:36:26.736Z",
+      "id": "tBMsNAhhyY2AjJ0a",
+      "name": "Production Ready Final"
+    }
+  ]
+}

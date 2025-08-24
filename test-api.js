@@ -1,23 +1,30 @@
 
-// Script para testar a API do Vivassit
+// Script para testar a API do Vivassit v4.0 (compatível com N8N Workflow)
 // Execute com: node test-api.js
 
 const testOnboardingAPI = async () => {
-  console.log('🧪 Testando API Vivassit...\n');
+  console.log('🧪 TESTE API VIVASSIT v4.0 - N8N WORKFLOW READY');
+  console.log('=' * 60);
+  console.log();
 
   const testData = {
-    real_phone: '+5511987654321',
-    clinic_name: 'Clínica São Lucas',
-    admin_email: 'admin@clinicasaolucas.com.br',
-    doctor_name: 'Dr. Maria Silva Santos',
-    doctor_crm: 'CRM/SP 145678',
+    // ✅ CAMPOS EXATOS ESPERADOS PELO N8N WORKFLOW
+    real_phone: '+5543999006713', // Mesmo formato do workflow
+    clinic_name: 'Clínica Médica Teste v4',
+    admin_email: 'teste@clinicav4.com.br',
+    doctor_name: 'Dr. João Silva Teste',
+    doctor_crm: 'CRM/SP 987654',
     speciality: 'cardiologia',
-    consultation_duration: '45',
-    establishment_type: 'medium_clinic',
+    consultation_duration: '30', // String como esperado
+    establishment_type: 'small_clinic',
     plan_type: 'professional',
     qualifications: ['Telemedicina', 'Agenda Online', 'Prontuário Eletrônico'],
-    source: 'api-test',
-    user_timezone: 'America/Sao_Paulo'
+    
+    // ✅ METADADOS ESPECÍFICOS V4.0
+    source: 'vivassit-api-test-v4',
+    user_timezone: 'America/Sao_Paulo',
+    workflow_version: '4.0',
+    form_completion_time: 120 // 2 minutos simulado
   };
 
   try {
@@ -29,8 +36,9 @@ const testOnboardingAPI = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Client-Version': '2.0.0',
-        'User-Agent': 'Vivassit-Test-Client'
+        'X-Client-Version': '4.0.0',
+        'X-Workflow-Target': 'n8n-v4',
+        'User-Agent': 'Vivassit-Test-Client-v4'
       },
       body: JSON.stringify(testData)
     });
