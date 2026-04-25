@@ -21,3 +21,16 @@ out
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# secrets
+.env
+.env.local
+.env*.local
+
+# system
+.DS_Store
+**/.DS_Store
+
+# editor
+.vscode/
+.idea/
