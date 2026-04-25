@@ -267,7 +267,10 @@ function PrimaryButton({
   onClick?: () => void;
   size?: 'md' | 'lg';
 }) {
-  const sizes = size === 'lg' ? 'h-12 px-6 text-[14px]' : 'h-10 px-5 text-[13px]';
+  const sizes =
+    size === 'lg'
+      ? 'h-12 px-6 text-[15px] sm:text-[14px]'
+      : 'h-11 sm:h-10 px-4 sm:px-5 text-[14px] sm:text-[13px]';
   return (
     <motion.button
       type="button"
@@ -281,7 +284,7 @@ function PrimaryButton({
       }}
     >
       {children}
-      <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+      <ArrowRight className="w-4 h-4 sm:w-3.5 sm:h-3.5 transition-transform group-hover:translate-x-0.5" />
     </motion.button>
   );
 }
@@ -297,7 +300,7 @@ function GhostButton({
     <button
       type="button"
       onClick={onClick}
-      className="h-9 px-3.5 rounded-md text-[13px] font-medium text-zinc-700 hover:text-zinc-900 hover:bg-black/[0.04] transition-colors"
+      className="h-11 sm:h-9 px-3.5 rounded-md text-[14px] sm:text-[13px] font-medium text-zinc-700 hover:text-zinc-900 hover:bg-black/[0.04] transition-colors"
     >
       {children}
     </button>
@@ -404,35 +407,37 @@ export default function LandingPage() {
             <a href="#pricing" className="px-3 py-1.5 rounded-md hover:text-zinc-900 hover:bg-black/[0.03] transition-colors">Planos</a>
             <a href="#testimonials" className="px-3 py-1.5 rounded-md hover:text-zinc-900 hover:bg-black/[0.03] transition-colors">Médicos</a>
           </nav>
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-zinc-500 mr-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] text-zinc-500 mr-2">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
               </span>
               5.247 médicos online
             </span>
-            <GhostButton onClick={handleStartTrial}>Entrar</GhostButton>
-            <PrimaryButton onClick={handleStartTrial}>Começar grátis</PrimaryButton>
+            <div className="hidden sm:block">
+              <GhostButton onClick={handleStartTrial}>Entrar</GhostButton>
+            </div>
+            <PrimaryButton onClick={handleStartTrial}>Começar</PrimaryButton>
           </div>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="relative max-w-5xl mx-auto px-5 sm:px-6 pt-20 sm:pt-28 pb-16 text-center">
+      <section className="relative max-w-5xl mx-auto px-5 sm:px-6 pt-12 sm:pt-20 md:pt-28 pb-12 sm:pb-16 text-center">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.07] bg-white/70 backdrop-blur-sm px-3 py-1 text-[11px] font-medium text-zinc-700 mb-8">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.07] bg-white/70 backdrop-blur-sm px-3 py-1.5 sm:py-1 text-[12px] sm:text-[11px] font-medium text-zinc-700 mb-7 sm:mb-8">
             <Sparkles className="w-3 h-3" style={{ color: ACCENT_DEEP }} />
-            Novo · Workflow N8N v4 conectado
-            <span className="text-zinc-300">·</span>
-            <span className="text-zinc-500">5.247 clínicas ativas</span>
+            <span>Novo · Workflow N8N v4</span>
+            <span className="hidden sm:inline text-zinc-300">·</span>
+            <span className="hidden sm:inline text-zinc-500">5.247 clínicas ativas</span>
           </div>
 
-          <h1 className="text-[44px] sm:text-[64px] md:text-[80px] leading-[0.98] tracking-[-0.035em] font-medium text-zinc-900 mb-6">
+          <h1 className="text-[40px] sm:text-[64px] md:text-[80px] leading-[1.02] sm:leading-[0.98] tracking-[-0.035em] font-medium text-zinc-900 mb-5 sm:mb-6">
             Sua clínica,
             <br />
             <span className="font-serif italic font-normal text-zinc-700">
@@ -441,25 +446,25 @@ export default function LandingPage() {
             em 5 minutos.
           </h1>
 
-          <p className="text-[17px] sm:text-[19px] text-zinc-500 leading-relaxed max-w-2xl mx-auto mb-10">
+          <p className="text-[16px] sm:text-[19px] text-zinc-500 leading-relaxed max-w-2xl mx-auto mb-8 sm:mb-10">
             A plataforma que transforma consultórios tradicionais em clínicas modernas,
             lucrativas e eficientes. Sem complicação.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center px-4 sm:px-0">
             <PrimaryButton onClick={handleStartTrial} size="lg">
               Começar grátis
             </PrimaryButton>
             <a
               href="#features"
-              className="text-[13px] font-medium text-zinc-700 hover:text-zinc-900 transition-colors inline-flex items-center gap-1.5 h-12 px-2"
+              className="text-[14px] sm:text-[13px] font-medium text-zinc-700 hover:text-zinc-900 transition-colors inline-flex items-center justify-center gap-1.5 h-12 px-2"
             >
               Ver funcionalidades
               <ArrowRight className="w-3.5 h-3.5" />
             </a>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mt-6 text-[12px] text-zinc-500">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-2 mt-6 text-[12px] text-zinc-500">
             <span className="inline-flex items-center gap-1.5">
               <Check className="w-3 h-3 text-emerald-600" strokeWidth={3} />
               7 dias grátis
@@ -480,18 +485,18 @@ export default function LandingPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-16 mx-auto max-w-3xl rounded-2xl border border-black/[0.07] bg-white/70 backdrop-blur-sm"
+          className="mt-12 sm:mt-16 mx-auto max-w-3xl rounded-2xl border border-black/[0.07] bg-white/70 backdrop-blur-sm"
         >
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-black/[0.06]">
             {STATS.map((stat) => (
-              <div key={stat.label} className="px-4 py-5 text-left">
-                <div className="text-[26px] font-medium tracking-[-0.02em] text-zinc-900 inline-flex items-baseline gap-1">
+              <div key={stat.label} className="px-4 py-4 sm:py-5 text-left">
+                <div className="text-[24px] sm:text-[26px] font-medium tracking-[-0.02em] text-zinc-900 inline-flex items-baseline gap-1">
                   {stat.value}
                   {stat.star && (
                     <Star className="w-3.5 h-3.5 text-amber-400 fill-current self-center" />
                   )}
                 </div>
-                <div className="text-[12px] text-zinc-500 mt-0.5">{stat.label}</div>
+                <div className="text-[13px] sm:text-[12px] text-zinc-500 mt-0.5">{stat.label}</div>
               </div>
             ))}
           </div>
@@ -499,21 +504,21 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section id="features" className="relative max-w-5xl mx-auto px-5 sm:px-6 pt-20 pb-20">
-        <div className="mb-12 max-w-2xl">
+      <section id="features" className="relative max-w-5xl mx-auto px-5 sm:px-6 pt-16 sm:pt-20 pb-16 sm:pb-20">
+        <div className="mb-10 sm:mb-12 max-w-2xl">
           <p
             className="text-[11px] uppercase tracking-[0.12em] font-semibold mb-3"
             style={{ color: ACCENT_DEEP }}
           >
             Funcionalidades
           </p>
-          <h2 className="text-[34px] sm:text-[44px] leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900 mb-4">
+          <h2 className="text-[28px] sm:text-[44px] leading-[1.1] sm:leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900 mb-4">
             Tudo que sua clínica precisa,{' '}
             <span className="font-serif italic font-normal text-zinc-700">
               em um só lugar.
             </span>
           </h2>
-          <p className="text-[16px] text-zinc-500 leading-relaxed">
+          <p className="text-[15px] sm:text-[16px] text-zinc-500 leading-relaxed">
             Pare de usar 10 sistemas diferentes. Vivassit unifica agenda, pagamentos,
             comunicação e relatórios.
           </p>
@@ -529,21 +534,21 @@ export default function LandingPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: '-50px' }}
                   transition={{ duration: 0.5, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                  className="h-full rounded-xl border border-black/[0.07] bg-white p-5 group hover:border-black/[0.12] transition-colors"
+                  className="h-full rounded-xl border border-black/[0.07] bg-white p-5 sm:p-5 group hover:border-black/[0.12] transition-colors"
                 >
                   <div
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg mb-4"
+                    className="inline-flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center rounded-lg mb-4"
                     style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
                   >
-                    <Icon className="w-4 h-4" strokeWidth={1.75} />
+                    <Icon className="w-[18px] h-[18px] sm:w-4 sm:h-4" strokeWidth={1.75} />
                   </div>
-                  <h3 className="text-[15px] font-semibold text-zinc-900 leading-tight mb-1.5">
+                  <h3 className="text-[16px] sm:text-[15px] font-semibold text-zinc-900 leading-tight mb-1.5">
                     {f.title}
                   </h3>
-                  <p className="text-[13px] leading-relaxed text-zinc-500 mb-4">
+                  <p className="text-[14px] sm:text-[13px] leading-relaxed text-zinc-500 mb-4">
                     {f.description}
                   </p>
-                  <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-700">
+                  <div className="inline-flex items-center gap-1.5 text-[12px] sm:text-[11px] font-medium text-zinc-700">
                     <span
                       className="inline-block h-1 w-1 rounded-full"
                       style={{ background: ACCENT }}
@@ -558,15 +563,15 @@ export default function LandingPage() {
       </section>
 
       {/* Testimonials */}
-      <section id="testimonials" className="relative max-w-3xl mx-auto px-5 sm:px-6 pt-12 pb-20">
-        <div className="mb-10 text-center">
+      <section id="testimonials" className="relative max-w-3xl mx-auto px-5 sm:px-6 pt-8 sm:pt-12 pb-16 sm:pb-20">
+        <div className="mb-8 sm:mb-10 text-center">
           <p
             className="text-[11px] uppercase tracking-[0.12em] font-semibold mb-3"
             style={{ color: ACCENT_DEEP }}
           >
             Médicos
           </p>
-          <h2 className="text-[30px] sm:text-[38px] leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900">
+          <h2 className="text-[26px] sm:text-[38px] leading-[1.1] sm:leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900">
             Práticas que se{' '}
             <span className="font-serif italic font-normal text-zinc-700">
               transformaram.
@@ -575,7 +580,7 @@ export default function LandingPage() {
         </div>
 
         <div className="rounded-2xl border border-black/[0.07] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.10)] overflow-hidden">
-          <div className="p-7 sm:p-10">
+          <div className="p-6 sm:p-10">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentTestimonial}
@@ -584,7 +589,7 @@ export default function LandingPage() {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
               >
-                <div className="flex gap-0.5 mb-5">
+                <div className="flex gap-0.5 mb-4 sm:mb-5">
                   {Array.from({ length: TESTIMONIALS[currentTestimonial].rating }).map((_, i) => (
                     <Star
                       key={i}
@@ -592,21 +597,21 @@ export default function LandingPage() {
                     />
                   ))}
                 </div>
-                <p className="text-[20px] sm:text-[24px] leading-[1.35] tracking-[-0.015em] text-zinc-900 font-medium mb-7">
+                <p className="text-[18px] sm:text-[24px] leading-[1.4] sm:leading-[1.35] tracking-[-0.015em] text-zinc-900 font-medium mb-6 sm:mb-7">
                   &ldquo;{TESTIMONIALS[currentTestimonial].text}&rdquo;
                 </p>
                 <div className="flex items-center gap-3">
                   <div
-                    className="h-10 w-10 rounded-full flex items-center justify-center text-white"
+                    className="h-11 w-11 sm:h-10 sm:w-10 rounded-full flex items-center justify-center text-white flex-shrink-0"
                     style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
                   >
                     <User className="w-4 h-4" strokeWidth={1.75} />
                   </div>
-                  <div>
-                    <div className="text-[13px] font-semibold text-zinc-900">
+                  <div className="min-w-0">
+                    <div className="text-[14px] sm:text-[13px] font-semibold text-zinc-900 truncate">
                       {TESTIMONIALS[currentTestimonial].name}
                     </div>
-                    <div className="text-[12px] text-zinc-500">
+                    <div className="text-[12px] text-zinc-500 truncate">
                       {TESTIMONIALS[currentTestimonial].specialty} ·{' '}
                       {TESTIMONIALS[currentTestimonial].clinic}
                     </div>
@@ -617,25 +622,27 @@ export default function LandingPage() {
           </div>
           <Hairline />
           <div className="flex items-center justify-between px-5 py-3 bg-zinc-50/60">
-            <div className="flex gap-1.5">
+            <div className="flex gap-2">
               {TESTIMONIALS.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setCurrentTestimonial(i)}
                   aria-label={`Ver depoimento ${i + 1}`}
-                  className="group relative h-1.5 w-6 rounded-full overflow-hidden bg-black/[0.07]"
+                  className="group relative py-3 -my-3"
                 >
-                  <span
-                    className="absolute inset-0 origin-left rounded-full transition-transform duration-300"
-                    style={{
-                      background: ACCENT_DEEP,
-                      transform: i === currentTestimonial ? 'scaleX(1)' : 'scaleX(0)',
-                    }}
-                  />
+                  <span className="block h-1.5 w-7 sm:w-6 rounded-full overflow-hidden bg-black/[0.07]">
+                    <span
+                      className="block h-full origin-left rounded-full transition-transform duration-300"
+                      style={{
+                        background: ACCENT_DEEP,
+                        transform: i === currentTestimonial ? 'scaleX(1)' : 'scaleX(0)',
+                      }}
+                    />
+                  </span>
                 </button>
               ))}
             </div>
-            <span className="text-[11px] text-zinc-400">
+            <span className="text-[12px] sm:text-[11px] text-zinc-400">
               {currentTestimonial + 1} / {TESTIMONIALS.length}
             </span>
           </div>
@@ -643,26 +650,26 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="relative max-w-5xl mx-auto px-5 sm:px-6 pt-12 pb-20">
-        <div className="mb-12 text-center">
+      <section id="pricing" className="relative max-w-5xl mx-auto px-5 sm:px-6 pt-8 sm:pt-12 pb-16 sm:pb-20">
+        <div className="mb-10 sm:mb-12 text-center">
           <p
             className="text-[11px] uppercase tracking-[0.12em] font-semibold mb-3"
             style={{ color: ACCENT_DEEP }}
           >
             Planos
           </p>
-          <h2 className="text-[34px] sm:text-[44px] leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900 mb-4">
+          <h2 className="text-[28px] sm:text-[44px] leading-[1.1] sm:leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900 mb-4">
             Escolha o ideal para{' '}
             <span className="font-serif italic font-normal text-zinc-700">
               sua clínica.
             </span>
           </h2>
-          <p className="text-[16px] text-zinc-500 leading-relaxed max-w-xl mx-auto">
+          <p className="text-[15px] sm:text-[16px] text-zinc-500 leading-relaxed max-w-xl mx-auto">
             7 dias grátis em qualquer plano. Sem compromisso, sem burocracia.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-3">
           {PRICING_PLANS.map((plan, i) => (
             <Tilt key={plan.name} max={3} scale={1.008} glare={plan.popular}>
               <motion.div
@@ -670,7 +677,7 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-50px' }}
                 transition={{ duration: 0.5, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] }}
-                className={`relative h-full rounded-2xl bg-white p-6 flex flex-col ${
+                className={`relative h-full rounded-2xl bg-white p-6 sm:p-6 flex flex-col ${
                   plan.popular ? '' : 'border border-black/[0.07]'
                 }`}
                 style={
@@ -695,23 +702,23 @@ export default function LandingPage() {
                 )}
 
                 <div className="mb-5">
-                  <h3 className="text-[14px] font-semibold text-zinc-900 mb-1">
+                  <h3 className="text-[15px] sm:text-[14px] font-semibold text-zinc-900 mb-1">
                     {plan.name}
                   </h3>
-                  <p className="text-[12px] text-zinc-500">{plan.tagline}</p>
+                  <p className="text-[13px] sm:text-[12px] text-zinc-500">{plan.tagline}</p>
                 </div>
 
                 <div className="mb-6 flex items-baseline gap-1">
-                  <span className="text-[12px] text-zinc-400">R$</span>
-                  <span className="text-[36px] font-medium tracking-[-0.025em] text-zinc-900 leading-none">
+                  <span className="text-[13px] sm:text-[12px] text-zinc-400">R$</span>
+                  <span className="text-[40px] sm:text-[36px] font-medium tracking-[-0.025em] text-zinc-900 leading-none">
                     {plan.price}
                   </span>
-                  <span className="text-[12px] text-zinc-500 ml-1">/mês</span>
+                  <span className="text-[13px] sm:text-[12px] text-zinc-500 ml-1">/mês</span>
                 </div>
 
                 <Hairline className="mb-5" />
 
-                <ul className="space-y-2.5 mb-7 flex-1">
+                <ul className="space-y-3 sm:space-y-2.5 mb-7 flex-1">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-2.5">
                       <div
@@ -720,7 +727,7 @@ export default function LandingPage() {
                       >
                         <Check className="w-2.5 h-2.5" strokeWidth={3} style={{ color: ACCENT_DEEP }} />
                       </div>
-                      <span className="text-[13px] text-zinc-700 leading-relaxed">{feature}</span>
+                      <span className="text-[14px] sm:text-[13px] text-zinc-700 leading-relaxed">{feature}</span>
                     </li>
                   ))}
                 </ul>
@@ -728,7 +735,7 @@ export default function LandingPage() {
                 {plan.popular ? (
                   <button
                     onClick={handleStartTrial}
-                    className="group h-10 rounded-lg text-white text-[13px] font-semibold inline-flex items-center justify-center gap-1.5 transition-all hover:brightness-110"
+                    className="group h-11 sm:h-10 rounded-lg text-white text-[14px] sm:text-[13px] font-semibold inline-flex items-center justify-center gap-1.5 transition-all hover:brightness-110"
                     style={{
                       background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
                       boxShadow:
@@ -736,15 +743,15 @@ export default function LandingPage() {
                     }}
                   >
                     Começar grátis
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                    <ArrowRight className="w-4 h-4 sm:w-3.5 sm:h-3.5 transition-transform group-hover:translate-x-0.5" />
                   </button>
                 ) : (
                   <button
                     onClick={handleStartTrial}
-                    className="group h-10 rounded-lg border border-black/[0.10] text-zinc-900 text-[13px] font-semibold inline-flex items-center justify-center gap-1.5 transition-all hover:border-black/30 hover:bg-black/[0.02]"
+                    className="group h-11 sm:h-10 rounded-lg border border-black/[0.10] text-zinc-900 text-[14px] sm:text-[13px] font-semibold inline-flex items-center justify-center gap-1.5 transition-all hover:border-black/30 hover:bg-black/[0.02]"
                   >
                     Começar grátis
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 text-zinc-500" />
+                    <ArrowRight className="w-4 h-4 sm:w-3.5 sm:h-3.5 transition-transform group-hover:translate-x-0.5 text-zinc-500" />
                   </button>
                 )}
               </motion.div>
@@ -754,13 +761,13 @@ export default function LandingPage() {
       </section>
 
       {/* Final CTA */}
-      <section className="relative max-w-4xl mx-auto px-5 sm:px-6 pt-12 pb-24">
+      <section className="relative max-w-4xl mx-auto px-5 sm:px-6 pt-8 sm:pt-12 pb-20 sm:pb-24">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="relative overflow-hidden rounded-2xl border border-black/[0.08] bg-white p-8 sm:p-12 text-center"
+          className="relative overflow-hidden rounded-2xl border border-black/[0.08] bg-white p-7 sm:p-12 text-center"
         >
           <div
             className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-[400px] w-[600px] rounded-full opacity-50 blur-3xl"
@@ -770,25 +777,25 @@ export default function LandingPage() {
             }}
           />
           <div className="relative">
-            <h2 className="text-[32px] sm:text-[44px] leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900 mb-4">
+            <h2 className="text-[28px] sm:text-[44px] leading-[1.1] sm:leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900 mb-4">
               Pronto para{' '}
               <span className="font-serif italic font-normal text-zinc-700">
                 transformar
               </span>{' '}
               sua clínica?
             </h2>
-            <p className="text-[16px] text-zinc-500 leading-relaxed max-w-lg mx-auto mb-8">
+            <p className="text-[15px] sm:text-[16px] text-zinc-500 leading-relaxed max-w-lg mx-auto mb-7 sm:mb-8">
               Junte-se a mais de 5.000 médicos que já automatizaram suas práticas e
               aumentaram a receita.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
               <PrimaryButton onClick={handleStartTrial} size="lg">
-                Começar agora — é grátis
+                Começar agora
               </PrimaryButton>
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12px] text-zinc-500">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-2 text-[12px] text-zinc-500">
               <span className="inline-flex items-center gap-1.5">
                 <Lock className="w-3 h-3" strokeWidth={2} />
                 Dados criptografados
@@ -810,7 +817,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="relative border-t border-black/[0.06] bg-white/50 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 py-7 sm:py-8 flex flex-col sm:flex-row items-center justify-between gap-5 sm:gap-4">
           <div className="flex items-center gap-2.5">
             <Image
               src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
@@ -823,7 +830,7 @@ export default function LandingPage() {
               © {new Date().getFullYear()} Vivassit
             </span>
           </div>
-          <div className="flex items-center gap-5 text-[12px] text-zinc-500">
+          <div className="flex items-center gap-4 sm:gap-5 text-[13px] sm:text-[12px] text-zinc-500">
             <a href="#features" className="hover:text-zinc-900 transition-colors">Funcionalidades</a>
             <a href="#pricing" className="hover:text-zinc-900 transition-colors">Planos</a>
             <span className="inline-flex items-center gap-1.5 text-zinc-400">

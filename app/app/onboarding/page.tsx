@@ -274,8 +274,8 @@ function Field({
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between">
-        <label className="text-[13px] font-medium text-zinc-900 tracking-tight">{label}</label>
-        {hint && <span className="text-[11px] text-zinc-400">{hint}</span>}
+        <label className="text-[14px] sm:text-[13px] font-medium text-zinc-900 tracking-tight">{label}</label>
+        {hint && <span className="text-[12px] sm:text-[11px] text-zinc-400">{hint}</span>}
       </div>
       {children}
       <AnimatePresence>
@@ -284,7 +284,7 @@ function Field({
             initial={{ opacity: 0, y: -2 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -2 }}
-            className="text-[12px] text-rose-600 flex items-center gap-1.5"
+            className="text-[13px] sm:text-[12px] text-rose-600 flex items-center gap-1.5"
           >
             <span className="inline-block w-1 h-1 rounded-full bg-rose-500" />
             {error}
@@ -296,7 +296,7 @@ function Field({
 }
 
 const inputBase =
-  'w-full h-11 px-3.5 bg-white text-[15px] text-zinc-900 placeholder:text-zinc-400 ' +
+  'w-full h-12 sm:h-11 px-3.5 bg-white text-[16px] sm:text-[15px] text-zinc-900 placeholder:text-zinc-400 ' +
   'rounded-lg border transition-all duration-150 ' +
   'focus:outline-none focus:ring-4';
 
@@ -348,7 +348,7 @@ function SuccessScreen({ data }: { data: SuccessData }) {
     <div className="relative min-h-screen bg-[#FAFAF7] text-zinc-900">
       <Atmosphere />
 
-      <div className="relative max-w-xl mx-auto px-6 pt-20 pb-16">
+      <div className="relative max-w-xl mx-auto px-5 sm:px-6 pt-12 sm:pt-20 pb-16">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -384,7 +384,7 @@ function SuccessScreen({ data }: { data: SuccessData }) {
             </div>
           </motion.div>
 
-          <h1 className="text-[40px] leading-[1.05] tracking-[-0.03em] font-medium text-zinc-900 mb-3">
+          <h1 className="text-[30px] sm:text-[40px] leading-[1.1] sm:leading-[1.05] tracking-[-0.03em] font-medium text-zinc-900 mb-3">
             <span className="font-serif italic font-normal text-zinc-700">Pronto.</span>{' '}
             Sua clínica
             <br />
@@ -861,7 +861,7 @@ export default function OnboardingPage() {
                 className={inputClasses(!!errors.real_phone)}
               />
               {formData.real_phone && !errors.real_phone && (
-                <p className="text-[11px] text-zinc-400 mt-1.5 flex items-center gap-1.5">
+                <p className="text-[12px] sm:text-[11px] text-zinc-400 mt-1.5 flex items-center gap-1.5">
                   <span className="font-mono" style={{ color: ACCENT_DEEP }}>
                     {normalizePhoneToE164(formData.real_phone)}
                   </span>
@@ -885,7 +885,7 @@ export default function OnboardingPage() {
                       key={min}
                       type="button"
                       onClick={() => handleInputChange('consultation_duration', min)}
-                      className={`h-10 rounded-md text-[13px] font-medium transition-all ${
+                      className={`h-12 sm:h-10 rounded-md text-[14px] sm:text-[13px] font-medium transition-all ${
                         selected
                           ? 'bg-zinc-900 text-white shadow-[0_1px_2px_rgba(0,0,0,0.1)]'
                           : 'bg-white border border-black/[0.08] text-zinc-700 hover:border-black/20'
@@ -907,7 +907,7 @@ export default function OnboardingPage() {
                       <button
                         type="button"
                         onClick={() => handleInputChange('establishment_type', key)}
-                        className={`group relative w-full p-3 rounded-lg text-left transition-all ${
+                        className={`group relative w-full p-3.5 sm:p-3 rounded-lg text-left transition-all min-h-[76px] sm:min-h-0 ${
                           selected
                             ? 'bg-white border border-transparent ring-1'
                             : 'bg-white border border-black/[0.08] hover:border-black/20'
@@ -915,14 +915,14 @@ export default function OnboardingPage() {
                         style={selected ? { boxShadow: `0 0 0 1px ${ACCENT}` } : undefined}
                       >
                         <div
-                          className={`mb-2 inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+                          className={`mb-2 inline-flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-md transition-colors ${
                             selected ? '' : 'bg-zinc-100 text-zinc-500'
                           }`}
                           style={selected ? { background: ACCENT_SOFT, color: ACCENT_DEEP } : undefined}
                         >
                           {ESTABLISHMENT_ICONS[key]}
                         </div>
-                        <div className="text-[12px] font-medium text-zinc-900 leading-tight">
+                        <div className="text-[13px] sm:text-[12px] font-medium text-zinc-900 leading-tight">
                           {label}
                         </div>
                       </button>
@@ -941,7 +941,7 @@ export default function OnboardingPage() {
                       <button
                         type="button"
                         onClick={() => handleInputChange('plan_type', key)}
-                        className={`group relative w-full p-3.5 rounded-lg text-left transition-all overflow-hidden ${
+                        className={`group relative w-full p-4 sm:p-3.5 rounded-lg text-left transition-all overflow-hidden ${
                           selected
                             ? 'bg-white border border-transparent'
                             : 'bg-white border border-black/[0.08] hover:border-black/20'
@@ -950,19 +950,19 @@ export default function OnboardingPage() {
                       >
                         {plan.highlight && (
                           <span
-                            className="absolute top-2 right-2 text-[9px] uppercase tracking-[0.08em] font-semibold px-1.5 py-0.5 rounded text-white"
+                            className="absolute top-2 right-2 text-[10px] sm:text-[9px] uppercase tracking-[0.08em] font-semibold px-1.5 py-0.5 rounded text-white"
                             style={{ background: ACCENT_DEEP }}
                           >
                             Popular
                           </span>
                         )}
                         <div
-                          className="text-[13px] font-semibold mb-0.5"
+                          className="text-[14px] sm:text-[13px] font-semibold mb-0.5"
                           style={{ color: selected ? ACCENT_DEEP : '#18181B' }}
                         >
                           {plan.label}
                         </div>
-                        <div className="text-[11px] text-zinc-500 leading-snug">
+                        <div className="text-[12px] sm:text-[11px] text-zinc-500 leading-snug">
                           {plan.desc}
                         </div>
                       </button>
@@ -974,10 +974,10 @@ export default function OnboardingPage() {
 
             <div className="pt-2">
               <div className="flex items-baseline justify-between mb-3">
-                <label className="text-[13px] font-medium text-zinc-900 tracking-tight">
+                <label className="text-[14px] sm:text-[13px] font-medium text-zinc-900 tracking-tight">
                   Funcionalidades de interesse
                 </label>
-                <span className="text-[11px] text-zinc-400">Selecione as relevantes</span>
+                <span className="text-[12px] sm:text-[11px] text-zinc-400">Selecione as relevantes</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {qualifications.map(q => {
@@ -987,7 +987,7 @@ export default function OnboardingPage() {
                       key={q.id}
                       type="button"
                       onClick={() => handleQualificationToggle(q.id)}
-                      className={`group flex items-center gap-2.5 rounded-md p-2.5 text-left transition-all ${
+                      className={`group flex items-center gap-2.5 rounded-md p-3 sm:p-2.5 text-left transition-all min-h-[44px] sm:min-h-0 ${
                         selected
                           ? 'bg-white border border-transparent'
                           : 'bg-white border border-black/[0.08] hover:border-black/20'
@@ -995,14 +995,14 @@ export default function OnboardingPage() {
                       style={selected ? { boxShadow: `0 0 0 1px ${ACCENT}` } : undefined}
                     >
                       <div
-                        className={`relative h-4 w-4 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
+                        className={`relative h-5 w-5 sm:h-4 sm:w-4 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
                           selected ? '' : 'border border-zinc-300'
                         }`}
                         style={selected ? { background: ACCENT_DEEP } : undefined}
                       >
-                        {selected && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3.5} />}
+                        {selected && <Check className="w-3 h-3 sm:w-2.5 sm:h-2.5 text-white" strokeWidth={3.5} />}
                       </div>
-                      <span className="text-[13px] font-medium text-zinc-800 truncate">
+                      <span className="text-[14px] sm:text-[13px] font-medium text-zinc-800 truncate">
                         {q.label}
                       </span>
                     </button>
@@ -1158,7 +1158,7 @@ export default function OnboardingPage() {
           >
             Etapa {currentStep + 1} de {WIZARD_STEPS.length}
           </p>
-          <h1 className="text-[32px] sm:text-[36px] leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900">
+          <h1 className="text-[28px] sm:text-[32px] md:text-[36px] leading-[1.1] sm:leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900">
             {currentStep === 0 ? (
               <>
                 <span className="font-serif italic font-normal text-zinc-700">Vamos</span>{' '}
@@ -1182,7 +1182,7 @@ export default function OnboardingPage() {
               </>
             )}
           </h1>
-          <p className="mt-3 text-[15px] text-zinc-500 leading-relaxed">{step?.description}</p>
+          <p className="mt-3 text-[15px] sm:text-[15px] text-zinc-500 leading-relaxed">{step?.description}</p>
         </motion.div>
 
         {/* Form card */}
@@ -1209,14 +1209,14 @@ export default function OnboardingPage() {
           <Hairline />
 
           {/* Footer nav */}
-          <div className="flex items-center justify-between px-5 sm:px-7 py-4 bg-zinc-50/60">
+          <div className="flex items-center justify-between px-4 sm:px-7 py-3.5 sm:py-4 bg-zinc-50/60">
             <button
               type="button"
               onClick={handlePrev}
               disabled={currentStep === 0}
-              className="h-9 px-3 -ml-2 rounded-md text-[13px] font-medium text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.03] inline-flex items-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              className="h-11 sm:h-9 px-3.5 sm:px-3 -ml-2 rounded-md text-[14px] sm:text-[13px] font-medium text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.03] inline-flex items-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               Voltar
             </button>
 
@@ -1225,7 +1225,7 @@ export default function OnboardingPage() {
                 type="button"
                 onClick={handleNext}
                 whileTap={{ scale: 0.98 }}
-                className="group h-9 pl-4 pr-3.5 rounded-md text-white text-[13px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110"
+                className="group h-11 sm:h-9 pl-5 pr-4 sm:pl-4 sm:pr-3.5 rounded-md text-white text-[14px] sm:text-[13px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110"
                 style={{
                   background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
                   boxShadow:
@@ -1233,7 +1233,7 @@ export default function OnboardingPage() {
                 }}
               >
                 Próximo
-                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="w-4 h-4 sm:w-3.5 sm:h-3.5 transition-transform group-hover:translate-x-0.5" />
               </motion.button>
             ) : (
               <motion.button
@@ -1241,7 +1241,7 @@ export default function OnboardingPage() {
                 onClick={handleSubmitOnboarding}
                 disabled={isSubmitting}
                 whileTap={{ scale: 0.98 }}
-                className="group h-9 pl-4 pr-3.5 rounded-md text-white text-[13px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110 disabled:opacity-70 disabled:cursor-wait"
+                className="group h-11 sm:h-9 pl-5 pr-4 sm:pl-4 sm:pr-3.5 rounded-md text-white text-[14px] sm:text-[13px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110 disabled:opacity-70 disabled:cursor-wait"
                 style={{
                   background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
                   boxShadow:
@@ -1250,13 +1250,13 @@ export default function OnboardingPage() {
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-spin" />
                     Configurando…
                   </>
                 ) : (
                   <>
                     Criar conta
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                    <ArrowRight className="w-4 h-4 sm:w-3.5 sm:h-3.5 transition-transform group-hover:translate-x-0.5" />
                   </>
                 )}
               </motion.button>
@@ -1290,18 +1290,18 @@ export default function OnboardingPage() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.25 + i * 0.07, duration: 0.5 }}
-                      className="rounded-xl border border-black/[0.07] bg-white/80 backdrop-blur-sm p-4 h-full"
+                      className="rounded-xl border border-black/[0.07] bg-white/80 backdrop-blur-sm p-5 sm:p-4 h-full"
                     >
                       <div
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md mb-3"
+                        className="inline-flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-md mb-3"
                         style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
                       >
                         {getValueIcon(block.icon)}
                       </div>
-                      <h3 className="text-[13px] font-semibold text-zinc-900 leading-snug mb-1.5">
+                      <h3 className="text-[14px] sm:text-[13px] font-semibold text-zinc-900 leading-snug mb-1.5">
                         {block.title}
                       </h3>
-                      <p className="text-[12px] leading-relaxed text-zinc-500">
+                      <p className="text-[13px] sm:text-[12px] leading-relaxed text-zinc-500">
                         {block.description}
                       </p>
                     </motion.div>
@@ -1313,7 +1313,7 @@ export default function OnboardingPage() {
         </AnimatePresence>
 
         {/* Footer trust strip */}
-        <div className="mt-16 flex items-center justify-center gap-5 text-[11px] text-zinc-400">
+        <div className="mt-12 sm:mt-16 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:gap-x-5 text-[12px] sm:text-[11px] text-zinc-400">
           <span className="inline-flex items-center gap-1.5">
             <Shield className="w-3 h-3" strokeWidth={2} />
             Dados criptografados
@@ -1360,10 +1360,10 @@ function ReviewBlock({
       <Hairline />
       <dl className="divide-y divide-black/[0.05]">
         {rows.map(([k, v, accent]) => (
-          <div key={k} className="flex items-baseline justify-between gap-3 px-4 py-2.5">
-            <dt className="text-[12px] text-zinc-500">{k}</dt>
+          <div key={k} className="flex items-baseline justify-between gap-3 px-4 py-3 sm:py-2.5">
+            <dt className="text-[13px] sm:text-[12px] text-zinc-500">{k}</dt>
             <dd
-              className="text-[13px] font-medium text-right truncate capitalize"
+              className="text-[14px] sm:text-[13px] font-medium text-right truncate capitalize"
               style={accent ? { color: ACCENT_DEEP } : undefined}
             >
               {v}
