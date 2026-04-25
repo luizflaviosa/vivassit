@@ -1,6 +1,7 @@
 
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import { Toaster } from 'sonner';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -10,16 +11,15 @@ export const metadata: Metadata = {
   description: 'Junte-se a mais de 5.000 médicos que já modernizaram sua prática. Do cadastro ao primeiro paciente: simples assim.',
   keywords: ['vivassit', 'medicina', 'telemedicina', 'gestão médica', 'clínica', 'onboarding'],
   robots: {
-    index: false,
-    follow: false,
+    index: true,
+    follow: true,
   },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  themeColor: '#3B82F6',
+  themeColor: '#6D4EFF',
 };
 
 export default function RootLayout({
@@ -35,6 +35,12 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} antialiased`}>
         <main>{children}</main>
+        <Toaster
+          position="top-center"
+          richColors
+          closeButton
+          toastOptions={{ duration: 6000 }}
+        />
       </body>
     </html>
   );
