@@ -296,8 +296,8 @@ function Field({
 }
 
 const inputBase =
-  'w-full h-12 sm:h-11 px-3.5 bg-white text-[16px] sm:text-[15px] text-zinc-900 placeholder:text-zinc-400 ' +
-  'rounded-lg border transition-all duration-150 ' +
+  'w-full h-14 sm:h-11 px-4 sm:px-3.5 bg-white text-[17px] sm:text-[15px] text-zinc-900 placeholder:text-zinc-400 ' +
+  'rounded-xl sm:rounded-lg border transition-all duration-150 ' +
   'focus:outline-none focus:ring-4';
 
 function inputClasses(hasError?: boolean) {
@@ -1093,12 +1093,12 @@ export default function OnboardingPage() {
   const step = WIZARD_STEPS[currentStep];
 
   return (
-    <div className="relative min-h-screen bg-[#FAFAF7] text-zinc-900 selection:bg-zinc-900 selection:text-white">
+    <div className="relative min-h-screen bg-[#FAFAF7] text-zinc-900 selection:bg-zinc-900 selection:text-white pb-28 md:pb-0">
       <Atmosphere />
 
       {/* Top bar */}
-      <header className="relative border-b border-black/[0.06] bg-white/70 backdrop-blur-xl sticky top-0 z-40">
-        <div className="max-w-5xl mx-auto px-5 sm:px-6 h-14 flex items-center justify-between">
+      <header className="relative border-b border-black/[0.06] bg-white/80 backdrop-blur-xl sticky top-0 z-40">
+        <div className="max-w-5xl mx-auto px-5 sm:px-6 h-14 sm:h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Image
               src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
@@ -1109,22 +1109,41 @@ export default function OnboardingPage() {
               priority
             />
           </div>
-          <div className="flex items-center gap-5 text-[12px] text-zinc-500">
+          <div className="flex items-center gap-4 sm:gap-5 text-[13px] sm:text-[12px] text-zinc-500">
             <span className="hidden sm:inline-flex items-center gap-1.5">
               <Lock className="w-3 h-3" strokeWidth={2} />
               Conexão segura
             </span>
-            <span className="font-medium text-zinc-900">
+            <span className="font-semibold text-zinc-900">
               <span>{currentStep + 1}</span>
               <span className="text-zinc-400 font-normal"> / {WIZARD_STEPS.length}</span>
             </span>
           </div>
         </div>
+        {/* Mobile inline progress bar — sits flush with topbar */}
+        <div className="md:hidden flex items-center gap-1 px-5 pb-2 -mt-1">
+          {WIZARD_STEPS.map((s, i) => (
+            <div key={s.id} className="flex-1 h-[3px] rounded-full bg-black/[0.06] overflow-hidden">
+              <motion.div
+                className="h-full origin-left rounded-full"
+                style={{
+                  background:
+                    i <= currentStep
+                      ? `linear-gradient(90deg, ${ACCENT}, ${ACCENT_DEEP})`
+                      : 'transparent',
+                }}
+                initial={false}
+                animate={{ scaleX: i < currentStep ? 1 : i === currentStep ? 1 : 0 }}
+                transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+              />
+            </div>
+          ))}
+        </div>
       </header>
 
-      <main className="relative max-w-xl mx-auto px-5 sm:px-6 pt-12 sm:pt-16 pb-24">
-        {/* Step pill row */}
-        <div className="flex items-center gap-1.5 mb-10">
+      <main className="relative max-w-xl mx-auto px-5 sm:px-6 pt-8 sm:pt-16 pb-12 sm:pb-24">
+        {/* Step pill row — desktop only (mobile uses topbar progress) */}
+        <div className="hidden md:flex items-center gap-1.5 mb-10">
           {WIZARD_STEPS.map((s, i) => (
             <div key={s.id} className="flex-1 h-[3px] rounded-full bg-black/[0.06] overflow-hidden">
               <motion.div
@@ -1150,15 +1169,15 @@ export default function OnboardingPage() {
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-8"
+          className="mb-7 sm:mb-8"
         >
           <p
-            className="text-[11px] uppercase tracking-[0.1em] font-semibold mb-2"
+            className="text-[12px] sm:text-[11px] uppercase tracking-[0.12em] sm:tracking-[0.1em] font-semibold mb-3 sm:mb-2"
             style={{ color: ACCENT_DEEP }}
           >
             Etapa {currentStep + 1} de {WIZARD_STEPS.length}
           </p>
-          <h1 className="text-[28px] sm:text-[32px] md:text-[36px] leading-[1.1] sm:leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900">
+          <h1 className="text-[34px] sm:text-[32px] md:text-[36px] leading-[1.05] tracking-[-0.03em] sm:tracking-[-0.025em] font-medium text-zinc-900">
             {currentStep === 0 ? (
               <>
                 <span className="font-serif italic font-normal text-zinc-700">Vamos</span>{' '}
@@ -1182,7 +1201,7 @@ export default function OnboardingPage() {
               </>
             )}
           </h1>
-          <p className="mt-3 text-[15px] sm:text-[15px] text-zinc-500 leading-relaxed">{step?.description}</p>
+          <p className="mt-4 sm:mt-3 text-[16px] sm:text-[15px] text-zinc-500 leading-[1.5] sm:leading-relaxed">{step?.description}</p>
         </motion.div>
 
         {/* Form card */}
@@ -1192,7 +1211,7 @@ export default function OnboardingPage() {
           transition={{ duration: 0.55, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
           className="rounded-2xl border border-black/[0.07] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-12px_rgba(0,0,0,0.10)] overflow-hidden"
         >
-          <div className="p-5 sm:p-7">
+          <div className="p-6 sm:p-7">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentStep}
@@ -1206,18 +1225,77 @@ export default function OnboardingPage() {
             </AnimatePresence>
           </div>
 
-          <Hairline />
+          {/* Desktop footer nav — hidden on mobile */}
+          <div className="hidden md:block">
+            <Hairline />
+            <div className="flex items-center justify-between px-7 py-4 bg-zinc-50/60">
+              <button
+                type="button"
+                onClick={handlePrev}
+                disabled={currentStep === 0}
+                className="h-9 px-3 -ml-2 rounded-md text-[13px] font-medium text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.03] inline-flex items-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Voltar
+              </button>
 
-          {/* Footer nav */}
-          <div className="flex items-center justify-between px-4 sm:px-7 py-3.5 sm:py-4 bg-zinc-50/60">
+              {currentStep < WIZARD_STEPS.length - 1 ? (
+                <motion.button
+                  type="button"
+                  onClick={handleNext}
+                  whileTap={{ scale: 0.98 }}
+                  className="group h-9 pl-4 pr-3.5 rounded-md text-white text-[13px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110"
+                  style={{
+                    background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
+                    boxShadow:
+                      '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 4px 12px -4px rgba(110,86,207,0.5)',
+                  }}
+                >
+                  Próximo
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                </motion.button>
+              ) : (
+                <motion.button
+                  type="button"
+                  onClick={handleSubmitOnboarding}
+                  disabled={isSubmitting}
+                  whileTap={{ scale: 0.98 }}
+                  className="group h-9 pl-4 pr-3.5 rounded-md text-white text-[13px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110 disabled:opacity-70 disabled:cursor-wait"
+                  style={{
+                    background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
+                    boxShadow:
+                      '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 4px 12px -4px rgba(110,86,207,0.5)',
+                  }}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Configurando…
+                    </>
+                  ) : (
+                    <>
+                      Criar conta
+                      <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </>
+                  )}
+                </motion.button>
+              )}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Mobile sticky bottom nav */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/90 backdrop-blur-xl border-t border-black/[0.07]">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={handlePrev}
               disabled={currentStep === 0}
-              className="h-11 sm:h-9 px-3.5 sm:px-3 -ml-2 rounded-md text-[14px] sm:text-[13px] font-medium text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.03] inline-flex items-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              className="flex-shrink-0 rounded-xl border border-black/[0.08] text-zinc-700 inline-flex items-center justify-center transition-all hover:bg-black/[0.03] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              aria-label="Voltar"
+              style={{ height: '52px', width: '52px' }}
             >
-              <ArrowLeft className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-              Voltar
+              <ArrowLeft className="w-5 h-5" />
             </button>
 
             {currentStep < WIZARD_STEPS.length - 1 ? (
@@ -1225,15 +1303,16 @@ export default function OnboardingPage() {
                 type="button"
                 onClick={handleNext}
                 whileTap={{ scale: 0.98 }}
-                className="group h-11 sm:h-9 pl-5 pr-4 sm:pl-4 sm:pr-3.5 rounded-md text-white text-[14px] sm:text-[13px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110"
+                className="group flex-1 rounded-xl text-white text-[16px] font-semibold inline-flex items-center justify-center gap-2 transition-all hover:brightness-110"
                 style={{
+                  height: '52px',
                   background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
                   boxShadow:
-                    '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 4px 12px -4px rgba(110,86,207,0.5)',
+                    '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 8px 22px -6px rgba(110,86,207,0.6)',
                 }}
               >
-                Próximo
-                <ArrowRight className="w-4 h-4 sm:w-3.5 sm:h-3.5 transition-transform group-hover:translate-x-0.5" />
+                Continuar
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
               </motion.button>
             ) : (
               <motion.button
@@ -1241,28 +1320,29 @@ export default function OnboardingPage() {
                 onClick={handleSubmitOnboarding}
                 disabled={isSubmitting}
                 whileTap={{ scale: 0.98 }}
-                className="group h-11 sm:h-9 pl-5 pr-4 sm:pl-4 sm:pr-3.5 rounded-md text-white text-[14px] sm:text-[13px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110 disabled:opacity-70 disabled:cursor-wait"
+                className="group flex-1 rounded-xl text-white text-[16px] font-semibold inline-flex items-center justify-center gap-2 transition-all hover:brightness-110 disabled:opacity-70 disabled:cursor-wait"
                 style={{
+                  height: '52px',
                   background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
                   boxShadow:
-                    '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 4px 12px -4px rgba(110,86,207,0.5)',
+                    '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 8px 22px -6px rgba(110,86,207,0.6)',
                 }}
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Configurando…
                   </>
                 ) : (
                   <>
-                    Criar conta
-                    <ArrowRight className="w-4 h-4 sm:w-3.5 sm:h-3.5 transition-transform group-hover:translate-x-0.5" />
+                    Criar minha conta
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                   </>
                 )}
               </motion.button>
             )}
           </div>
-        </motion.div>
+        </div>
 
         {/* Value blocks — only on step 0, restrained, with subtle tilt */}
         <AnimatePresence>
@@ -1312,8 +1392,8 @@ export default function OnboardingPage() {
           )}
         </AnimatePresence>
 
-        {/* Footer trust strip */}
-        <div className="mt-12 sm:mt-16 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:gap-x-5 text-[12px] sm:text-[11px] text-zinc-400">
+        {/* Footer trust strip — desktop emphasis, condensed on mobile */}
+        <div className="mt-10 sm:mt-16 flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-1.5 text-[12px] sm:text-[11px] text-zinc-400">
           <span className="inline-flex items-center gap-1.5">
             <Shield className="w-3 h-3" strokeWidth={2} />
             Dados criptografados
@@ -1323,8 +1403,8 @@ export default function OnboardingPage() {
             <Star className="w-3 h-3 fill-current text-amber-400" />
             5.000+ profissionais
           </span>
-          <span className="h-1 w-1 rounded-full bg-zinc-300" />
-          <span>~5 min</span>
+          <span className="hidden sm:inline-block h-1 w-1 rounded-full bg-zinc-300" />
+          <span className="hidden sm:inline">~5 min</span>
         </div>
       </main>
     </div>
