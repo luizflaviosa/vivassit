@@ -106,8 +106,10 @@ interface DoctorPatch {
   calendar_id?: string | null;
   followup_value?: number | string | null;
   followup_window_days?: number | null;
+  followup_duration?: number | null;
   accepts_insurance?: boolean;
   insurance_note?: string | null;
+  working_hours?: Record<string, string>;
 }
 
 export async function PATCH(req: NextRequest) {
@@ -129,7 +131,8 @@ export async function PATCH(req: NextRequest) {
   const fields: (keyof DoctorPatch)[] = [
     'doctor_name', 'doctor_crm', 'specialty', 'consultation_value', 'consultation_duration',
     'payment_methods', 'contact_email', 'contact_phone', 'address', 'calendar_id',
-    'followup_value', 'followup_window_days', 'accepts_insurance', 'insurance_note',
+    'followup_value', 'followup_window_days', 'followup_duration', 'accepts_insurance',
+    'insurance_note', 'working_hours',
   ];
   for (const f of fields) {
     if (body[f] !== undefined) updates[f] = body[f];
