@@ -92,8 +92,49 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (!order) {
-    // pagamento nao corresponde a nenhum saas_order: pode ser tenant_payments
-    // ou order de teste antigo. Loga e segue.
+    // Nao e saas_order - tenta tenant_payments (cobranca marketplace de paciente)
+    const { data: tp } = await supabase
+      .from('tenant_payments')
+      .select('id, tenant_id, status')
+      .eq('asaas_payment_id', paymentId)
+      .maybeSingle();
+
+    if (tp) {
+      const tpStatusMap: Record<string, string> = {
+        PAYMENT_CONFIRMED: 'approved',
+        PAYMENT_RECEIVED: 'approved',
+        PAYMENT_OVERDUE: 'overdue',
+        PAYMENT_REFUNDED: 'refunded',
+        PAYMENT_DELETED: 'cancelled',
+      };
+      const newStatus = tpStatusMap[event] ?? 'pending';
+      await supabase
+        .from('tenant_payments')
+        .update({
+          status: newStatus,
+          approved_at: newStatus === 'approved' ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', tp.id);
+
+      await supabase
+        .from('webhook_logs')
+        .update({
+          processing_status: 'completed',
+          processed_at: new Date().toISOString(),
+        })
+        .eq('payment_id', paymentId)
+        .eq('processing_status', 'received');
+
+      return NextResponse.json({
+        success: true,
+        event,
+        target: 'tenant_payments',
+        new_status: newStatus,
+      });
+    }
+
+    // Nem saas_order nem tenant_payment: loga e segue
     await supabase
       .from('webhook_logs')
       .update({
