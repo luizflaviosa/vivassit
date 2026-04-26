@@ -1,18 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requireTenant } from '@/lib/auth-tenant';
 
-export async function GET(req: NextRequest) {
-  const tenantId = req.nextUrl.searchParams.get('tenant');
-  if (!tenantId) {
-    return NextResponse.json({ success: false, message: 'tenant obrigatório' }, { status: 400 });
-  }
+export async function GET() {
+  const auth = await requireTenant();
+  if (!auth.ok) return auth.response;
+  const tenantId = auth.ctx.tenant.tenant_id;
 
   const supabase = supabaseAdmin();
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
 
-  // Em paralelo: consultas mes, pacientes ativos, NPS medio, faturamento
   const [
     { count: appointmentsMonth },
     { count: patientsTotal },
@@ -24,7 +23,7 @@ export async function GET(req: NextRequest) {
     supabase
       .from('appointments')
       .select('*', { count: 'exact', head: true })
-      .eq('doctor_id', tenantId) // appointments usa uuid de users; placeholder ate auth
+      .eq('doctor_id', tenantId)
       .gte('appointment_date', monthStart.toISOString()),
     supabase
       .from('patients')
@@ -53,10 +52,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   const npsScores = (feedbacks ?? []).map((f) => f.nps_score as number).filter((s) => typeof s === 'number');
-  const npsAvg = npsScores.length
-    ? npsScores.reduce((a, b) => a + b, 0) / npsScores.length
-    : null;
-
+  const npsAvg = npsScores.length ? npsScores.reduce((a, b) => a + b, 0) / npsScores.length : null;
   const paid = (payments ?? []).filter((p) => p.status === 'approved' || p.status === 'paid');
   const revenueMonth = paid.reduce((sum, p) => sum + Number(p.consultation_value || 0), 0);
   const pendingCount = (payments ?? []).filter((p) => p.status === 'pending').length;

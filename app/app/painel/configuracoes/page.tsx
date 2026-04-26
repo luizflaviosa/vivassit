@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { Sparkles, Save, Loader2, Building2 } from 'lucide-react';
+import { useMe } from '@/lib/painel-context';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -20,10 +20,8 @@ interface Tenant {
 }
 
 function ConfigInner() {
-  const searchParams = useSearchParams();
-  const tenantId =
-    searchParams?.get('tenant') ||
-    (typeof window !== 'undefined' ? localStorage.getItem('vivassit_tenant_id') ?? '' : '');
+  const me = useMe();
+  const tenantId = me?.tenant_id ?? '';
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,7 +40,7 @@ function ConfigInner() {
     }
     (async () => {
       try {
-        const res = await fetch(`/api/painel/tenant?tenant=${encodeURIComponent(tenantId)}`);
+        const res = await fetch('/api/painel/tenant');
         const json = await res.json();
         if (json.success) {
           setTenant(json.tenant);
@@ -62,7 +60,7 @@ function ConfigInner() {
   const save = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/painel/tenant?tenant=${encodeURIComponent(tenantId)}`, {
+      const res = await fetch('/api/painel/tenant', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

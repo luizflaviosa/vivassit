@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Plus, Trash2, User, Star, Mail, Phone, Loader2, X, Check } from 'lucide-react';
+import { useMe } from '@/lib/painel-context';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -29,10 +29,8 @@ interface Doctor {
 }
 
 function ProfissionaisInner() {
-  const searchParams = useSearchParams();
-  const tenantId =
-    searchParams?.get('tenant') ||
-    (typeof window !== 'undefined' ? localStorage.getItem('vivassit_tenant_id') ?? '' : '');
+  const me = useMe();
+  const tenantId = me?.tenant_id ?? '';
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +51,7 @@ function ProfissionaisInner() {
       return;
     }
     try {
-      const res = await fetch(`/api/painel/profissionais?tenant=${encodeURIComponent(tenantId)}`);
+      const res = await fetch('/api/painel/profissionais');
       const json = await res.json();
       if (json.success) setDoctors(json.doctors);
     } catch (e) {
@@ -75,7 +73,7 @@ function ProfissionaisInner() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/painel/profissionais?tenant=${encodeURIComponent(tenantId)}`, {
+      const res = await fetch('/api/painel/profissionais', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -110,10 +108,7 @@ function ProfissionaisInner() {
     }
     if (!confirm('Tem certeza que deseja remover este profissional?')) return;
     try {
-      const res = await fetch(
-        `/api/painel/profissionais?tenant=${encodeURIComponent(tenantId)}&id=${id}`,
-        { method: 'DELETE' }
-      );
+      const res = await fetch(`/api/painel/profissionais?id=${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (!res.ok || !json.success) {
         toast.error(json.message || 'Erro ao remover');

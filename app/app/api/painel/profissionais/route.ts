@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requireTenant } from '@/lib/auth-tenant';
 
-export async function GET(req: NextRequest) {
-  const tenantId = req.nextUrl.searchParams.get('tenant');
-  if (!tenantId) {
-    return NextResponse.json({ success: false, message: 'tenant obrigatório' }, { status: 400 });
-  }
+export async function GET() {
+  const auth = await requireTenant();
+  if (!auth.ok) return auth.response;
 
   const supabase = supabaseAdmin();
   const { data, error } = await supabase
@@ -13,7 +12,7 @@ export async function GET(req: NextRequest) {
     .select(
       'id, doctor_name, doctor_crm, specialty, is_primary, status, consultation_value, payment_methods, working_hours, accepts_insurance, insurance_note, followup_value, followup_window_days, consultation_duration, contact_email, contact_phone, address, calendar_id, created_at'
     )
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', auth.ctx.tenant.tenant_id)
     .order('is_primary', { ascending: false })
     .order('created_at', { ascending: true });
 
@@ -42,10 +41,9 @@ interface DoctorInput {
 }
 
 export async function POST(req: NextRequest) {
-  const tenantId = req.nextUrl.searchParams.get('tenant');
-  if (!tenantId) {
-    return NextResponse.json({ success: false, message: 'tenant obrigatório' }, { status: 400 });
-  }
+  const auth = await requireTenant();
+  if (!auth.ok) return auth.response;
+
   const body = (await req.json()) as DoctorInput;
 
   if (!body?.doctor_name?.trim()) {
@@ -56,7 +54,6 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = supabaseAdmin();
-
   const consultationValue =
     body.consultation_value === '' || body.consultation_value === undefined || body.consultation_value === null
       ? null
@@ -65,7 +62,7 @@ export async function POST(req: NextRequest) {
       : body.consultation_value;
 
   const row = {
-    tenant_id: tenantId,
+    tenant_id: auth.ctx.tenant.tenant_id,
     doctor_name: body.doctor_name.trim(),
     doctor_crm: body.doctor_crm?.trim() || null,
     specialty: body.specialty.trim(),
@@ -96,17 +93,19 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const tenantId = req.nextUrl.searchParams.get('tenant');
+  const auth = await requireTenant();
+  if (!auth.ok) return auth.response;
+
   const id = req.nextUrl.searchParams.get('id');
-  if (!tenantId || !id) {
-    return NextResponse.json({ success: false, message: 'tenant e id obrigatórios' }, { status: 400 });
+  if (!id) {
+    return NextResponse.json({ success: false, message: 'id obrigatório' }, { status: 400 });
   }
 
   const supabase = supabaseAdmin();
   const { error } = await supabase
     .from('tenant_doctors')
     .delete()
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', auth.ctx.tenant.tenant_id)
     .eq('id', id)
     .eq('is_primary', false); // protege o profissional principal
 

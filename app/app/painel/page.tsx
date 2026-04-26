@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Calendar,
@@ -13,6 +12,7 @@ import {
   ArrowUpRight,
   Sparkles,
 } from 'lucide-react';
+import { useMe } from '@/lib/painel-context';
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
@@ -55,10 +55,8 @@ function trialDaysLeft(trialEndsAt: string | null): number | null {
 }
 
 function PainelInner() {
-  const searchParams = useSearchParams();
-  const tenantId =
-    searchParams?.get('tenant') ||
-    (typeof window !== 'undefined' ? localStorage.getItem('vivassit_tenant_id') ?? '' : '');
+  const me = useMe();
+  const tenantId = me?.tenant_id ?? '';
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -72,8 +70,8 @@ function PainelInner() {
     const load = async () => {
       try {
         const [tRes, mRes] = await Promise.all([
-          fetch(`/api/painel/tenant?tenant=${encodeURIComponent(tenantId)}`),
-          fetch(`/api/painel/overview?tenant=${encodeURIComponent(tenantId)}`),
+          fetch('/api/painel/tenant'),
+          fetch('/api/painel/overview'),
         ]);
         const tJson = await tRes.json();
         const mJson = await mRes.json();
@@ -203,17 +201,17 @@ function PainelInner() {
         <p className="text-[13px] font-semibold text-zinc-900 mb-3">Atalhos</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <QuickLink
-            href={`/painel/profissionais?tenant=${encodeURIComponent(tenantId)}`}
+            href="/painel/profissionais"
             title="Cadastrar profissional"
             desc="Adicione mais profissionais à clínica"
           />
           <QuickLink
-            href={`/painel/configuracoes?tenant=${encodeURIComponent(tenantId)}`}
+            href="/painel/configuracoes"
             title="Personalizar IA"
             desc="Edite as instruções do agente"
           />
           <QuickLink
-            href={`/painel/pacientes?tenant=${encodeURIComponent(tenantId)}`}
+            href="/painel/pacientes"
             title="Lista de pacientes"
             desc="Veja histórico e contatos"
           />

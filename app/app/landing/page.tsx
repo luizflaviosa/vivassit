@@ -431,7 +431,7 @@ export default function LandingPage() {
               5.247 profissionais online
             </span>
             <div className="hidden sm:block">
-              <GhostButton onClick={() => handleStartTrial()}>Entrar</GhostButton>
+              <GhostButton onClick={() => router.push('/login')}>Entrar</GhostButton>
             </div>
             <PrimaryButton onClick={() => handleStartTrial()}>Começar</PrimaryButton>
           </div>

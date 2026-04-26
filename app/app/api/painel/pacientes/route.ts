@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { requireTenant } from '@/lib/auth-tenant';
 
-export async function GET(req: NextRequest) {
-  const tenantId = req.nextUrl.searchParams.get('tenant');
-  if (!tenantId) {
-    return NextResponse.json({ success: false, message: 'tenant obrigatório' }, { status: 400 });
-  }
+export async function GET() {
+  const auth = await requireTenant();
+  if (!auth.ok) return auth.response;
 
   const supabase = supabaseAdmin();
   const { data, error } = await supabase
@@ -13,7 +12,7 @@ export async function GET(req: NextRequest) {
     .select(
       'id, name, phone, email, birthdate, total_consultations, last_visit_at, last_doctor, doctor_preference, notes, tags, created_at'
     )
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', auth.ctx.tenant.tenant_id)
     .order('last_visit_at', { ascending: false, nullsFirst: false })
     .limit(100);
 

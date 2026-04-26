@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { Loader2, UserPlus, Phone, Mail, Calendar } from 'lucide-react';
+import { useMe } from '@/lib/painel-context';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -27,10 +27,8 @@ function fmtDate(iso: string | null): string {
 }
 
 function PacientesInner() {
-  const searchParams = useSearchParams();
-  const tenantId =
-    searchParams?.get('tenant') ||
-    (typeof window !== 'undefined' ? localStorage.getItem('vivassit_tenant_id') ?? '' : '');
+  const me = useMe();
+  const tenantId = me?.tenant_id ?? '';
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +41,7 @@ function PacientesInner() {
     }
     (async () => {
       try {
-        const res = await fetch(`/api/painel/pacientes?tenant=${encodeURIComponent(tenantId)}`);
+        const res = await fetch('/api/painel/pacientes');
         const json = await res.json();
         if (json.success) setPatients(json.patients);
       } catch (e) {
