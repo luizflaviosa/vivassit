@@ -6,6 +6,23 @@ import { supabaseAdmin } from '@/lib/supabase';
 // PAYMENT_REFUNDED, etc.
 
 export async function POST(req: NextRequest) {
+  // Validacao de autenticidade: Asaas envia o token configurado no webhook
+  // no header `asaas-access-token`. Se ASAAS_WEBHOOK_TOKEN estiver setado,
+  // exige match. Sem env (dev local), aceita sem validar mas loga warning.
+  const expectedToken = process.env.ASAAS_WEBHOOK_TOKEN;
+  if (expectedToken) {
+    const receivedToken = req.headers.get('asaas-access-token');
+    if (receivedToken !== expectedToken) {
+      console.warn('[webhook/asaas] token invalido recebido');
+      return NextResponse.json(
+        { success: false, message: 'unauthorized' },
+        { status: 401 }
+      );
+    }
+  } else {
+    console.warn('[webhook/asaas] ASAAS_WEBHOOK_TOKEN nao configurado - aceitando sem validacao');
+  }
+
   let payload: Record<string, unknown> | null = null;
   try {
     payload = (await req.json()) as Record<string, unknown>;
