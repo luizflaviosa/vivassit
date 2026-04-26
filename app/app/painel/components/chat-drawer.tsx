@@ -66,6 +66,13 @@ export default function ChatDrawer() {
     }
   }, []);
 
+  // Listen pra evento global (cmd+K → "Falar com IA interna" abre o chat)
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener('singulare:open-chat', handler);
+    return () => window.removeEventListener('singulare:open-chat', handler);
+  }, []);
+
   // Persist historico
   useEffect(() => {
     if (typeof window === 'undefined') return;

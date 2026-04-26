@@ -27,6 +27,7 @@ import { MeContext, type MeData } from '@/lib/painel-context';
 import WelcomeTour from './components/welcome-tour';
 import ChatDrawer from './components/chat-drawer';
 import InstallPrompt from './components/install-prompt';
+import CommandPalette from './components/command-palette';
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
@@ -265,6 +266,9 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
 
         {/* Install prompt PWA (mobile, after 30s) */}
         {me && <InstallPrompt />}
+
+        {/* Cmd+K command palette */}
+        {me && <CommandPalette />}
       </div>
     </MeContext.Provider>
   );
