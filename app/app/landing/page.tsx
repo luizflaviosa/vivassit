@@ -340,6 +340,14 @@ export default function LandingPage() {
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successTenantId, setSuccessTenantId] = useState('');
+  const [isLogged, setIsLogged] = useState<boolean | null>(null);
+
+  // Detecta se usuário tem sessão ativa pra trocar "Entrar" por "Painel"
+  useEffect(() => {
+    fetch('/api/painel/me', { cache: 'no-store' })
+      .then((r) => setIsLogged(r.ok))
+      .catch(() => setIsLogged(false));
+  }, []);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -421,14 +429,14 @@ export default function LandingPage() {
 
       {/* Topbar */}
       <header className="relative border-b border-black/[0.06] bg-white/70 backdrop-blur-xl sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 h-14 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Image
               src="/logos/singulare-a.svg"
               alt="Singulare"
-              width={120}
-              height={40}
-              className="h-7 w-auto"
+              width={160}
+              height={56}
+              className="h-9 sm:h-10 w-auto"
               priority
             />
           </div>
@@ -437,18 +445,41 @@ export default function LandingPage() {
             <a href="#pricing" className="px-3 py-1.5 rounded-md hover:text-zinc-900 hover:bg-black/[0.03] transition-colors">Planos</a>
             <a href="#testimonials" className="px-3 py-1.5 rounded-md hover:text-zinc-900 hover:bg-black/[0.03] transition-colors">Depoimentos</a>
           </nav>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] text-zinc-500 mr-2">
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <span className="hidden lg:inline-flex items-center gap-1.5 text-[11px] text-zinc-500 mr-2">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
               </span>
-              5.247 profissionais online
+              5.247 online
             </span>
-            <div className="hidden sm:block">
-              <GhostButton onClick={() => router.push('/login')}>Entrar</GhostButton>
-            </div>
-            <PrimaryButton onClick={() => handleStartTrial()}>Começar</PrimaryButton>
+            {isLogged ? (
+              <button
+                type="button"
+                onClick={() => router.push('/painel')}
+                className="h-9 px-3.5 rounded-md text-[13px] font-semibold text-zinc-900 hover:bg-black/[0.05] transition-colors inline-flex items-center gap-1.5"
+              >
+                Ir pro painel
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => router.push('/login')}
+                  className="h-9 px-3.5 rounded-md text-[13px] font-medium text-zinc-700 hover:text-zinc-900 hover:bg-black/[0.04] transition-colors"
+                >
+                  Entrar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStartTrial()}
+                  className="h-9 px-3.5 rounded-md text-[13px] font-semibold text-zinc-900 border border-zinc-300 hover:border-zinc-900 hover:bg-zinc-900 hover:text-white transition-all"
+                >
+                  Começar
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
