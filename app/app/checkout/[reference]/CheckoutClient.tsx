@@ -1,20 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import {
   CreditCard,
-  Zap,
-  FileText,
   Check,
-  Copy,
   Lock,
   Loader2,
   ArrowRight,
-  ExternalLink,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -105,9 +101,10 @@ export default function CheckoutClient({
   defaultPayer,
 }: Props) {
   const router = useRouter();
-  const [method, setMethod] = useState<Method>('PIX');
+  // SaaS: assinatura mensal so aceita cartao (PIX/Boleto nao auto-renovam)
+  const method: Method = 'CREDIT_CARD';
   const [submitting, setSubmitting] = useState(false);
-  const [paid, setPaid] = useState(paymentStatus === 'paid');
+  const [paid, setPaid] = useState(paymentStatus === 'paid' || paymentStatus === 'subscribed');
 
   // Payer
   const [payerName, setPayerName] = useState(defaultPayer.name);
@@ -123,54 +120,8 @@ export default function CheckoutClient({
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
 
-  // PIX
-  const [pixData, setPixData] = useState<{ qrCodeImage: string; qrCodePayload: string } | null>(null);
-  const [pixCopied, setPixCopied] = useState(false);
-
-  // Boleto
-  const [boletoData, setBoletoData] = useState<{
-    identificationField: string;
-    invoiceUrl?: string;
-    bankSlipUrl?: string;
-  } | null>(null);
-  const [boletoCopied, setBoletoCopied] = useState(false);
-
   const planLabel = PLAN_LABELS[planType] ?? planType;
   const daysLeft = trialDaysLeft(trialEndsAt);
-
-  // ── Polling de status (so quando PIX pendente) ─────────────────────────────
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
-  const stopPolling = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-  }, []);
-
-  const checkStatus = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/checkout/status/${encodeURIComponent(reference)}`, {
-        cache: 'no-store',
-      });
-      const data = await res.json();
-      if (data?.paid) {
-        setPaid(true);
-        stopPolling();
-        toast.success('Pagamento confirmado!');
-        setTimeout(() => router.push('/landing?success=true&tenant=' + encodeURIComponent(reference)), 1500);
-      }
-    } catch {
-      // ignora erros de polling
-    }
-  }, [reference, router, stopPolling]);
-
-  useEffect(() => {
-    if (pixData && !paid) {
-      // checa a cada 5s
-      pollingRef.current = setInterval(checkStatus, 5000);
-      return () => stopPolling();
-    }
-  }, [pixData, paid, checkStatus, stopPolling]);
 
   // ── Submit ──────────────────────────────────────────────────────────────────
   const validate = (): string | null => {
@@ -240,25 +191,14 @@ export default function CheckoutClient({
         return;
       }
 
-      if (method === 'PIX' && data.pix) {
-        setPixData(data.pix);
-        toast.success('PIX gerado! Escaneie ou copie o código.');
-      } else if (method === 'BOLETO' && data.boleto) {
-        setBoletoData({
-          identificationField: data.boleto.identificationField,
-          invoiceUrl: data.payment?.invoiceUrl,
-          bankSlipUrl: data.payment?.bankSlipUrl,
-        });
-        toast.success('Boleto gerado! Pague em até 3 dias úteis.');
-      } else if (method === 'CREDIT_CARD') {
-        if (data.approved) {
-          setPaid(true);
-          toast.success('Pagamento aprovado!');
-          setTimeout(() => router.push('/landing?success=true&tenant=' + encodeURIComponent(reference)), 1500);
-        } else {
-          toast.error('Cartão recusado. Tente outro método.');
-        }
-      }
+      // Subscription criada com sucesso (cartao validado)
+      // Tenant entra em trial ate primeira cobranca; webhook confirma depois
+      setPaid(true);
+      toast.success(data.message || 'Cartão confirmado!');
+      setTimeout(
+        () => router.push('/painel'),
+        1500
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro inesperado');
     } finally {
@@ -370,12 +310,24 @@ export default function CheckoutClient({
             </span>
           </div>
 
-          {/* Tabs de método */}
+          {/* Banner explicativo: assinatura mensal so via cartao */}
           <div className="px-6 sm:px-7 pt-6">
-            <div className="flex gap-2 p-1 bg-zinc-100/70 rounded-xl">
-              <MethodTab active={method === 'PIX'} onClick={() => setMethod('PIX')} icon={<Zap className="w-4 h-4" />} label="PIX" />
-              <MethodTab active={method === 'CREDIT_CARD'} onClick={() => setMethod('CREDIT_CARD')} icon={<CreditCard className="w-4 h-4" />} label="Cartão" />
-              <MethodTab active={method === 'BOLETO'} onClick={() => setMethod('BOLETO')} icon={<FileText className="w-4 h-4" />} label="Boleto" />
+            <div className="flex items-start gap-3 rounded-xl border border-black/[0.07] bg-zinc-50/80 p-3.5">
+              <div
+                className="h-8 w-8 rounded-md flex items-center justify-center flex-shrink-0"
+                style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
+              >
+                <CreditCard className="w-4 h-4" strokeWidth={1.75} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-zinc-900">
+                  Assinatura mensal — apenas cartão de crédito
+                </p>
+                <p className="text-[12px] text-zinc-500 leading-relaxed mt-0.5">
+                  PIX e boleto não permitem renovação automática. Cartão garante continuidade
+                  do serviço sem você precisar pagar mensalmente.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -430,93 +382,12 @@ export default function CheckoutClient({
               )}
             </AnimatePresence>
 
-            {/* PIX gerado */}
-            {method === 'PIX' && pixData && (
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="border border-black/[0.07] rounded-xl p-5"
-              >
-                <p className="text-[13px] text-zinc-500 mb-4 text-center">Escaneie o QR code com seu app do banco</p>
-                <div className="flex justify-center mb-5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`data:image/png;base64,${pixData.qrCodeImage}`}
-                    alt="QR Code PIX"
-                    className="w-56 h-56 rounded-lg border border-black/[0.07]"
-                  />
-                </div>
-                <div className="bg-zinc-50 border border-black/[0.06] rounded-lg p-3 mb-3">
-                  <p className="text-[11px] uppercase tracking-[0.08em] font-semibold text-zinc-500 mb-1">PIX copia e cola</p>
-                  <code className="text-[11px] font-mono text-zinc-700 break-all block">{pixData.qrCodePayload}</code>
-                </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(pixData.qrCodePayload).then(() => {
-                      setPixCopied(true);
-                      setTimeout(() => setPixCopied(false), 2000);
-                    });
-                  }}
-                  className="w-full h-11 rounded-lg border border-black/[0.10] hover:border-black/30 hover:bg-black/[0.02] text-[14px] font-semibold text-zinc-900 inline-flex items-center justify-center gap-2 transition-all"
-                >
-                  {pixCopied ? <Check className="w-4 h-4 text-emerald-600" strokeWidth={3} /> : <Copy className="w-4 h-4" />}
-                  {pixCopied ? 'Copiado!' : 'Copiar código PIX'}
-                </button>
-                <p className="text-center text-[12px] text-zinc-500 mt-4 inline-flex items-center justify-center gap-1.5 w-full">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Aguardando confirmação automática…
-                </p>
-              </motion.div>
-            )}
-
-            {/* Boleto gerado */}
-            {method === 'BOLETO' && boletoData && (
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="border border-black/[0.07] rounded-xl p-5"
-              >
-                <p className="text-[14px] font-semibold text-zinc-900 mb-3">Boleto gerado</p>
-                <div className="bg-zinc-50 border border-black/[0.06] rounded-lg p-3 mb-3">
-                  <p className="text-[11px] uppercase tracking-[0.08em] font-semibold text-zinc-500 mb-1">Linha digitável</p>
-                  <code className="text-[12px] font-mono text-zinc-700 break-all block">{boletoData.identificationField}</code>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(boletoData.identificationField).then(() => {
-                        setBoletoCopied(true);
-                        setTimeout(() => setBoletoCopied(false), 2000);
-                      });
-                    }}
-                    className="h-11 rounded-lg border border-black/[0.10] hover:border-black/30 hover:bg-black/[0.02] text-[13px] font-semibold text-zinc-900 inline-flex items-center justify-center gap-2 transition-all"
-                  >
-                    {boletoCopied ? <Check className="w-4 h-4 text-emerald-600" strokeWidth={3} /> : <Copy className="w-4 h-4" />}
-                    {boletoCopied ? 'Copiado!' : 'Copiar'}
-                  </button>
-                  {(boletoData.bankSlipUrl || boletoData.invoiceUrl) && (
-                    <a
-                      href={boletoData.bankSlipUrl || boletoData.invoiceUrl!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="h-11 rounded-lg border border-black/[0.10] hover:border-black/30 hover:bg-black/[0.02] text-[13px] font-semibold text-zinc-900 inline-flex items-center justify-center gap-2 transition-all"
-                    >
-                      Ver PDF
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  )}
-                </div>
-                <p className="text-center text-[12px] text-zinc-500 mt-4">Compensação em até 3 dias úteis após o pagamento.</p>
-              </motion.div>
-            )}
           </div>
 
           {/* CTA principal — desktop */}
-          {!pixData && !boletoData && (
-            <div className="hidden md:block px-7 pb-7 pt-2">
-              <SubmitButton onClick={handleSubmit} submitting={submitting} method={method} amount={amount} />
-            </div>
-          )}
+          <div className="hidden md:block px-7 pb-7 pt-2">
+            <SubmitButton onClick={handleSubmit} submitting={submitting} method={method} amount={amount} />
+          </div>
         </motion.div>
 
         {/* Trust strip */}
@@ -534,11 +405,9 @@ export default function CheckoutClient({
       </main>
 
       {/* Sticky bottom CTA mobile */}
-      {!pixData && !boletoData && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 backdrop-blur-xl border-t border-black/[0.07]">
-          <SubmitButton onClick={handleSubmit} submitting={submitting} method={method} amount={amount} fullWidth />
-        </div>
-      )}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 backdrop-blur-xl border-t border-black/[0.07]">
+        <SubmitButton onClick={handleSubmit} submitting={submitting} method={method} amount={amount} fullWidth />
+      </div>
     </div>
   );
 }

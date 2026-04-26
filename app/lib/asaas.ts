@@ -241,3 +241,73 @@ export function dueDatePlusDays(days: number): string {
   const d = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Subscriptions (assinatura mensal recorrente - apenas cartao)
+// ──────────────────────────────────────────────────────────────────────────────
+
+export type AsaasSubscriptionCycle =
+  | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'BIMONTHLY' | 'QUARTERLY'
+  | 'SEMIANNUALLY' | 'YEARLY';
+
+export type AsaasSubscriptionStatus = 'ACTIVE' | 'EXPIRED' | 'INACTIVE';
+
+export interface AsaasSubscription {
+  id: string;
+  customer: string;
+  billingType: AsaasBillingType;
+  value: number;
+  nextDueDate: string;
+  cycle: AsaasSubscriptionCycle;
+  status: AsaasSubscriptionStatus;
+  description?: string;
+  externalReference?: string;
+}
+
+export interface CreateSubscriptionInput {
+  customer: string;
+  billingType: 'CREDIT_CARD' | 'BOLETO'; // PIX recorrente requer config especial
+  value: number;
+  nextDueDate: string; // YYYY-MM-DD - primeira cobranca
+  cycle?: AsaasSubscriptionCycle; // default MONTHLY
+  description?: string;
+  externalReference?: string;
+  creditCard?: CreditCardData;
+  creditCardHolderInfo?: CreditCardHolderInfo;
+  remoteIp?: string;
+}
+
+export async function createSubscription(
+  input: CreateSubscriptionInput
+): Promise<AsaasSubscription> {
+  return asaasFetch<AsaasSubscription>(`/subscriptions`, {
+    method: 'POST',
+    body: JSON.stringify({
+      ...input,
+      cycle: input.cycle ?? 'MONTHLY',
+      creditCard: input.creditCard
+        ? {
+            ...input.creditCard,
+            number: input.creditCard.number.replace(/\D/g, ''),
+            ccv: input.creditCard.ccv.replace(/\D/g, ''),
+          }
+        : undefined,
+      creditCardHolderInfo: input.creditCardHolderInfo
+        ? {
+            ...input.creditCardHolderInfo,
+            cpfCnpj: input.creditCardHolderInfo.cpfCnpj.replace(/\D/g, ''),
+            phone: input.creditCardHolderInfo.phone.replace(/\D/g, ''),
+            postalCode: input.creditCardHolderInfo.postalCode.replace(/\D/g, ''),
+          }
+        : undefined,
+    }),
+  });
+}
+
+export async function getSubscription(id: string): Promise<AsaasSubscription> {
+  return asaasFetch<AsaasSubscription>(`/subscriptions/${encodeURIComponent(id)}`);
+}
+
+export async function cancelSubscription(id: string): Promise<{ deleted: boolean; id: string }> {
+  return asaasFetch(`/subscriptions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
