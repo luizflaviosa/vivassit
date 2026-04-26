@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 160" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 160" fill="none">
   <!-- Background -->
-  <rect width="480" height="160" rx="20" fill="#0A0A0A"/>
+  <rect width="560" height="160" rx="20" fill="#0A0A0A"/>
   <!-- Subtle violet→pink gradient definition -->
   <defs>
     <linearGradient id="grad-b" x1="0" y1="0" x2="1" y2="1">

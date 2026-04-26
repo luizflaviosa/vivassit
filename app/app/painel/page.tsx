@@ -17,6 +17,7 @@ import {
 import Link from 'next/link';
 import { useMe } from '@/lib/painel-context';
 import { MetricCardSkeleton, StatRowSkeleton, PageHeadingSkeleton } from '@/lib/painel-skeleton';
+import TiltCard from './components/tilt-card';
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
@@ -418,7 +419,11 @@ function MetricCard({
     amber: { bg: '#FFFBEB', fg: '#B45309' },
   }[accent];
   return (
-    <div className="rounded-xl border border-black/[0.07] bg-white p-4 sm:p-5">
+    <TiltCard
+      maxTilt={6}
+      scale={1.015}
+      className="rounded-xl border border-black/[0.07] bg-white p-4 sm:p-5 hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.12)] transition-shadow"
+    >
       <div className="flex items-center justify-between mb-3">
         <span
           className="inline-flex h-7 w-7 items-center justify-center rounded-md"
@@ -432,7 +437,7 @@ function MetricCard({
       </div>
       <div className="text-[12px] text-zinc-500 mt-1.5">{label}</div>
       {subValue && <div className="text-[11px] text-zinc-400 mt-0.5">{subValue}</div>}
-    </div>
+    </TiltCard>
   );
 }
 
