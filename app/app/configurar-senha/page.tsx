@@ -92,7 +92,7 @@ export default function ConfigurarSenhaPage() {
               alt="Singulare"
               width={120}
               height={40}
-              className="h-9 w-auto"
+              className="h-10 sm:h-11 w-auto"
               priority
             />
           </Link>

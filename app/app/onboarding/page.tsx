@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Fragment, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Fragment, Suspense } from 'react';
 import {
   motion,
   AnimatePresence,
@@ -111,33 +111,35 @@ const INITIAL_QUALIFICATIONS: QualificationOption[] = [
 const WIZARD_STEPS: WizardStep[] = [
   {
     id: 1,
-    title: 'Profissional',
-    description: 'Conta pra gente quem é você',
+    title: 'Você',
+    description: 'Profissão, nome e registro',
     fields: ['professional_type', 'doctor_name', 'doctor_crm', 'speciality'],
   },
   {
     id: 2,
-    title: 'Onde atende',
-    description: 'Seu consultório ou clínica',
-    fields: ['clinic_name', 'admin_email', 'real_phone'],
+    title: 'Seu negócio',
+    description: 'Solo ou clínica · contato',
+    fields: ['establishment_type', 'clinic_name', 'admin_email', 'real_phone'],
   },
   {
     id: 3,
-    title: 'Atendimento',
-    description: 'Tipo de atendimento, duração e plano',
-    fields: ['consultation_duration', 'establishment_type', 'plan_type'],
+    title: 'Como atende',
+    description: 'Duração, horários e convênios',
+    fields: ['consultation_duration'], // working_hours/insurance optional, configurável depois
+    optional: true,
   },
   {
     id: 4,
     title: 'Cobrança e IA',
-    description: 'Como você cobra e como sua IA atende',
+    description: 'Valor, métodos, prompt da IA',
     fields: ['lgpd_accepted'],
+    optional: true,
   },
   {
     id: 5,
-    title: 'Confirmar',
-    description: 'Revise as informações e finalize',
-    fields: [],
+    title: 'Plano e confirmação',
+    description: 'Escolha o plano e revise',
+    fields: ['plan_type'],
   },
 ];
 
@@ -287,6 +289,53 @@ function Hairline({ className = '' }: { className?: string }) {
   return <div className={`h-px w-full bg-black/[0.07] ${className}`} />;
 }
 
+const WORKING_DAYS = [
+  { key: 'seg', label: 'Seg' },
+  { key: 'ter', label: 'Ter' },
+  { key: 'qua', label: 'Qua' },
+  { key: 'qui', label: 'Qui' },
+  { key: 'sex', label: 'Sex' },
+  { key: 'sab', label: 'Sáb' },
+  { key: 'dom', label: 'Dom' },
+];
+
+function WorkingHoursInline({ value, onChange }: {
+  value: Record<string, string>;
+  onChange: (v: Record<string, string>) => void;
+}) {
+  const set = (k: string, v: string) => onChange({ ...value, [k]: v });
+  return (
+    <div className="space-y-1.5 rounded-xl border border-black/[0.08] bg-zinc-50/40 p-3">
+      {WORKING_DAYS.map((d) => {
+        const v = value[d.key] ?? 'fechado';
+        const closed = v === 'fechado' || v === '';
+        const [start, end] = closed ? ['', ''] : v.split('-');
+        return (
+          <div key={d.key} className="flex items-center gap-3 py-1">
+            <span className="w-12 text-[13px] font-medium text-zinc-700 flex-shrink-0">{d.label}</span>
+            <button
+              type="button"
+              onClick={() => set(d.key, closed ? '08:00-18:00' : 'fechado')}
+              className={`h-6 w-10 rounded-full transition-colors relative flex-shrink-0 ${!closed ? 'bg-violet-500' : 'bg-zinc-300'}`}
+            >
+              <span className={`absolute top-0.5 h-5 w-5 bg-white rounded-full transition-transform shadow-sm ${!closed ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </button>
+            {closed ? (
+              <span className="text-[12px] text-zinc-400 italic">fechado</span>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <input type="time" value={start || '08:00'} onChange={(e) => set(d.key, `${e.target.value}-${end || '18:00'}`)} className="h-8 px-2 text-[13px] rounded-md border border-black/10 bg-white" />
+                <span className="text-[12px] text-zinc-400">–</span>
+                <input type="time" value={end || '18:00'} onChange={(e) => set(d.key, `${start || '08:00'}-${e.target.value}`)} className="h-8 px-2 text-[13px] rounded-md border border-black/10 bg-white" />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Field({
   label,
   hint,
@@ -388,7 +437,7 @@ function SuccessScreen({ data }: { data: SuccessData }) {
               alt="Singulare"
               width={120}
               height={40}
-              className="h-9 w-auto"
+              className="h-10 sm:h-11 w-auto"
               priority
             />
           </div>
@@ -677,6 +726,13 @@ function OnboardingPageInner() {
     return () => clearTimeout(timer);
   }, [formData]);
 
+  // Ref pra evitar bug do duplo-clique: validateStep precisa do formData mais
+  // recente, mas em React 18 onChange + onClick em eventos consecutivos podem
+  // ser batched antes do re-render — fazendo validateStep usar formData antigo
+  // do closure. Atualizando ref sincronicamente em handleInputChange resolve.
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
+
   const handleInputChange = (field: keyof OnboardingData, value: string) => {
     // Boolean fields handled via 'true'/'' string trick
     const booleanFields = ['accepts_insurance', 'auto_emit_nf', 'lgpd_accepted'];
@@ -686,6 +742,8 @@ function OnboardingPageInner() {
     if (booleanFields.includes(field)) parsed = value === 'true';
     else if (numberFields.includes(field)) parsed = value === '' ? null : parseInt(value, 10);
 
+    // Atualiza ref ANTES do setState pra que validateStep no mesmo tick veja o valor novo
+    formDataRef.current = { ...formDataRef.current, [field]: parsed as never };
     setFormData(prev => ({ ...prev, [field]: parsed as never }));
     if (errors[field]) {
       setErrors(prev => {
@@ -706,36 +764,37 @@ function OnboardingPageInner() {
     (step: number): boolean => {
       const newErrors: Record<string, string> = {};
       const stepFields = WIZARD_STEPS[step]?.fields ?? [];
+      // Lê SEMPRE o estado mais recente via ref (resolve duplo-clique)
+      const data = formDataRef.current;
 
       stepFields.forEach(field => {
-        const value = formData[field as keyof OnboardingData];
+        const value = data[field as keyof OnboardingData];
         if (!value || (typeof value === 'string' && value.trim() === '')) {
           newErrors[field] = 'Este campo é obrigatório';
         }
       });
 
-      if (stepFields.includes('admin_email') && formData.admin_email) {
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.admin_email)) {
+      if (stepFields.includes('admin_email') && data.admin_email) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.admin_email)) {
           newErrors.admin_email = 'Email inválido';
         }
       }
 
-      if (stepFields.includes('real_phone') && formData.real_phone) {
-        const normalized = normalizePhoneToE164(formData.real_phone);
+      if (stepFields.includes('real_phone') && data.real_phone) {
+        const normalized = normalizePhoneToE164(data.real_phone);
         if (!/^\+\d{10,15}$/.test(normalized)) {
           newErrors.real_phone = 'Telefone inválido. Informe DDD + número (ex: 11 99999-9999)';
         }
       }
 
-      // Step 3: LGPD obrigatorio
-      if (stepFields.includes('lgpd_accepted') && !formData.lgpd_accepted) {
+      if (stepFields.includes('lgpd_accepted') && !data.lgpd_accepted) {
         newErrors.lgpd_accepted = 'Você precisa aceitar os termos para continuar';
       }
 
       setErrors(newErrors);
       return Object.keys(newErrors).length === 0;
     },
-    [formData]
+    [] // sem deps: usa formDataRef sempre atualizado
   );
 
   const handleNext = () => {
@@ -918,13 +977,41 @@ function OnboardingPageInner() {
       // ── Step 1: Clínica ────────────────────────────────────────────────────
       case 1:
         return (
-          <div className="space-y-5">
-            <Field label="Nome da clínica" error={errors.clinic_name}>
+          <div className="space-y-7">
+            <Field label="Como você atende" hint="Solo, em consultório próprio, ou tem clínica com vários profissionais?">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(Object.entries(ESTABLISHMENT_SIZES) as [EstablishmentSizeKey, typeof ESTABLISHMENT_SIZES[EstablishmentSizeKey]][]).map(([key, info]) => {
+                  const selected = formData.establishment_type === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleInputChange('establishment_type', key)}
+                      className={`group relative w-full p-4 sm:p-3.5 rounded-lg text-left transition-all min-h-[88px] ${
+                        selected ? 'bg-white border border-transparent ring-1' : 'bg-white border border-black/[0.08] hover:border-black/20'
+                      }`}
+                      style={selected ? { boxShadow: `0 0 0 1px ${ACCENT}` } : undefined}
+                    >
+                      <div
+                        className={`mb-2 inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${selected ? '' : 'bg-zinc-100 text-zinc-500'}`}
+                        style={selected ? { background: ACCENT_SOFT, color: ACCENT_DEEP } : undefined}
+                      >
+                        {ESTABLISHMENT_ICONS[key]}
+                      </div>
+                      <div className="text-[14px] sm:text-[13px] font-semibold text-zinc-900 leading-tight">{info.label}</div>
+                      <div className="text-[12px] text-zinc-500 mt-0.5">{info.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+
+            <Field label={formData.establishment_type === 'private_practice' ? 'Nome do consultório' : 'Nome da clínica'} error={errors.clinic_name}>
               <input
                 type="text"
                 value={formData.clinic_name}
                 onChange={e => handleInputChange('clinic_name', e.target.value)}
-                placeholder="Clínica Saúde & Vida"
+                placeholder={formData.establishment_type === 'private_practice' ? 'Consultório Dr. Paulo' : 'Clínica Saúde & Vida'}
                 autoComplete="organization"
                 className={inputClasses(!!errors.clinic_name)}
               />
@@ -992,79 +1079,43 @@ function OnboardingPageInner() {
               </div>
             </Field>
 
-            <Field label="Como você atende">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {(Object.entries(ESTABLISHMENT_SIZES) as [EstablishmentSizeKey, typeof ESTABLISHMENT_SIZES[EstablishmentSizeKey]][]).map(([key, info]) => {
-                  const selected = formData.establishment_type === key;
-                  return (
-                    <Tilt key={key} max={4} scale={1.01}>
-                      <button
-                        type="button"
-                        onClick={() => handleInputChange('establishment_type', key)}
-                        className={`group relative w-full p-4 sm:p-3.5 rounded-lg text-left transition-all min-h-[88px] ${
-                          selected
-                            ? 'bg-white border border-transparent ring-1'
-                            : 'bg-white border border-black/[0.08] hover:border-black/20'
-                        }`}
-                        style={selected ? { boxShadow: `0 0 0 1px ${ACCENT}` } : undefined}
-                      >
-                        <div
-                          className={`mb-2 inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
-                            selected ? '' : 'bg-zinc-100 text-zinc-500'
-                          }`}
-                          style={selected ? { background: ACCENT_SOFT, color: ACCENT_DEEP } : undefined}
-                        >
-                          {ESTABLISHMENT_ICONS[key]}
-                        </div>
-                        <div className="text-[14px] sm:text-[13px] font-semibold text-zinc-900 leading-tight">
-                          {info.label}
-                        </div>
-                        <div className="text-[12px] text-zinc-500 mt-0.5">{info.desc}</div>
-                      </button>
-                    </Tilt>
-                  );
-                })}
-              </div>
+            <Field label="Dias e horários de atendimento" hint="Pode ajustar depois no painel">
+              <WorkingHoursInline
+                value={formData.working_hours ?? {}}
+                onChange={(v) => setFormData(prev => ({ ...prev, working_hours: v }))}
+              />
             </Field>
 
-            <Field label="Plano">
+            <Field label="Aceita convênios?">
               <div className="grid grid-cols-2 gap-2">
-                {Object.entries(PLAN_DETAILS).map(([key, plan]) => {
-                  const selected = formData.plan_type === key;
-                  return (
-                    <Tilt key={key} max={5} scale={1.01} glare>
-                      <button
-                        type="button"
-                        onClick={() => handleInputChange('plan_type', key)}
-                        className={`group relative w-full p-4 sm:p-3.5 rounded-lg text-left transition-all overflow-hidden ${
-                          selected
-                            ? 'bg-white border border-transparent'
-                            : 'bg-white border border-black/[0.08] hover:border-black/20'
-                        }`}
-                        style={selected ? { boxShadow: `0 0 0 1px ${ACCENT}` } : undefined}
-                      >
-                        {plan.highlight && (
-                          <span
-                            className="absolute top-2 right-2 text-[10px] sm:text-[9px] uppercase tracking-[0.08em] font-semibold px-1.5 py-0.5 rounded text-white"
-                            style={{ background: ACCENT_DEEP }}
-                          >
-                            Popular
-                          </span>
-                        )}
-                        <div
-                          className="text-[14px] sm:text-[13px] font-semibold mb-0.5"
-                          style={{ color: selected ? ACCENT_DEEP : '#18181B' }}
-                        >
-                          {plan.label}
-                        </div>
-                        <div className="text-[12px] sm:text-[11px] text-zinc-500 leading-snug">
-                          {plan.desc}
-                        </div>
-                      </button>
-                    </Tilt>
-                  );
-                })}
+                <button
+                  type="button"
+                  onClick={() => handleInputChange('accepts_insurance', 'true')}
+                  className={`h-12 sm:h-10 rounded-md text-[14px] sm:text-[13px] font-medium transition-all border ${
+                    formData.accepts_insurance ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-700 border-black/[0.08] hover:border-black/20'
+                  }`}
+                >
+                  Sim
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleInputChange('accepts_insurance', '')}
+                  className={`h-12 sm:h-10 rounded-md text-[14px] sm:text-[13px] font-medium transition-all border ${
+                    !formData.accepts_insurance ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-700 border-black/[0.08] hover:border-black/20'
+                  }`}
+                >
+                  Só particular
+                </button>
               </div>
+              {formData.accepts_insurance && (
+                <input
+                  type="text"
+                  placeholder="Quais convênios? (Unimed, Amil, Hapvida...)"
+                  value={(formData.insurance_list as string[] | undefined)?.join(', ') ?? ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, insurance_list: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
+                  className={inputClasses(false) + ' mt-2'}
+                />
+              )}
             </Field>
 
             <div className="pt-2">
@@ -1564,7 +1615,7 @@ function OnboardingPageInner() {
               alt="Singulare"
               width={120}
               height={40}
-              className="h-7 w-auto"
+              className="h-10 sm:h-11 w-auto"
               priority
             />
           </div>
@@ -1704,20 +1755,32 @@ function OnboardingPageInner() {
               </button>
 
               {currentStep < WIZARD_STEPS.length - 1 ? (
-                <motion.button
-                  type="button"
-                  onClick={handleNext}
-                  whileTap={{ scale: 0.98 }}
-                  className="group h-9 pl-4 pr-3.5 rounded-md text-white text-[13px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110"
-                  style={{
-                    background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
-                    boxShadow:
-                      '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 4px 12px -4px rgba(110,86,207,0.5)',
-                  }}
-                >
-                  Próximo
-                  <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                </motion.button>
+                <div className="flex items-center gap-2">
+                  {WIZARD_STEPS[currentStep]?.optional && (
+                    <button
+                      type="button"
+                      onClick={() => { setCurrentStep(prev => Math.min(prev + 1, WIZARD_STEPS.length - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className="h-9 px-3 rounded-md text-[12.5px] font-medium text-zinc-500 hover:text-zinc-900 hover:bg-black/[0.04] transition-colors"
+                      title="Pular esta etapa e configurar depois no painel"
+                    >
+                      Configurar depois →
+                    </button>
+                  )}
+                  <motion.button
+                    type="button"
+                    onClick={handleNext}
+                    whileTap={{ scale: 0.98 }}
+                    className="group h-9 pl-4 pr-3.5 rounded-md text-white text-[13px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110"
+                    style={{
+                      background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
+                      boxShadow:
+                        '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 4px 12px -4px rgba(110,86,207,0.5)',
+                    }}
+                  >
+                    Próximo
+                    <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </motion.button>
+                </div>
               ) : (
                 <motion.button
                   type="button"
@@ -1750,7 +1813,7 @@ function OnboardingPageInner() {
 
         {/* Mobile sticky bottom nav */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/90 backdrop-blur-xl border-t border-black/[0.07]">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 relative">
             <button
               type="button"
               onClick={handlePrev}
@@ -1763,21 +1826,32 @@ function OnboardingPageInner() {
             </button>
 
             {currentStep < WIZARD_STEPS.length - 1 ? (
-              <motion.button
-                type="button"
-                onClick={handleNext}
-                whileTap={{ scale: 0.98 }}
-                className="group flex-1 rounded-xl text-white text-[16px] font-semibold inline-flex items-center justify-center gap-2 transition-all hover:brightness-110"
-                style={{
-                  height: '52px',
-                  background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
-                  boxShadow:
-                    '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 8px 22px -6px rgba(110,86,207,0.6)',
-                }}
-              >
-                Continuar
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </motion.button>
+              <>
+                <motion.button
+                  type="button"
+                  onClick={handleNext}
+                  whileTap={{ scale: 0.98 }}
+                  className="group flex-1 rounded-xl text-white text-[16px] font-semibold inline-flex items-center justify-center gap-2 transition-all hover:brightness-110"
+                  style={{
+                    height: '52px',
+                    background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
+                    boxShadow:
+                      '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 8px 22px -6px rgba(110,86,207,0.6)',
+                  }}
+                >
+                  Continuar
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                </motion.button>
+                {WIZARD_STEPS[currentStep]?.optional && (
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentStep(prev => Math.min(prev + 1, WIZARD_STEPS.length - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    className="absolute left-0 right-0 -top-7 text-center text-[12px] font-medium text-zinc-500 hover:text-zinc-900"
+                  >
+                    Configurar depois →
+                  </button>
+                )}
+              </>
             ) : (
               <motion.button
                 type="button"

@@ -248,4 +248,6 @@ export interface WizardStep {
   title: string;
   description: string;
   fields: string[];
+  /** Step pode ser pulado via "Configurar depois" (completar no painel). */
+  optional?: boolean;
 }
