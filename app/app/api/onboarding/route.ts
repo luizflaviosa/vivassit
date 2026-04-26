@@ -201,6 +201,40 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── Profissionais adicionais (clinica, opcional no onboarding) ────────────
+    interface AdditionalDoctorIn {
+      doctor_name?: string;
+      doctor_crm?: string;
+      specialty?: string;
+    }
+    const additionalDoctors: AdditionalDoctorIn[] = Array.isArray(body?.additional_doctors)
+      ? body.additional_doctors
+      : [];
+    const validDoctors = additionalDoctors.filter(
+      (d) => d?.doctor_name?.trim() && d?.specialty?.trim()
+    );
+
+    if (validDoctors.length > 0) {
+      const rows = validDoctors.map((d) => ({
+        tenant_id: tenantId,
+        doctor_name: d.doctor_name!.trim(),
+        doctor_crm: d.doctor_crm?.trim() || null,
+        specialty: d.specialty!.trim(),
+        is_primary: false,
+        status: 'active',
+        consultation_duration: 30,
+        followup_value: 0,
+        followup_window_days: 30,
+        followup_duration: 30,
+      }));
+
+      const { error: addDocsErr } = await supabase.from('tenant_doctors').insert(rows);
+      if (addDocsErr) {
+        console.error('[onboarding] erro ao inserir profissionais adicionais:', addDocsErr);
+        // Nao bloqueia - admin pode adicionar depois pelo painel
+      }
+    }
+
     // ── Persistencia: saas_orders (assinatura SaaS Vivassit, pendente) ────────
     const orderRow = {
       external_reference: externalReference,

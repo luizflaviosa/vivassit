@@ -1105,6 +1105,11 @@ function OnboardingPageInner() {
                 })}
               </div>
             </div>
+
+            {/* Equipe da clinica - aparece se clinica (nao private_practice) */}
+            {formData.establishment_type !== 'private_practice' && (
+              <ClinicTeamSection formData={formData} setFormData={setFormData} />
+            )}
           </div>
         );
 
@@ -1839,6 +1844,191 @@ export default function OnboardingPage() {
     }>
       <OnboardingPageInner />
     </Suspense>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Clinic Team — cadastro opcional de profissionais adicionais
+// ──────────────────────────────────────────────────────────────────────────────
+
+interface AdditionalDoctor {
+  doctor_name: string;
+  doctor_crm: string;
+  specialty: string;
+  professional_type: string;
+}
+
+function ClinicTeamSection({
+  formData,
+  setFormData,
+}: {
+  formData: OnboardingData;
+  setFormData: React.Dispatch<React.SetStateAction<OnboardingData>>;
+}) {
+  type Mode = 'closed' | 'now' | 'later';
+  const initialMode: Mode = (formData.additional_doctors?.length ?? 0) > 0 ? 'now' : 'closed';
+  const [mode, setMode] = useState<Mode>(initialMode);
+
+  const docs = (formData.additional_doctors ?? []) as AdditionalDoctor[];
+  const isLargeClinic = formData.establishment_type === 'large_clinic';
+  const maxAdditional = isLargeClinic ? 4 : 4; // ate 4 adicionais (5 total com o primario)
+
+  const addDoctor = () => {
+    if (docs.length >= maxAdditional) return;
+    const next = [...docs, { doctor_name: '', doctor_crm: '', specialty: '', professional_type: formData.professional_type }];
+    setFormData((prev) => ({ ...prev, additional_doctors: next as never }));
+  };
+
+  const removeDoctor = (idx: number) => {
+    const next = docs.filter((_, i) => i !== idx);
+    setFormData((prev) => ({ ...prev, additional_doctors: next as never }));
+  };
+
+  const updateDoctor = (idx: number, field: keyof AdditionalDoctor, value: string) => {
+    const next = docs.map((d, i) => (i === idx ? { ...d, [field]: value } : d));
+    setFormData((prev) => ({ ...prev, additional_doctors: next as never }));
+  };
+
+  const startNow = () => {
+    setMode('now');
+    if (docs.length === 0) addDoctor();
+  };
+
+  const startLater = () => {
+    setMode('later');
+    setFormData((prev) => ({ ...prev, additional_doctors: [] as never }));
+  };
+
+  return (
+    <div className="rounded-2xl border border-black/[0.07] bg-zinc-50/40 p-5">
+      <div className="flex items-start gap-3 mb-3">
+        <div
+          className="h-9 w-9 rounded-md flex items-center justify-center flex-shrink-0"
+          style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
+        >
+          <User className="w-4 h-4" strokeWidth={1.75} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold text-zinc-900">Equipe da clínica</p>
+          <p className="text-[12px] text-zinc-500 mt-0.5">
+            {isLargeClinic
+              ? 'Cadastre até 5 profissionais. Os demais ficam pro painel após o login.'
+              : 'Você pode cadastrar até 5 profissionais agora ou só pelo painel depois.'}
+          </p>
+        </div>
+      </div>
+
+      {mode === 'closed' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+          <button
+            type="button"
+            onClick={startNow}
+            className="h-12 rounded-lg text-white text-[14px] font-semibold inline-flex items-center justify-center gap-1.5 transition-all hover:brightness-110"
+            style={{
+              background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
+              boxShadow: '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 6px 18px -6px rgba(110,86,207,0.55)',
+            }}
+          >
+            Cadastrar agora
+          </button>
+          <button
+            type="button"
+            onClick={startLater}
+            className="h-12 rounded-lg border border-black/[0.10] text-zinc-700 text-[14px] font-semibold hover:border-black/30 hover:bg-black/[0.02] transition-colors"
+          >
+            Configurar depois
+          </button>
+        </div>
+      )}
+
+      {mode === 'later' && (
+        <p className="text-[13px] text-zinc-500 mt-2 italic">
+          Você poderá cadastrar profissionais a qualquer momento em <strong>Painel → Profissionais</strong>.
+          <button
+            type="button"
+            onClick={() => setMode('closed')}
+            className="ml-2 text-[12px] underline"
+            style={{ color: ACCENT_DEEP }}
+          >
+            Mudar de ideia
+          </button>
+        </p>
+      )}
+
+      {mode === 'now' && (
+        <div className="space-y-3 mt-3">
+          {docs.map((d, i) => (
+            <div key={i} className="rounded-xl border border-black/[0.07] bg-white p-4 relative">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] uppercase tracking-[0.08em] font-semibold text-zinc-500">
+                  Profissional {i + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeDoctor(i)}
+                  className="text-[12px] text-rose-600 hover:underline"
+                >
+                  Remover
+                </button>
+              </div>
+              <div className="space-y-2.5">
+                <input
+                  type="text"
+                  placeholder="Nome completo"
+                  value={d.doctor_name}
+                  onChange={(e) => updateDoctor(i, 'doctor_name', e.target.value)}
+                  className="w-full h-11 px-3.5 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Registro (CRM/CRO/CRP...)"
+                    value={d.doctor_crm}
+                    onChange={(e) => updateDoctor(i, 'doctor_crm', e.target.value)}
+                    className="w-full h-11 px-3.5 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Especialidade"
+                    value={d.specialty}
+                    onChange={(e) => updateDoctor(i, 'specialty', e.target.value)}
+                    className="w-full h-11 px-3.5 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            {docs.length < maxAdditional && (
+              <button
+                type="button"
+                onClick={addDoctor}
+                className="h-11 px-4 rounded-lg border border-dashed border-black/[0.15] text-zinc-700 text-[13px] font-semibold inline-flex items-center justify-center gap-1.5 hover:border-black/30 hover:bg-black/[0.02] transition-all"
+              >
+                + Adicionar profissional
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setMode('later');
+                setFormData((prev) => ({ ...prev, additional_doctors: [] as never }));
+              }}
+              className="text-[12px] text-zinc-500 hover:text-zinc-900 underline sm:ml-auto"
+            >
+              Pular e configurar no painel
+            </button>
+          </div>
+
+          {docs.length > 0 && (
+            <p className="text-[11px] text-zinc-400 mt-2">
+              Os dados completos (valor, horários, métodos pagamento) são preenchidos depois no painel.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
