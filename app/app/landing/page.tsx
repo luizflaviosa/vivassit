@@ -860,9 +860,11 @@ export default function LandingPage() {
               © {new Date().getFullYear()} Vivassit
             </span>
           </div>
-          <div className="flex items-center gap-4 sm:gap-5 text-[13px] sm:text-[12px] text-zinc-500">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-2 text-[13px] sm:text-[12px] text-zinc-500">
             <a href="#features" className="hover:text-zinc-900 transition-colors">Funcionalidades</a>
             <a href="#pricing" className="hover:text-zinc-900 transition-colors">Planos</a>
+            <a href="/termos" className="hover:text-zinc-900 transition-colors">Termos</a>
+            <a href="/privacidade" className="hover:text-zinc-900 transition-colors">Privacidade</a>
             <span className="inline-flex items-center gap-1.5 text-zinc-400">
               <Shield className="w-3 h-3" strokeWidth={2} />
               LGPD
