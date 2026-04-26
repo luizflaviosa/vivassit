@@ -8,7 +8,7 @@ const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
 
-const STORAGE_KEY = 'vivassit_tour_done_v1';
+const STORAGE_KEY = 'singulare_tour_done_v1';
 
 interface TourStep {
   title: string;
@@ -19,7 +19,7 @@ interface TourStep {
 const STEPS: TourStep[] = [
   {
     emoji: '👋',
-    title: 'Bem-vindo ao Vivassit',
+    title: 'Bem-vindo ao Singulare',
     body: 'Aqui é o cockpit do seu negócio. Em 4 telas você vê tudo o que importa do dia-a-dia.',
   },
   {

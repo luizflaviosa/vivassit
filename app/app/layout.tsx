@@ -7,18 +7,19 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 const SITE_URL = 'https://app.singulare.org';
-const OG_IMAGE = 'https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png';
+const OG_IMAGE = `${SITE_URL}/logos/singulare-a.svg`;
+const ICON = `${SITE_URL}/logos/icon.svg`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'Vivassit · Atendimento automatizado para profissionais de saúde',
-    template: '%s · Vivassit',
+    default: 'Singulare · Atendimento automatizado para profissionais de saúde',
+    template: '%s · Singulare',
   },
   description:
     'IA atende seus pacientes no WhatsApp, agenda consultas, organiza pagamentos e mantém seu CRM em dia. Para dentistas, médicos, psicólogos, fisios, nutris e mais.',
   keywords: [
-    'vivassit', 'singulare', 'agente IA medico', 'WhatsApp medico',
+    'singulare', 'agente IA medico', 'WhatsApp medico',
     'gestão de clínica', 'agenda online', 'consulta online',
     'CRM saúde', 'cobranca via WhatsApp', 'NPS clinica',
     'dentista', 'fisioterapeuta', 'psicólogo', 'nutricionista',
@@ -40,35 +41,46 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'pt_BR',
     url: SITE_URL,
-    siteName: 'Vivassit',
-    title: 'Vivassit · Seu consultório, no piloto automático',
+    siteName: 'Singulare',
+    title: 'Singulare · Seu consultório, no piloto automático',
     description:
       'IA atende, agenda, cobra e organiza tudo via WhatsApp. Para qualquer profissional de saúde.',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Vivassit' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Singulare' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Vivassit · Seu consultório, no piloto automático',
+    title: 'Singulare · Seu consultório, no piloto automático',
     description:
       'IA atende, agenda, cobra e organiza tudo via WhatsApp. Para qualquer profissional de saúde.',
     images: [OG_IMAGE],
   },
   icons: {
     icon: [
-      { url: OG_IMAGE, type: 'image/png' },
+      { url: ICON, type: 'image/svg+xml' },
     ],
-    apple: OG_IMAGE,
+    apple: ICON,
+  },
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'Singulare',
+    statusBarStyle: 'default',
   },
   alternates: {
     canonical: SITE_URL,
   },
   category: 'Health',
+  applicationName: 'Singulare',
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#6D4EFF',
+  maximumScale: 5,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#FAFAF7' },
+    { media: '(prefers-color-scheme: dark)', color: '#5746AF' },
+  ],
 };
 
 export default function RootLayout({

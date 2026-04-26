@@ -1,0 +1,48 @@
+{
+  "name": "Singulare",
+  "short_name": "Singulare",
+  "description": "Cockpit do seu consultório com IA: agenda, pacientes, cobranças e atendimento via WhatsApp.",
+  "start_url": "/painel",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAFAF7",
+  "theme_color": "#5746AF",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["health", "productivity", "medical", "business"],
+  "icons": [
+    {
+      "src": "/logos/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/logos/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Agenda",
+      "short_name": "Agenda",
+      "url": "/painel/agenda",
+      "description": "Visualizar agenda do dia"
+    },
+    {
+      "name": "Pacientes",
+      "short_name": "Pacientes",
+      "url": "/painel/pacientes",
+      "description": "Lista de pacientes"
+    },
+    {
+      "name": "Configurar IA",
+      "short_name": "IA",
+      "url": "/painel/configuracoes",
+      "description": "Personalizar agente IA"
+    }
+  ]
+}

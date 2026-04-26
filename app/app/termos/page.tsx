@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export const metadata = {
-  title: 'Termos de Uso · Vivassit',
+  title: 'Termos de Uso · Singulare',
 };
 
 export default function TermosPage() {
@@ -12,8 +12,8 @@ export default function TermosPage() {
         <div className="max-w-3xl mx-auto px-5 sm:px-6 h-14 flex items-center justify-between">
           <Link href="/landing">
             <Image
-              src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
-              alt="Vivassit"
+              src="/logos/singulare-a.svg"
+              alt="Singulare"
               width={120}
               height={40}
               className="h-7 w-auto"
@@ -36,12 +36,12 @@ export default function TermosPage() {
 
         <article className="prose prose-zinc max-w-none text-[15px] leading-relaxed text-zinc-700 space-y-5">
           <Section title="1. Aceitação dos termos">
-            Ao usar a plataforma Vivassit, você concorda com estes Termos de Uso e com a
+            Ao usar a plataforma Singulare, você concorda com estes Termos de Uso e com a
             Política de Privacidade. Se não concordar, não use o serviço.
           </Section>
 
           <Section title="2. Descrição do serviço">
-            A Vivassit é uma plataforma SaaS de automação para profissionais de saúde
+            A Singulare é uma plataforma SaaS de automação para profissionais de saúde
             autônomos e clínicas. Inclui agente de inteligência artificial via WhatsApp,
             gestão de agenda integrada com Google Calendar, sistema de cobrança via
             Asaas e CRM de pacientes.
@@ -68,18 +68,18 @@ export default function TermosPage() {
 
           <Section title="6. Marketplace de cobranças">
             Quando habilitado, o profissional/clínica cria uma subconta Asaas própria
-            para receber pagamentos de pacientes. A Vivassit não retém valores
+            para receber pagamentos de pacientes. A Singulare não retém valores
             recebidos. Eventuais taxas da Asaas se aplicam às transações.
           </Section>
 
           <Section title="7. Limitação de responsabilidade">
-            A Vivassit é uma ferramenta operacional. Decisões clínicas, diagnósticos,
+            A Singulare é uma ferramenta operacional. Decisões clínicas, diagnósticos,
             prescrições ou condutas médicas são responsabilidade exclusiva do
             profissional. O agente IA não substitui consulta nem orientação clínica.
           </Section>
 
           <Section title="8. Propriedade intelectual">
-            A plataforma e seu conteúdo são propriedade da Vivassit/Singulare. Os dados
+            A plataforma e seu conteúdo são propriedade da Singulare/Singulare. Os dados
             inseridos pelo usuário (pacientes, profissionais, configurações) permanecem
             de sua propriedade.
           </Section>

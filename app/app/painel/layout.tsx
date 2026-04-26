@@ -26,6 +26,9 @@ import {
 import { MeContext, type MeData } from '@/lib/painel-context';
 import WelcomeTour from './components/welcome-tour';
 import ChatDrawer from './components/chat-drawer';
+import InstallPrompt from './components/install-prompt';
+import CommandPalette from './components/command-palette';
+import TenantSwitcher from './components/tenant-switcher';
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
@@ -109,8 +112,8 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
               </button>
               <Link href="/painel" className="flex items-center gap-2">
                 <Image
-                  src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
-                  alt="Vivassit"
+                  src="/logos/singulare-a.svg"
+                  alt="Singulare"
                   width={120}
                   height={40}
                   className="h-7 w-auto"
@@ -123,17 +126,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="flex items-center gap-3">
-              {me && (
-                <span className="hidden sm:inline-flex items-center gap-2 text-[12px] text-zinc-500">
-                  <span className="font-medium text-zinc-900 truncate max-w-[200px]">{me.clinic_name}</span>
-                  <span
-                    className="text-[10px] uppercase tracking-[0.08em] font-semibold px-1.5 py-0.5 rounded"
-                    style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
-                  >
-                    {me.plan_type}
-                  </span>
-                </span>
-              )}
+              {me && <TenantSwitcher />}
               <Link
                 href="/configurar-senha"
                 className="h-9 px-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.04] rounded-md transition-colors"
@@ -205,8 +198,8 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
                 >
                   <div className="flex items-center justify-between mb-6">
                     <Image
-                      src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
-                      alt="Vivassit"
+                      src="/logos/singulare-a.svg"
+                      alt="Singulare"
                       width={120}
                       height={40}
                       className="h-7 w-auto"
@@ -261,6 +254,12 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
 
         {/* Chat conversacional com a IA interna - bolha flutuante */}
         {me && <ChatDrawer />}
+
+        {/* Install prompt PWA (mobile, after 30s) */}
+        {me && <InstallPrompt />}
+
+        {/* Cmd+K command palette */}
+        {me && <CommandPalette />}
       </div>
     </MeContext.Provider>
   );

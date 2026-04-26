@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { createSupabaseServerClient } from './supabase-server';
 import { supabaseAdmin } from './supabase';
+
+export const ACTIVE_TENANT_COOKIE = 'singulare_active_tenant';
 
 export interface TenantContext {
   user: { id: string; email: string };
@@ -15,6 +18,11 @@ export interface TenantContext {
 
 // Helper para route handlers do painel: valida session e retorna tenant
 // linkado ao user. Use em todo /api/painel/*.
+//
+// Resolução do tenant ativo (em ordem):
+//   1. Cookie `singulare_active_tenant` (escolha explicita do usuario)
+//   2. tenants.admin_user_id == user.id
+//   3. tenants.admin_email == user.email (mais recente, auto-link)
 export async function requireTenant(): Promise<
   | { ok: true; ctx: TenantContext }
   | { ok: false; response: NextResponse }
@@ -30,14 +38,36 @@ export async function requireTenant(): Promise<
   }
 
   const admin = supabaseAdmin();
-  let { data: tenant } = await admin
-    .from('tenants')
-    .select('tenant_id, clinic_name, plan_type, subscription_status, admin_email')
-    .eq('admin_user_id', user.id)
-    .maybeSingle();
+  const cookieStore = cookies();
+  const preferredTenantId = cookieStore.get(ACTIVE_TENANT_COOKIE)?.value;
 
+  let tenant: TenantContext['tenant'] | null = null;
+
+  // 1. Tenta usar tenant ativo do cookie (verifica autorização)
+  if (preferredTenantId) {
+    const { data } = await admin
+      .from('tenants')
+      .select('tenant_id, clinic_name, plan_type, subscription_status, admin_email')
+      .eq('tenant_id', preferredTenantId)
+      .or(`admin_user_id.eq.${user.id},admin_email.eq.${user.email}`)
+      .maybeSingle();
+    if (data) tenant = data;
+  }
+
+  // 2. Por user_id
   if (!tenant) {
-    // Suporta multiplos tenants com mesmo email - pega o mais recente
+    const { data } = await admin
+      .from('tenants')
+      .select('tenant_id, clinic_name, plan_type, subscription_status, admin_email')
+      .eq('admin_user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) tenant = data;
+  }
+
+  // 3. Por email (auto-link)
+  if (!tenant) {
     const { data: byEmailList } = await admin
       .from('tenants')
       .select('tenant_id, clinic_name, plan_type, subscription_status, admin_email')

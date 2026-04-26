@@ -52,7 +52,7 @@ const TESTIMONIALS = [
     specialty: 'Odontologia',
     clinic: 'Clínica OrtoSorriso',
     rating: 5,
-    text: 'Minhas consultas aumentaram 60% e diminuí faltas em 70%. Vivassit virou parte do time.',
+    text: 'Minhas consultas aumentaram 60% e diminuí faltas em 70%. Singulare virou parte do time.',
   },
   {
     name: 'Mariana Costa',
@@ -424,8 +424,8 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-5 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Image
-              src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
-              alt="Vivassit"
+              src="/logos/singulare-a.svg"
+              alt="Singulare"
               width={120}
               height={40}
               className="h-7 w-auto"
@@ -549,7 +549,7 @@ export default function LandingPage() {
             </span>
           </h2>
           <p className="text-[17px] sm:text-[16px] text-zinc-500 leading-[1.5] sm:leading-relaxed">
-            Pare de usar 10 sistemas. Vivassit unifica agenda, pagamentos,
+            Pare de usar 10 sistemas. Singulare unifica agenda, pagamentos,
             comunicação e prontuário pra qualquer profissional de saúde.
           </p>
         </div>
@@ -850,14 +850,14 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-5 sm:px-6 py-7 sm:py-8 flex flex-col sm:flex-row items-center justify-between gap-5 sm:gap-4">
           <div className="flex items-center gap-2.5">
             <Image
-              src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
-              alt="Vivassit"
+              src="/logos/singulare-a.svg"
+              alt="Singulare"
               width={120}
               height={40}
               className="h-6 w-auto opacity-80"
             />
             <span className="text-[12px] text-zinc-400">
-              © {new Date().getFullYear()} Vivassit
+              © {new Date().getFullYear()} Singulare
             </span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-5 gap-y-2 text-[13px] sm:text-[12px] text-zinc-500">
