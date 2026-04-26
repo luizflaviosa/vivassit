@@ -7,6 +7,7 @@ import {
   type CreditCardData,
   type CreditCardHolderInfo,
 } from '@/lib/asaas';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 interface RequestBody {
   external_reference: string;
@@ -25,6 +26,16 @@ interface RequestBody {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 10 tentativas de pagamento por IP por hora
+  const ip = getClientIp(req);
+  const rl = rateLimit(`checkout:${ip}`, { max: 10, windowMs: 60 * 60 * 1000 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, message: `Aguarde ${rl.retryAfterSeconds}s.` },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+    );
+  }
+
   try {
     const body = (await req.json()) as RequestBody;
 

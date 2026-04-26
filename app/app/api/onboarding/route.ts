@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { supabaseAdmin, SAAS_PLAN_AMOUNTS, TRIAL_DAYS } from '@/lib/supabase';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 const E164_REGEX = /^\+\d{10,15}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,6 +25,20 @@ const normalizePhoneToE164 = (phone: string): string => {
 };
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 5 onboardings por IP por hora (defensa contra abuse)
+  const ip = getClientIp(request);
+  const rl = rateLimit(`onboarding:${ip}`, { max: 5, windowMs: 60 * 60 * 1000 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: `Muitas tentativas. Tente novamente em ${rl.retryAfterSeconds} segundos.`,
+        error_code: 'RATE_LIMITED',
+      },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+    );
+  }
+
   try {
     const body = await request.json();
     const normalizedPhone = normalizePhoneToE164(body?.real_phone ?? '');

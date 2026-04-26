@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { decryptString } from '@/lib/crypto';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 // Endpoint chamado pelo N8N (agente IA) quando precisa cobrar um paciente
 // usando a SUBCONTA Asaas da clinica (nao a conta master Vivassit).
@@ -73,6 +74,16 @@ async function asaasCallWithKey<T>(
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit por IP: 100/min (gostoso pra N8N rajadas, restritivo p/ abuse)
+  const ip = getClientIp(req);
+  const rl = rateLimit(`charge:${ip}`, { max: 100, windowMs: 60 * 1000 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, message: 'rate_limited', retry_after: rl.retryAfterSeconds },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+    );
+  }
+
   // Auth: token compartilhado N8N ↔ Vercel
   const authHeader = req.headers.get('authorization') ?? '';
   const expected = process.env.N8N_TO_VERCEL_TOKEN;
