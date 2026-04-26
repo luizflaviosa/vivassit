@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireTenant } from '@/lib/auth-tenant';
+import { createCalendar, shareCalendarWith } from '@/lib/google-calendar';
 
 export async function GET() {
   const auth = await requireTenant();
@@ -89,7 +90,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, id: data?.id });
+  // ─── Auto-cria Google Calendar dedicado pra este profissional ──────────────
+  // O onboarding cria 1 calendar pro tenant via N8N. Profissionais ADICIONAIS
+  // (cadastrados depois via painel) precisam do próprio calendar.
+  // Service Account é o dono → automaticamente compartilha com contact_email.
+  // Falha silenciosa: se não tiver SA configurado, profissional fica sem calendar
+  // (user pode criar manualmente depois pelo botão "Criar agenda Google").
+  let calendarInfo: { calendar_id?: string; share_status?: string } = {};
+  try {
+    const created = await createCalendar({
+      summary: `${row.doctor_name} · ${auth.ctx.tenant.clinic_name}`,
+    });
+    if ('calendar_id' in created) {
+      calendarInfo.calendar_id = created.calendar_id;
+      // Salva no profissional recém-criado
+      await supabase
+        .from('tenant_doctors')
+        .update({ calendar_id: created.calendar_id })
+        .eq('id', data!.id);
+
+      // Compartilha com contact_email (pra ele ver no Gmail dele)
+      if (row.contact_email) {
+        const shared = await shareCalendarWith({
+          calendarId: created.calendar_id,
+          email: row.contact_email,
+          role: 'writer',
+        });
+        calendarInfo.share_status = 'ok' in shared ? `shared_with_${row.contact_email}` : 'share_failed';
+      }
+    } else {
+      calendarInfo.share_status = `calendar_creation_skipped:${created.code}`;
+    }
+  } catch (e) {
+    // Silencioso: profissional foi criado, calendar pode ser feito manualmente
+    console.warn('[painel/profissionais POST] calendar auto-create falhou:', e);
+    calendarInfo.share_status = 'calendar_creation_error';
+  }
+
+  return NextResponse.json({ success: true, id: data?.id, calendar: calendarInfo });
 }
 
 interface DoctorPatch {

@@ -180,7 +180,20 @@ function ProfissionaisInner() {
         toast.error(json.message || 'Erro ao salvar');
         return;
       }
-      toast.success(isPatch ? 'Profissional atualizado' : 'Profissional cadastrado');
+      // Feedback rico se calendar foi auto-criado no POST
+      if (!isPatch && json.calendar?.calendar_id) {
+        toast.success('Profissional cadastrado · agenda Google criada automaticamente', {
+          description: json.calendar.share_status?.startsWith('shared_with_')
+            ? `Compartilhada com ${json.calendar.share_status.replace('shared_with_', '')}`
+            : undefined,
+        });
+      } else if (!isPatch && json.calendar?.share_status?.includes('skipped')) {
+        toast.success('Profissional cadastrado', {
+          description: 'Service Account não configurado — agenda pode ser criada manualmente depois.',
+        });
+      } else {
+        toast.success(isPatch ? 'Profissional atualizado' : 'Profissional cadastrado');
+      }
       closeModal();
       load();
     } catch (e) {
