@@ -747,6 +747,13 @@ function OnboardingPageInner() {
 
       if (response.ok && result.success) {
         try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+        // Redireciona pro checkout se temos external_reference
+        const ref = result.data?.external_reference as string | undefined;
+        if (ref) {
+          window.location.href = `/checkout/${encodeURIComponent(ref)}`;
+          return;
+        }
+        // Fallback (sem ref): mostra success screen tradicional
         setSuccessData(result.data as SuccessData);
       } else {
         const msg = result.message || 'Erro desconhecido. Tente novamente.';
