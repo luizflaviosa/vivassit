@@ -26,6 +26,7 @@ import {
 import { MeContext, type MeData } from '@/lib/painel-context';
 import WelcomeTour from './components/welcome-tour';
 import ChatDrawer from './components/chat-drawer';
+import InstallPrompt from './components/install-prompt';
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
@@ -109,8 +110,8 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
               </button>
               <Link href="/painel" className="flex items-center gap-2">
                 <Image
-                  src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
-                  alt="Vivassit"
+                  src="/logos/singulare-a.svg"
+                  alt="Singulare"
                   width={120}
                   height={40}
                   className="h-7 w-auto"
@@ -205,8 +206,8 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
                 >
                   <div className="flex items-center justify-between mb-6">
                     <Image
-                      src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
-                      alt="Vivassit"
+                      src="/logos/singulare-a.svg"
+                      alt="Singulare"
                       width={120}
                       height={40}
                       className="h-7 w-auto"
@@ -261,6 +262,9 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
 
         {/* Chat conversacional com a IA interna - bolha flutuante */}
         {me && <ChatDrawer />}
+
+        {/* Install prompt PWA (mobile, after 30s) */}
+        {me && <InstallPrompt />}
       </div>
     </MeContext.Provider>
   );

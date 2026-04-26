@@ -83,7 +83,7 @@ const VALUE_BLOCKS: ValueBlock[] = [
     icon: 'clock',
     title: 'Mais tempo para o que importa',
     description:
-      'Agendamento inteligente e lembretes automáticos. Você foca no paciente, a Vivassit cuida da burocracia.',
+      'Agendamento inteligente e lembretes automáticos. Você foca no paciente, a Singulare cuida da burocracia.',
   },
   {
     icon: 'heart',
@@ -168,7 +168,7 @@ const INITIAL_DATA: OnboardingData = {
   lgpd_accepted: false,
 };
 
-const DRAFT_KEY = 'vivassit_onboarding_draft';
+const DRAFT_KEY = 'singulare_onboarding_draft';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -384,8 +384,8 @@ function SuccessScreen({ data }: { data: SuccessData }) {
         >
           <div className="inline-flex items-center justify-center mb-8">
             <Image
-              src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
-              alt="Vivassit"
+              src="/logos/singulare-a.svg"
+              alt="Singulare"
               width={120}
               height={40}
               className="h-9 w-auto"
@@ -765,7 +765,7 @@ function OnboardingPageInner() {
         real_phone: normalizedPhone,
         qualifications: selectedQualifications,
         timestamp: formEndTime,
-        source: 'vivassit-onboarding-wizard',
+        source: 'singulare-onboarding-wizard',
         user_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         form_start_time: formStartTime,
         form_end_time: formEndTime,
@@ -1560,8 +1560,8 @@ function OnboardingPageInner() {
         <div className="max-w-5xl mx-auto px-5 sm:px-6 h-14 sm:h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Image
-              src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
-              alt="Vivassit"
+              src="/logos/singulare-a.svg"
+              alt="Singulare"
               width={120}
               height={40}
               className="h-7 w-auto"
@@ -1823,7 +1823,7 @@ function OnboardingPageInner() {
                   className="text-[10px] uppercase tracking-[0.12em] font-semibold"
                   style={{ color: ACCENT_DEEP }}
                 >
-                  Por que Vivassit
+                  Por que Singulare
                 </div>
                 <div className="flex-1 h-px bg-black/[0.07]" />
               </div>

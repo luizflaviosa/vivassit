@@ -134,8 +134,8 @@ function LoginInner() {
         <div className="text-center mb-8">
           <Link href="/landing" className="inline-flex">
             <Image
-              src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
-              alt="Vivassit"
+              src="/logos/singulare-a.svg"
+              alt="Singulare"
               width={120}
               height={40}
               className="h-9 w-auto"

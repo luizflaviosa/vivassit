@@ -225,7 +225,7 @@ export default function CheckoutClient({
           </div>
           <h1 className="text-[32px] sm:text-[36px] leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900 mb-3">
             <span className="font-serif italic font-normal text-zinc-700">Pago.</span>{' '}
-            Bem-vindo(a) à Vivassit.
+            Bem-vindo(a) à Singulare.
           </h1>
           <p className="text-zinc-500 text-[15px]">Redirecionando…</p>
         </motion.div>
@@ -239,8 +239,8 @@ export default function CheckoutClient({
       <header className="border-b border-black/[0.06] bg-white/80 backdrop-blur-xl sticky top-0 z-30">
         <div className="max-w-3xl mx-auto px-5 sm:px-6 h-14 flex items-center justify-between">
           <Image
-            src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
-            alt="Vivassit"
+            src="/logos/singulare-a.svg"
+            alt="Singulare"
             width={120}
             height={40}
             className="h-7 w-auto"

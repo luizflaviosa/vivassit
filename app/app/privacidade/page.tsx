@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export const metadata = {
-  title: 'Política de Privacidade · Vivassit',
+  title: 'Política de Privacidade · Singulare',
 };
 
 export default function PrivacidadePage() {
@@ -12,8 +12,8 @@ export default function PrivacidadePage() {
         <div className="max-w-3xl mx-auto px-5 sm:px-6 h-14 flex items-center justify-between">
           <Link href="/landing">
             <Image
-              src="https://cdn.abacus.ai/images/904c7894-74de-41eb-a89d-950fb291aeda.png"
-              alt="Vivassit"
+              src="/logos/singulare-a.svg"
+              alt="Singulare"
               width={120}
               height={40}
               className="h-7 w-auto"
@@ -37,7 +37,7 @@ export default function PrivacidadePage() {
 
         <article className="prose prose-zinc max-w-none text-[15px] leading-relaxed text-zinc-700 space-y-5">
           <Section title="1. Quem somos">
-            <strong>Singulare / Vivassit</strong>, controladora dos dados pessoais tratados nesta
+            <strong>Singulare / Singulare</strong>, controladora dos dados pessoais tratados nesta
             plataforma. Contato do encarregado (DPO):{' '}
             <a href="mailto:dpo@singulare.org" className="underline">dpo@singulare.org</a>
           </Section>

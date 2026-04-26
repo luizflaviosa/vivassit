@@ -250,7 +250,7 @@ function ActivateInner() {
         </h1>
         <p className="text-[14px] text-zinc-500 mt-1.5 leading-relaxed">
           Cadastre seus dados pra que cobre pacientes via WhatsApp. O dinheiro cai diretamente
-          na sua conta bancária — Vivassit não retém nada.
+          na sua conta bancária — Singulare não retém nada.
         </p>
       </div>
 
