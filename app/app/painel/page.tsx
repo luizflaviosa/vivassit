@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { useMe } from '@/lib/painel-context';
 import { MetricCardSkeleton, StatRowSkeleton, PageHeadingSkeleton } from '@/lib/painel-skeleton';
 import TiltCard from './components/tilt-card';
+import SetupChecklist from './components/setup-checklist';
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
@@ -178,6 +179,9 @@ function PainelInner() {
           </p>
         )}
       </motion.div>
+
+      {/* Setup checklist (some/aparece se faltar config) */}
+      <SetupChecklist />
 
       {/* Trial CTA */}
       {isTrialing && daysLeft !== null && daysLeft <= 7 && (

@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Plus, Trash2, User, Star, Mail, Phone, Loader2, X, Check } from 'lucide-react';
+import { Plus, Trash2, User, Star, Mail, Phone, Loader2, X, Check, Pencil, Calendar } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import { DoctorCardSkeleton, PageHeadingSkeleton } from '@/lib/painel-skeleton';
 
@@ -12,7 +12,7 @@ const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
 
 interface Doctor {
-  id: number;
+  id: string;
   doctor_name: string;
   doctor_crm: string | null;
   specialty: string;
@@ -27,6 +27,7 @@ interface Doctor {
   followup_window_days: number;
   contact_email: string | null;
   contact_phone: string | null;
+  calendar_id: string | null;
 }
 
 function ProfissionaisInner() {
@@ -36,6 +37,7 @@ function ProfissionaisInner() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Form state
@@ -45,6 +47,33 @@ function ProfissionaisInner() {
   const [value, setValue] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [calendarId, setCalendarId] = useState('');
+
+  const isEditing = editingId !== null;
+  const modalOpen = showAdd || isEditing;
+
+  const resetForm = () => {
+    setName(''); setRegister(''); setSpecialty(''); setValue('');
+    setEmail(''); setPhone(''); setCalendarId('');
+  };
+
+  const closeModal = () => {
+    setShowAdd(false);
+    setEditingId(null);
+    resetForm();
+  };
+
+  const startEdit = (d: Doctor) => {
+    setEditingId(d.id);
+    setShowAdd(false);
+    setName(d.doctor_name);
+    setRegister(d.doctor_crm ?? '');
+    setSpecialty(d.specialty);
+    setValue(d.consultation_value ? String(d.consultation_value) : '');
+    setEmail(d.contact_email ?? '');
+    setPhone(d.contact_phone ?? '');
+    setCalendarId(d.calendar_id ?? '');
+  };
 
   const load = async () => {
     if (!tenantId) {
@@ -92,8 +121,7 @@ function ProfissionaisInner() {
         return;
       }
       toast.success('Profissional cadastrado!');
-      setShowAdd(false);
-      setName(''); setRegister(''); setSpecialty(''); setValue(''); setEmail(''); setPhone('');
+      closeModal();
       load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro inesperado');
@@ -102,7 +130,44 @@ function ProfissionaisInner() {
     }
   };
 
-  const handleDelete = async (id: number, isPrimary: boolean) => {
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    if (!name.trim() || !specialty.trim()) {
+      toast.error('Nome e especialidade são obrigatórios');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/painel/profissionais', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingId,
+          doctor_name: name,
+          doctor_crm: register || null,
+          specialty,
+          consultation_value: value || null,
+          contact_email: email || null,
+          contact_phone: phone || null,
+          calendar_id: calendarId || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.message || 'Erro ao salvar');
+        return;
+      }
+      toast.success('Profissional atualizado');
+      closeModal();
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro inesperado');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string, isPrimary: boolean) => {
     if (isPrimary) {
       toast.error('Não é possível remover o profissional principal');
       return;
@@ -168,21 +233,21 @@ function ProfissionaisInner() {
       ) : (
         <div className="space-y-2">
           {doctors.map((d) => (
-            <DoctorCard key={d.id} doctor={d} onDelete={handleDelete} />
+            <DoctorCard key={d.id} doctor={d} onDelete={handleDelete} onEdit={() => startEdit(d)} />
           ))}
         </div>
       )}
 
-      {/* Modal Add */}
+      {/* Modal Add/Edit */}
       <AnimatePresence>
-        {showAdd && (
+        {modalOpen && (
           <>
             <motion.div
               className="fixed inset-0 z-50 bg-black/40"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowAdd(false)}
+              onClick={closeModal}
             />
             <motion.div
               className="fixed inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 top-1/2 -translate-y-1/2 z-50 w-auto sm:w-[480px] bg-white rounded-2xl shadow-2xl overflow-hidden"
@@ -192,15 +257,17 @@ function ProfissionaisInner() {
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             >
               <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-black/[0.06]">
-                <h2 className="text-[16px] font-semibold text-zinc-900">Novo profissional</h2>
+                <h2 className="text-[16px] font-semibold text-zinc-900">
+                  {isEditing ? 'Editar profissional' : 'Novo profissional'}
+                </h2>
                 <button
-                  onClick={() => setShowAdd(false)}
+                  onClick={closeModal}
                   className="h-8 w-8 -mr-2 rounded-md hover:bg-black/[0.04] inline-flex items-center justify-center"
                 >
                   <X className="w-4 h-4 text-zinc-500" />
                 </button>
               </div>
-              <div className="p-5 sm:p-6 space-y-3">
+              <div className="p-5 sm:p-6 space-y-3 max-h-[70vh] overflow-y-auto">
                 <FormInput placeholder="Nome completo" value={name} onChange={setName} />
                 <div className="grid grid-cols-2 gap-3">
                   <FormInput placeholder="Registro (CRM/CRO/CRP...)" value={register} onChange={setRegister} />
@@ -209,16 +276,26 @@ function ProfissionaisInner() {
                 <FormInput placeholder="Valor da consulta (R$)" value={value} onChange={setValue} inputMode="decimal" />
                 <FormInput placeholder="Email de contato" value={email} onChange={setEmail} type="email" />
                 <FormInput placeholder="Telefone de contato" value={phone} onChange={setPhone} type="tel" />
+                <div>
+                  <FormInput
+                    placeholder="Calendar ID Google (ex: profissional@gmail.com ou xxx@group.calendar.google.com)"
+                    value={calendarId}
+                    onChange={setCalendarId}
+                  />
+                  <p className="text-[11px] text-zinc-400 mt-1.5 px-1">
+                    Compartilhe esse calendar com o Service Account pra agenda funcionar.
+                  </p>
+                </div>
               </div>
               <div className="flex items-center justify-end gap-2 px-5 sm:px-6 py-4 bg-zinc-50/60 border-t border-black/[0.06]">
                 <button
-                  onClick={() => setShowAdd(false)}
+                  onClick={closeModal}
                   className="h-10 px-4 rounded-lg text-[13px] font-semibold text-zinc-700 hover:bg-black/[0.04] transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
-                  onClick={handleAdd}
+                  onClick={isEditing ? handleSaveEdit : handleAdd}
                   disabled={submitting}
                   className="h-10 px-4 rounded-lg text-white text-[13px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110 disabled:opacity-70"
                   style={{
@@ -226,7 +303,7 @@ function ProfissionaisInner() {
                   }}
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  Salvar
+                  {isEditing ? 'Salvar alterações' : 'Cadastrar'}
                 </button>
               </div>
             </motion.div>
@@ -237,7 +314,7 @@ function ProfissionaisInner() {
   );
 }
 
-function DoctorCard({ doctor, onDelete }: { doctor: Doctor; onDelete: (id: number, isPrimary: boolean) => void }) {
+function DoctorCard({ doctor, onDelete, onEdit }: { doctor: Doctor; onDelete: (id: string, isPrimary: boolean) => void; onEdit: () => void }) {
   return (
     <div className="rounded-xl border border-black/[0.07] bg-white p-4 sm:p-5 flex items-start gap-4">
       <div
@@ -289,15 +366,30 @@ function DoctorCard({ doctor, onDelete }: { doctor: Doctor; onDelete: (id: numbe
           )}
         </div>
       </div>
-      {!doctor.is_primary && (
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {doctor.calendar_id && (
+          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+            <Calendar className="w-2.5 h-2.5" /> calendar
+          </span>
+        )}
         <button
-          onClick={() => onDelete(doctor.id, doctor.is_primary)}
-          className="h-9 w-9 rounded-md hover:bg-rose-50 hover:text-rose-600 text-zinc-400 inline-flex items-center justify-center transition-colors"
-          aria-label="Remover"
+          onClick={onEdit}
+          className="h-9 w-9 rounded-md hover:bg-zinc-100 hover:text-zinc-900 text-zinc-400 inline-flex items-center justify-center transition-colors"
+          aria-label="Editar"
+          title="Editar profissional"
         >
-          <Trash2 className="w-4 h-4" />
+          <Pencil className="w-4 h-4" />
         </button>
-      )}
+        {!doctor.is_primary && (
+          <button
+            onClick={() => onDelete(doctor.id, doctor.is_primary)}
+            className="h-9 w-9 rounded-md hover:bg-rose-50 hover:text-rose-600 text-zinc-400 inline-flex items-center justify-center transition-colors"
+            aria-label="Remover"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

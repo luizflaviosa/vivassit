@@ -100,7 +100,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
     <MeContext.Provider value={me}>
       <div className="min-h-screen bg-[#FAFAF7] text-zinc-900">
         <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-[68px] flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <button
                 type="button"
@@ -114,9 +114,9 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
                 <Image
                   src="/logos/singulare-a.svg"
                   alt="Singulare"
-                  width={120}
-                  height={40}
-                  className="h-7 w-auto"
+                  width={200}
+                  height={66}
+                  className="h-10 sm:h-12 w-auto"
                   priority
                 />
                 <span className="hidden sm:inline text-[12px] uppercase tracking-[0.1em] font-semibold text-zinc-400">

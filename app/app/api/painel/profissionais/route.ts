@@ -92,6 +92,70 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ success: true, id: data?.id });
 }
 
+interface DoctorPatch {
+  id: string;
+  doctor_name?: string;
+  doctor_crm?: string;
+  specialty?: string;
+  consultation_value?: number | string | null;
+  consultation_duration?: number | null;
+  payment_methods?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  address?: string | null;
+  calendar_id?: string | null;
+  followup_value?: number | string | null;
+  followup_window_days?: number | null;
+  accepts_insurance?: boolean;
+  insurance_note?: string | null;
+}
+
+export async function PATCH(req: NextRequest) {
+  const auth = await requireTenant();
+  if (!auth.ok) return auth.response;
+
+  let body: DoctorPatch;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ success: false, message: 'JSON inválido' }, { status: 400 });
+  }
+  if (!body.id) {
+    return NextResponse.json({ success: false, message: 'id obrigatório' }, { status: 400 });
+  }
+
+  // Pega só os campos editáveis (whitelist)
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const fields: (keyof DoctorPatch)[] = [
+    'doctor_name', 'doctor_crm', 'specialty', 'consultation_value', 'consultation_duration',
+    'payment_methods', 'contact_email', 'contact_phone', 'address', 'calendar_id',
+    'followup_value', 'followup_window_days', 'accepts_insurance', 'insurance_note',
+  ];
+  for (const f of fields) {
+    if (body[f] !== undefined) updates[f] = body[f];
+  }
+
+  if (Object.keys(updates).length === 1) {
+    return NextResponse.json({ success: false, message: 'nenhum campo para atualizar' }, { status: 400 });
+  }
+
+  const supabase = supabaseAdmin();
+  const { data, error } = await supabase
+    .from('tenant_doctors')
+    .update(updates)
+    .eq('tenant_id', auth.ctx.tenant.tenant_id)
+    .eq('id', body.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[painel/profissionais PATCH] erro:', error);
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, doctor: data });
+}
+
 export async function DELETE(req: NextRequest) {
   const auth = await requireTenant();
   if (!auth.ok) return auth.response;

@@ -434,14 +434,14 @@ export default function LandingPage() {
 
       {/* Topbar */}
       <header className="relative border-b border-black/[0.06] bg-white/70 backdrop-blur-xl sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 h-[72px] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Image
               src="/logos/singulare-a.svg"
               alt="Singulare"
-              width={160}
-              height={56}
-              className="h-9 sm:h-10 w-auto"
+              width={200}
+              height={66}
+              className="h-11 sm:h-12 w-auto"
               priority
             />
           </div>
