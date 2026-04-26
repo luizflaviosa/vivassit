@@ -34,6 +34,7 @@ import {
   Loader2,
   Lock,
   ChevronRight,
+  CreditCard,
 } from 'lucide-react';
 import {
   OnboardingData,
@@ -45,6 +46,7 @@ import {
   COUNCIL_BY_PROFESSIONAL,
   SPECIALTIES_BY_PROFESSIONAL,
   ESTABLISHMENT_SIZES,
+  COMMON_INSURANCES,
   type ProfessionalTypeKey,
   type EstablishmentSizeKey,
 } from '@/lib/types';
@@ -127,6 +129,12 @@ const WIZARD_STEPS: WizardStep[] = [
   },
   {
     id: 4,
+    title: 'Cobrança e IA',
+    description: 'Como você cobra e como sua IA atende',
+    fields: ['lgpd_accepted'],
+  },
+  {
+    id: 5,
     title: 'Confirmar',
     description: 'Revise as informações e finalize',
     fields: [],
@@ -670,7 +678,15 @@ function OnboardingPageInner() {
   }, [formData]);
 
   const handleInputChange = (field: keyof OnboardingData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Boolean fields handled via 'true'/'' string trick
+    const booleanFields = ['accepts_insurance', 'auto_emit_nf', 'lgpd_accepted'];
+    const numberFields = ['partial_charge_pct', 'followup_window_days'];
+
+    let parsed: unknown = value;
+    if (booleanFields.includes(field)) parsed = value === 'true';
+    else if (numberFields.includes(field)) parsed = value === '' ? null : parseInt(value, 10);
+
+    setFormData(prev => ({ ...prev, [field]: parsed as never }));
     if (errors[field]) {
       setErrors(prev => {
         const next = { ...prev };
@@ -709,6 +725,11 @@ function OnboardingPageInner() {
         if (!/^\+\d{10,15}$/.test(normalized)) {
           newErrors.real_phone = 'Telefone inválido. Informe DDD + número (ex: 11 99999-9999)';
         }
+      }
+
+      // Step 3: LGPD obrigatorio
+      if (stepFields.includes('lgpd_accepted') && !formData.lgpd_accepted) {
+        newErrors.lgpd_accepted = 'Você precisa aceitar os termos para continuar';
       }
 
       setErrors(newErrors);
@@ -1087,16 +1108,322 @@ function OnboardingPageInner() {
           </div>
         );
 
-      // ── Step 3: Confirmação ────────────────────────────────────────────────
-      case 3:
+      // ── Step 3: Cobranca + IA + LGPD ───────────────────────────────────────
+      case 3: {
+        const isSolo = formData.establishment_type === 'private_practice';
+        const acceptedMethods = (formData.payment_methods ?? []) as string[];
+        const insuranceList = (formData.insurance_list ?? []) as string[];
+        const workingHours = (formData.working_hours ?? {}) as Record<string, string>;
+        const days: Array<{ key: string; label: string }> = [
+          { key: 'seg', label: 'Seg' },
+          { key: 'ter', label: 'Ter' },
+          { key: 'qua', label: 'Qua' },
+          { key: 'qui', label: 'Qui' },
+          { key: 'sex', label: 'Sex' },
+          { key: 'sab', label: 'Sáb' },
+          { key: 'dom', label: 'Dom' },
+        ];
+
+        const toggleMethod = (m: string) => {
+          const next = acceptedMethods.includes(m)
+            ? acceptedMethods.filter(x => x !== m)
+            : [...acceptedMethods, m];
+          setFormData(prev => ({ ...prev, payment_methods: next as never }));
+        };
+
+        const toggleInsurance = (name: string) => {
+          const next = insuranceList.includes(name)
+            ? insuranceList.filter(x => x !== name)
+            : [...insuranceList, name];
+          setFormData(prev => ({ ...prev, insurance_list: next as never }));
+        };
+
+        const setWorkingHour = (day: string, value: string) => {
+          setFormData(prev => ({
+            ...prev,
+            working_hours: { ...workingHours, [day]: value } as never,
+          }));
+        };
+
+        return (
+          <div className="space-y-7">
+            {/* Valor consulta + métodos pagamento */}
+            <div className="space-y-5">
+              <Field label="Valor da consulta (R$)">
+                <input
+                  type="text"
+                  value={formData.consultation_value ?? ''}
+                  onChange={e => handleInputChange('consultation_value', e.target.value)}
+                  placeholder="Ex: 250"
+                  inputMode="decimal"
+                  className={inputClasses(false)}
+                />
+              </Field>
+
+              <div>
+                <p className="text-[14px] sm:text-[13px] font-medium text-zinc-900 mb-2.5">Métodos de pagamento aceitos</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'pix',         label: 'PIX' },
+                    { id: 'credit_card', label: 'Cartão' },
+                    { id: 'boleto',      label: 'Boleto' },
+                    { id: 'cash',        label: 'Dinheiro' },
+                  ].map(m => {
+                    const selected = acceptedMethods.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleMethod(m.id)}
+                        className={`flex items-center gap-2.5 rounded-md p-3 text-left transition-all min-h-[48px] ${
+                          selected ? 'bg-white border border-transparent' : 'bg-white border border-black/[0.08] hover:border-black/20'
+                        }`}
+                        style={selected ? { boxShadow: `0 0 0 1px ${ACCENT}` } : undefined}
+                      >
+                        <div
+                          className={`relative h-5 w-5 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
+                            selected ? '' : 'border border-zinc-300'
+                          }`}
+                          style={selected ? { background: ACCENT_DEEP } : undefined}
+                        >
+                          {selected && <Check className="w-3 h-3 text-white" strokeWidth={3.5} />}
+                        </div>
+                        <span className="text-[14px] font-medium text-zinc-800">{m.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Quando cobrar */}
+            <Field label="Quando cobrar">
+              <div className="grid grid-cols-1 gap-2">
+                {[
+                  { id: 'before',   label: 'Antes da consulta', desc: 'Cobrança automática via WhatsApp' },
+                  { id: 'after',    label: 'Após a consulta',   desc: 'Você ou o paciente confirma' },
+                  { id: 'optional', label: 'Paciente escolhe',  desc: 'Mais flexível' },
+                ].map(opt => {
+                  const selected = formData.charge_timing === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleInputChange('charge_timing', opt.id)}
+                      className={`p-3.5 rounded-lg text-left transition-all ${
+                        selected ? 'bg-white border border-transparent' : 'bg-white border border-black/[0.08] hover:border-black/20'
+                      }`}
+                      style={selected ? { boxShadow: `0 0 0 1px ${ACCENT}` } : undefined}
+                    >
+                      <div className="text-[14px] font-semibold text-zinc-900">{opt.label}</div>
+                      <div className="text-[12px] text-zinc-500 mt-0.5">{opt.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+
+            {/* Parcial — só se "antes" */}
+            {formData.charge_timing === 'before' && (
+              <Field label="Cobrança antecipada">
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 30,  label: '30% sinal' },
+                    { value: 50,  label: '50%' },
+                    { value: 100, label: '100%' },
+                  ].map(opt => {
+                    const selected = formData.partial_charge_pct === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => handleInputChange('partial_charge_pct', String(opt.value))}
+                        className={`h-12 rounded-md text-[13px] font-semibold transition-all ${
+                          selected ? 'bg-zinc-900 text-white' : 'bg-white border border-black/[0.08] text-zinc-700 hover:border-black/20'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[12px] text-zinc-500 mt-1.5">
+                  {formData.partial_charge_pct !== 100
+                    ? 'Saldo restante é cobrado automaticamente após a consulta.'
+                    : 'Pagamento integral antes da consulta.'}
+                </p>
+              </Field>
+            )}
+
+            {/* Convênios */}
+            <div>
+              <button
+                type="button"
+                onClick={() => handleInputChange('accepts_insurance', formData.accepts_insurance ? '' : 'true')}
+                className="flex items-center gap-3 w-full text-left"
+              >
+                <div
+                  className={`h-5 w-5 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
+                    formData.accepts_insurance ? '' : 'border border-zinc-300'
+                  }`}
+                  style={formData.accepts_insurance ? { background: ACCENT_DEEP } : undefined}
+                >
+                  {formData.accepts_insurance && <Check className="w-3 h-3 text-white" strokeWidth={3.5} />}
+                </div>
+                <div>
+                  <div className="text-[14px] font-semibold text-zinc-900">Aceito convênios</div>
+                  <div className="text-[12px] text-zinc-500">Selecione os planos abaixo</div>
+                </div>
+              </button>
+
+              {formData.accepts_insurance && (
+                <div className="mt-3 grid grid-cols-2 gap-1.5">
+                  {COMMON_INSURANCES.map(name => {
+                    const selected = insuranceList.includes(name);
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => toggleInsurance(name)}
+                        className={`px-3 py-2 rounded-md text-left text-[13px] font-medium transition-all ${
+                          selected ? 'bg-zinc-900 text-white' : 'bg-white border border-black/[0.08] text-zinc-700 hover:border-black/20'
+                        }`}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* NF automática */}
+            <div>
+              <button
+                type="button"
+                onClick={() => handleInputChange('auto_emit_nf', formData.auto_emit_nf ? '' : 'true')}
+                className="flex items-center gap-3 w-full text-left"
+              >
+                <div
+                  className={`h-5 w-5 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
+                    formData.auto_emit_nf ? '' : 'border border-zinc-300'
+                  }`}
+                  style={formData.auto_emit_nf ? { background: ACCENT_DEEP } : undefined}
+                >
+                  {formData.auto_emit_nf && <Check className="w-3 h-3 text-white" strokeWidth={3.5} />}
+                </div>
+                <div>
+                  <div className="text-[14px] font-semibold text-zinc-900">Solicitar Nota Fiscal automaticamente</div>
+                  <div className="text-[12px] text-zinc-500">Cobrança paga gera pedido enviado pro contador</div>
+                </div>
+              </button>
+              {formData.auto_emit_nf && (
+                <input
+                  type="email"
+                  value={formData.accountant_email ?? ''}
+                  onChange={e => handleInputChange('accountant_email', e.target.value)}
+                  placeholder="email do contador"
+                  className={`mt-3 ${inputClasses(false)}`}
+                />
+              )}
+            </div>
+
+            {/* Working hours — só se private_practice */}
+            {isSolo && (
+              <Field label="Dias e horários de atendimento">
+                <div className="space-y-1.5">
+                  {days.map(d => {
+                    const value = workingHours[d.key] ?? 'fechado';
+                    const isClosed = value === 'fechado';
+                    return (
+                      <div key={d.key} className="flex items-center gap-2">
+                        <span className="text-[13px] font-semibold text-zinc-700 w-10">{d.label}</span>
+                        <button
+                          type="button"
+                          onClick={() => setWorkingHour(d.key, isClosed ? '08:00-18:00' : 'fechado')}
+                          className={`flex-shrink-0 h-9 px-3 rounded-md text-[12px] font-medium transition-all ${
+                            isClosed ? 'bg-zinc-100 text-zinc-500' : 'text-white'
+                          }`}
+                          style={!isClosed ? { background: ACCENT_DEEP } : undefined}
+                        >
+                          {isClosed ? 'Fechado' : 'Aberto'}
+                        </button>
+                        {!isClosed && (
+                          <input
+                            type="text"
+                            value={value}
+                            onChange={e => setWorkingHour(d.key, e.target.value)}
+                            placeholder="08:00-18:00"
+                            className="flex-1 h-9 px-3 text-[13px] rounded-md border border-black/10 focus:outline-none focus:border-zinc-900"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Field>
+            )}
+
+            {/* Personalize sua IA */}
+            <Field label="Personalize sua IA" hint="Opcional">
+              <textarea
+                value={formData.assistant_prompt ?? ''}
+                onChange={e => handleInputChange('assistant_prompt', e.target.value)}
+                placeholder="Ex: Sempre cumprimente o paciente pelo primeiro nome. Não responda perguntas clínicas — encaminhe para agendar consulta. Use linguagem informal."
+                rows={5}
+                className="w-full px-3.5 py-3 bg-white text-[15px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all resize-none"
+              />
+              <p className="text-[12px] text-zinc-500 mt-1.5">
+                Direcione o tom, regras e limites do agente IA. Pode editar a qualquer momento depois.
+              </p>
+            </Field>
+
+            {/* LGPD */}
+            <div className="rounded-xl border border-black/[0.07] bg-zinc-50/60 p-4">
+              <button
+                type="button"
+                onClick={() => handleInputChange('lgpd_accepted', formData.lgpd_accepted ? '' : 'true')}
+                className="flex items-start gap-3 w-full text-left"
+              >
+                <div
+                  className={`mt-0.5 h-5 w-5 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
+                    formData.lgpd_accepted ? '' : 'border border-zinc-300 bg-white'
+                  }`}
+                  style={formData.lgpd_accepted ? { background: ACCENT_DEEP } : undefined}
+                >
+                  {formData.lgpd_accepted && <Check className="w-3 h-3 text-white" strokeWidth={3.5} />}
+                </div>
+                <div className="text-[13px] text-zinc-700 leading-relaxed">
+                  Li e aceito os{' '}
+                  <a href="/termos" target="_blank" className="underline" style={{ color: ACCENT_DEEP }}>termos de uso</a>
+                  {' '}e a{' '}
+                  <a href="/privacidade" target="_blank" className="underline" style={{ color: ACCENT_DEEP }}>política de privacidade</a>
+                  , autorizando o tratamento dos meus dados em conformidade com a LGPD.
+                </div>
+              </button>
+              {errors.lgpd_accepted && (
+                <p className="text-[12px] text-rose-600 mt-2 ml-8">{errors.lgpd_accepted}</p>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      // ── Step 4: Confirmação ────────────────────────────────────────────────
+      case 4: {
+        const profType = (formData.professional_type as ProfessionalTypeKey) || 'medico';
+        const council = COUNCIL_BY_PROFESSIONAL[profType];
+        const acceptedMethods = (formData.payment_methods ?? []) as string[];
+        const insuranceList = (formData.insurance_list ?? []) as string[];
         return (
           <div className="space-y-3">
             <ReviewBlock
               icon={<User className="w-3.5 h-3.5" strokeWidth={1.75} />}
               title="Profissional"
               rows={[
+                ['Tipo', PROFESSIONAL_TYPES[profType]],
                 ['Nome', formData.doctor_name],
-                ['CRM', formData.doctor_crm],
+                [council.label, formData.doctor_crm],
                 ['Especialidade', formData.speciality],
               ]}
             />
@@ -1119,31 +1446,43 @@ function OnboardingPageInner() {
                   ESTABLISHMENT_SIZES[formData.establishment_type as EstablishmentSizeKey]?.label
                     ?? formData.establishment_type,
                 ],
-                [
-                  'Plano',
-                  PLAN_TYPES[formData.plan_type as keyof typeof PLAN_TYPES],
-                  true,
-                ],
+                ['Plano', PLAN_TYPES[formData.plan_type as keyof typeof PLAN_TYPES], true],
               ]}
             />
+            {(formData.consultation_value || acceptedMethods.length > 0) && (
+              <ReviewBlock
+                icon={<CreditCard className="w-3.5 h-3.5" strokeWidth={1.75} />}
+                title="Cobrança"
+                rows={[
+                  ...(formData.consultation_value ? [['Valor', `R$ ${formData.consultation_value}`] as [string, string]] : []),
+                  ...(acceptedMethods.length ? [['Métodos', acceptedMethods.join(', ').toUpperCase()] as [string, string]] : []),
+                  ...(formData.charge_timing ? [['Quando', formData.charge_timing === 'before' ? `${formData.partial_charge_pct}% antes` : formData.charge_timing === 'after' ? 'Após consulta' : 'Paciente escolhe'] as [string, string]] : []),
+                  ...(formData.accepts_insurance ? [['Convênios', insuranceList.length ? insuranceList.join(', ') : 'Sim'] as [string, string]] : []),
+                  ...(formData.auto_emit_nf ? [['NF auto', formData.accountant_email || 'Sim'] as [string, string]] : []),
+                ]}
+              />
+            )}
+            {formData.assistant_prompt && formData.assistant_prompt.length > 0 && (
+              <div className="rounded-xl border border-black/[0.07] bg-white p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-6 w-6 rounded-md flex items-center justify-center" style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}>
+                    <Sparkles className="w-3.5 h-3.5" strokeWidth={1.75} />
+                  </div>
+                  <h3 className="text-[12px] uppercase tracking-[0.08em] font-semibold text-zinc-500">Sua IA</h3>
+                </div>
+                <p className="text-[13px] text-zinc-700 leading-relaxed line-clamp-3">{formData.assistant_prompt}</p>
+              </div>
+            )}
             <div className="rounded-xl border border-black/[0.07] bg-white p-4">
               <div className="flex items-center gap-2 mb-2.5">
-                <div
-                  className="h-6 w-6 rounded-md flex items-center justify-center"
-                  style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
-                >
+                <div className="h-6 w-6 rounded-md flex items-center justify-center" style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}>
                   <Star className="w-3.5 h-3.5" strokeWidth={1.75} />
                 </div>
-                <h3 className="text-[12px] uppercase tracking-[0.08em] font-semibold text-zinc-500">
-                  Funcionalidades
-                </h3>
+                <h3 className="text-[12px] uppercase tracking-[0.08em] font-semibold text-zinc-500">Funcionalidades</h3>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {qualifications.filter(q => q.selected).map(q => (
-                  <span
-                    key={q.id}
-                    className="text-[12px] font-medium px-2 py-1 rounded-md border border-black/[0.07] bg-zinc-50 text-zinc-700 inline-flex items-center gap-1"
-                  >
+                  <span key={q.id} className="text-[12px] font-medium px-2 py-1 rounded-md border border-black/[0.07] bg-zinc-50 text-zinc-700 inline-flex items-center gap-1">
                     <Check className="w-3 h-3 text-emerald-600" strokeWidth={3} />
                     {q.label}
                   </span>
@@ -1157,6 +1496,7 @@ function OnboardingPageInner() {
             </p>
           </div>
         );
+      }
 
       default:
         return null;
@@ -1258,13 +1598,18 @@ function OnboardingPageInner() {
               </>
             ) : currentStep === 1 ? (
               <>
-                Sua <span className="font-serif italic font-normal text-zinc-700">clínica</span>,
+                Seu <span className="font-serif italic font-normal text-zinc-700">consultório</span>,
                 em poucos campos.
               </>
             ) : currentStep === 2 ? (
               <>
                 Como você prefere{' '}
                 <span className="font-serif italic font-normal text-zinc-700">atender?</span>
+              </>
+            ) : currentStep === 3 ? (
+              <>
+                Cobrança e{' '}
+                <span className="font-serif italic font-normal text-zinc-700">sua IA.</span>
               </>
             ) : (
               <>
@@ -1306,7 +1651,7 @@ function OnboardingPageInner() {
                 type="button"
                 onClick={handlePrev}
                 disabled={currentStep === 0}
-                className="h-9 px-3 -ml-2 rounded-md text-[13px] font-medium text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.03] inline-flex items-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                className="h-9 px-3.5 rounded-md text-[13px] font-semibold text-zinc-900 border border-black/[0.10] hover:border-black/30 hover:bg-black/[0.03] inline-flex items-center gap-1.5 transition-all disabled:opacity-30 disabled:border-black/[0.06] disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:text-zinc-400 disabled:font-medium"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 Voltar

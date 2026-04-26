@@ -65,40 +65,40 @@ const TESTIMONIALS = [
 
 const FEATURES = [
   {
+    icon: MessageCircle,
+    title: 'Agente IA no WhatsApp',
+    description: 'Atende, agenda, confirma e responde dúvidas dos seus pacientes 24/7.',
+    benefit: 'Atendimento sempre on',
+  },
+  {
+    icon: User,
+    title: 'Assistente humana de plantão',
+    description: 'Quando a IA detecta um caso delicado, escala pra uma pessoa real assumir.',
+    benefit: 'Toque humano garantido',
+  },
+  {
     icon: Calendar,
     title: 'Agenda inteligente',
-    description: 'IA otimiza horários e reduz faltas em até 60%.',
+    description: 'IA otimiza horários e reduz faltas em até 60% com lembretes automáticos.',
     benefit: 'Mais consultas',
   },
   {
-    icon: MessageCircle,
-    title: 'WhatsApp integrado',
-    description: 'Lembretes e confirmações automáticas, sem intervenção manual.',
-    benefit: 'Zero stress',
+    icon: BarChart3,
+    title: 'CRM completo',
+    description: 'Histórico, preferências, retornos, NPS — tudo do paciente num lugar só.',
+    benefit: 'Relacionamento em alto nível',
   },
   {
     icon: CreditCard,
-    title: 'Pagamentos seguros',
-    description: 'PIX, cartão e parcelamento processados automaticamente.',
-    benefit: 'Mais receita',
-  },
-  {
-    icon: BarChart3,
-    title: 'Relatórios claros',
-    description: 'Insights sobre onde crescer, otimizar e investir.',
-    benefit: 'Mais lucro',
+    title: 'Pagamentos no fluxo',
+    description: 'PIX, cartão e boleto enviados via WhatsApp e processados na mesma conversa.',
+    benefit: 'Mais receita, menos atrito',
   },
   {
     icon: Shield,
-    title: 'Conformidade LGPD',
-    description: 'Criptografia ponta-a-ponta e backups automáticos diários.',
-    benefit: 'Tranquilidade',
-  },
-  {
-    icon: Smartphone,
-    title: 'Mobile-first',
-    description: 'App nativo para você e portal completo para seus pacientes.',
-    benefit: 'Praticidade',
+    title: 'Seguro e em conformidade',
+    description: 'LGPD, criptografia ponta-a-ponta, backups diários e auditoria completa.',
+    benefit: 'Tranquilidade total',
   },
 ];
 
@@ -461,8 +461,9 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-[18px] sm:text-[19px] text-zinc-500 leading-[1.5] sm:leading-relaxed max-w-2xl mx-auto mb-10 sm:mb-10 px-2 sm:px-0">
-            Para dentistas, médicos, psicólogos, fisios, nutris e mais. A IA atende
-            seu paciente no WhatsApp, agenda, cobra e organiza tudo. Sem complicação.
+            Para dentistas, médicos, psicólogos, fisios, nutris e mais.
+            Uma IA atende no WhatsApp, agenda, organiza pagamentos e mantém
+            seu CRM em dia. Quando o caso pede toque humano, uma assistente real assume.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center px-2 sm:px-0">
