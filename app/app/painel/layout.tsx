@@ -23,6 +23,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { MeContext, type MeData } from '@/lib/painel-context';
+import WelcomeTour from './components/welcome-tour';
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
@@ -244,6 +245,9 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
 
           <main className="flex-1 min-w-0 px-4 sm:px-0 py-6 sm:py-8 pb-20">{children}</main>
         </div>
+
+        {/* Tour de boas-vindas (so na primeira visita) */}
+        {me && <WelcomeTour />}
       </div>
     </MeContext.Provider>
   );
