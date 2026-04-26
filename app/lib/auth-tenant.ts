@@ -37,11 +37,15 @@ export async function requireTenant(): Promise<
     .maybeSingle();
 
   if (!tenant) {
-    const { data: byEmail } = await admin
+    // Suporta multiplos tenants com mesmo email - pega o mais recente
+    const { data: byEmailList } = await admin
       .from('tenants')
       .select('tenant_id, clinic_name, plan_type, subscription_status, admin_email')
       .eq('admin_email', user.email)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const byEmail = byEmailList?.[0];
     if (byEmail) {
       tenant = byEmail;
       await admin

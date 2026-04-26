@@ -42,15 +42,18 @@ export async function GET(req: NextRequest) {
 
   const user = data?.user;
   if (user?.email) {
-    // Linka o user ao tenant cujo admin_email bate (se ainda nao tem admin_user_id)
+    // Linka o user ao tenant mais recente cujo admin_email bate
+    // (se ainda nao tem admin_user_id setado)
     try {
       const admin = supabaseAdmin();
-      const { data: tenant } = await admin
+      const { data: tenants } = await admin
         .from('tenants')
-        .select('tenant_id, admin_user_id')
+        .select('tenant_id, admin_user_id, created_at')
         .eq('admin_email', user.email)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
+      const tenant = tenants?.[0];
       if (tenant && !tenant.admin_user_id) {
         await admin
           .from('tenants')

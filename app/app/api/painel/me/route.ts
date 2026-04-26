@@ -23,13 +23,15 @@ export async function GET() {
     .eq('admin_user_id', user.id)
     .maybeSingle();
 
-  // Fallback: por admin_email (e linka)
+  // Fallback: por admin_email (pega o mais recente se houver multiplos)
   if (!tenant && user.email) {
-    const { data: byEmail } = await admin
+    const { data: byEmailList } = await admin
       .from('tenants')
       .select('tenant_id, clinic_name, plan_type, subscription_status, admin_email')
       .eq('admin_email', user.email)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const byEmail = byEmailList?.[0];
     if (byEmail) {
       tenant = byEmail;
       await admin
