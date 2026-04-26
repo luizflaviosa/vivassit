@@ -11,7 +11,10 @@ import {
   AlertCircle,
   ArrowUpRight,
   Sparkles,
+  TrendingUp,
+  ChevronRight,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useMe } from '@/lib/painel-context';
 import { MetricCardSkeleton, StatRowSkeleton, PageHeadingSkeleton } from '@/lib/painel-skeleton';
 
@@ -38,6 +41,32 @@ interface Metrics {
   messages_month: number;
 }
 
+interface UpcomingAppointment {
+  id: string;
+  patient_name: string | null;
+  doctor_name: string | null;
+  appointment_date: string;
+  status: string;
+}
+
+interface SeriesPoint { date: string; count: number }
+
+interface Stats {
+  patients_total: number;
+  patients_new_month: number;
+  appts_upcoming: number;
+  appts_next_7d: number;
+  appts_total_month: number;
+  doctors_active: number;
+  revenue_month: number;
+  revenue_count: number;
+  nps_avg: number | null;
+  nps_score: number | null;
+  nps_responses: number;
+  nps_promoters: number;
+  nps_detractors: number;
+}
+
 const PLAN_LABELS: Record<string, string> = {
   basic: 'Starter',
   professional: 'Professional',
@@ -61,6 +90,9 @@ function PainelInner() {
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [upcoming, setUpcoming] = useState<UpcomingAppointment[]>([]);
+  const [series, setSeries] = useState<SeriesPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -70,14 +102,21 @@ function PainelInner() {
     }
     const load = async () => {
       try {
-        const [tRes, mRes] = await Promise.all([
+        const [tRes, mRes, sRes] = await Promise.all([
           fetch('/api/painel/tenant'),
           fetch('/api/painel/overview'),
+          fetch('/api/painel/stats'),
         ]);
         const tJson = await tRes.json();
         const mJson = await mRes.json();
+        const sJson = await sRes.json();
         if (tJson.success) setTenant(tJson.tenant);
         if (mJson.success) setMetrics(mJson.metrics);
+        if (sJson.success) {
+          setStats(sJson.stats);
+          setUpcoming(sJson.upcoming ?? []);
+          setSeries(sJson.series ?? []);
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -217,6 +256,93 @@ function PainelInner() {
         />
       </div>
 
+      {/* Próximos compromissos + tendência (NOVO) */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div className="lg:col-span-3 rounded-2xl border border-black/[0.07] bg-white p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-[13px] font-semibold text-zinc-900">Próximos compromissos</p>
+              <p className="text-[11px] text-zinc-500 mt-0.5">
+                {stats?.appts_next_7d ?? 0} nos próximos 7 dias
+              </p>
+            </div>
+            <Link
+              href="/painel/agenda"
+              className="text-[12px] font-semibold inline-flex items-center gap-1 text-zinc-600 hover:text-zinc-900"
+            >
+              Ver agenda <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+          {upcoming.length === 0 ? (
+            <div className="py-8 text-center">
+              <Calendar className="w-5 h-5 text-zinc-300 mx-auto mb-2" />
+              <p className="text-[13px] text-zinc-500">Nenhuma consulta agendada nos próximos dias.</p>
+              <p className="text-[12px] text-zinc-400 mt-0.5">A IA cria eventos automaticamente quando paciente fecha pelo WhatsApp.</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {upcoming.map((ap) => {
+                const d = new Date(ap.appointment_date);
+                return (
+                  <div key={ap.id} className="flex items-center gap-3 py-2.5 border-t border-black/[0.05] first:border-t-0">
+                    <div className="flex-shrink-0 text-center w-12">
+                      <div className="text-[11px] uppercase tracking-wide font-semibold text-zinc-500">
+                        {d.toLocaleDateString('pt-BR', { month: 'short' })}
+                      </div>
+                      <div className="text-[18px] font-semibold text-zinc-900 leading-none">{d.getDate()}</div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13.5px] font-medium text-zinc-900 truncate">
+                        {ap.patient_name ?? 'Paciente'}
+                      </div>
+                      <div className="text-[12px] text-zinc-500 truncate">
+                        {d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        {ap.doctor_name && ` · ${ap.doctor_name}`}
+                      </div>
+                    </div>
+                    <span
+                      className="text-[10px] uppercase tracking-[0.08em] font-bold px-2 py-1 rounded"
+                      style={{
+                        background: ap.status === 'cancelled' ? '#FEE2E2' : ACCENT_SOFT,
+                        color: ap.status === 'cancelled' ? '#B91C1C' : ACCENT_DEEP,
+                      }}
+                    >
+                      {ap.status === 'cancelled' ? 'cancelado' : 'confirmado'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="lg:col-span-2 rounded-2xl border border-black/[0.07] bg-white p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-[13px] font-semibold text-zinc-900">Tendência</p>
+            <TrendingUp className="w-3.5 h-3.5 text-zinc-400" />
+          </div>
+          <p className="text-[11px] text-zinc-500 mb-4">Consultas por semana · 12 sem</p>
+          <Sparkbar series={series} />
+          <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-black/[0.05]">
+            <div>
+              <div className="text-[18px] font-semibold text-zinc-900 leading-none">
+                {stats?.patients_new_month ?? 0}
+              </div>
+              <div className="text-[11px] text-zinc-500 mt-1">Novos pacientes (mês)</div>
+            </div>
+            <div>
+              <div className="text-[18px] font-semibold text-zinc-900 leading-none">
+                {stats?.nps_score === null || stats?.nps_score === undefined ? '—' : stats.nps_score}
+              </div>
+              <div className="text-[11px] text-zinc-500 mt-1">
+                NPS Score{' '}
+                {stats?.nps_responses ? `· ${stats.nps_responses} resp.` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Quick links */}
       <div className="rounded-2xl border border-black/[0.07] bg-white p-5 sm:p-6">
         <p className="text-[13px] font-semibold text-zinc-900 mb-3">Atalhos</p>
@@ -244,6 +370,30 @@ function PainelInner() {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+function Sparkbar({ series }: { series: { date: string; count: number }[] }) {
+  const max = Math.max(1, ...series.map((s) => s.count));
+  const today = new Date().toISOString().slice(0, 10);
+  return (
+    <div className="flex items-end gap-1 h-20">
+      {series.map((p) => {
+        const h = (p.count / max) * 100;
+        const isCurrent = p.date >= today.slice(0, 7) && p.date >= today.slice(0, 8) + '01';
+        return (
+          <div
+            key={p.date}
+            className="flex-1 rounded-t-sm relative group"
+            style={{
+              height: `${Math.max(h, 4)}%`,
+              background: isCurrent ? '#6E56CF' : '#E4E4E7',
+            }}
+            title={`${new Date(p.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} — ${p.count} consultas`}
+          />
+        );
+      })}
     </div>
   );
 }
