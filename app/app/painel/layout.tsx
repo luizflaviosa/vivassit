@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { MeContext, type MeData } from '@/lib/painel-context';
 import WelcomeTour from './components/welcome-tour';
+import ChatDrawer from './components/chat-drawer';
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
@@ -248,6 +249,9 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
 
         {/* Tour de boas-vindas (so na primeira visita) */}
         {me && <WelcomeTour />}
+
+        {/* Chat conversacional com a IA interna - bolha flutuante */}
+        {me && <ChatDrawer />}
       </div>
     </MeContext.Provider>
   );
