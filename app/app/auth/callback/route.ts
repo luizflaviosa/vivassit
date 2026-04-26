@@ -1,20 +1,26 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import type { EmailOtpType } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/lib/supabase';
 
-// Callback do magic link: troca code por session, linka tenant.admin_user_id
-// (idempotente) se ainda nao linkado, redireciona pra /painel ou ?next=...
+// Callback unico para 2 fluxos:
+//   1. OAuth (Google, etc): chega com ?code=X    → exchangeCodeForSession
+//   2. Magic link por email: chega com ?token_hash=X&type=email → verifyOtp
+// Em ambos os casos, seta cookies, linka admin_user_id ao tenant, e
+// redireciona pra ?next= ou /painel.
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
+  const tokenHash = url.searchParams.get('token_hash');
+  const type = url.searchParams.get('type') as EmailOtpType | null;
   const next = url.searchParams.get('next') ?? '/painel';
 
-  if (!code) {
-    return NextResponse.redirect(new URL('/login?error=missing_code', url.origin));
+  if (!code && !tokenHash) {
+    return NextResponse.redirect(new URL('/login?error=missing_token', url.origin));
   }
 
-  // Cria response final ja com a redirect; cookies serao adicionadas inline
+  // Cria response com redirect; cookies serao adicionadas via setAll
   let response = NextResponse.redirect(new URL(next, url.origin));
 
   const supabase = createServerClient(
@@ -26,7 +32,7 @@ export async function GET(req: NextRequest) {
           return req.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // Recria response preservando o redirect, adiciona cookies novos
+          // Recria response preservando o redirect, adiciona cookies
           response = NextResponse.redirect(new URL(next, url.origin));
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
@@ -36,23 +42,46 @@ export async function GET(req: NextRequest) {
     }
   );
 
-  const { error, data } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) {
-    console.error('[auth/callback] exchange erro:', error);
-    return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin)
-    );
+  let userEmail: string | undefined;
+  let userId: string | undefined;
+
+  // ── Fluxo 1: OAuth (Google) ───────────────────────────────────────────────
+  if (code) {
+    const { error, data } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      console.error('[auth/callback] exchange erro:', error);
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin)
+      );
+    }
+    userEmail = data?.user?.email ?? undefined;
+    userId = data?.user?.id;
   }
 
-  const user = data?.user;
-  if (user?.email) {
-    // Linka o user ao tenant mais recente cujo admin_email bate
+  // ── Fluxo 2: Magic link / email OTP ───────────────────────────────────────
+  if (tokenHash && type) {
+    const { error, data } = await supabase.auth.verifyOtp({
+      type,
+      token_hash: tokenHash,
+    });
+    if (error) {
+      console.error('[auth/callback] verifyOtp erro:', error);
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin)
+      );
+    }
+    userEmail = data?.user?.email ?? undefined;
+    userId = data?.user?.id;
+  }
+
+  // ── Linka ao tenant (idempotente) ─────────────────────────────────────────
+  if (userEmail && userId) {
     try {
       const admin = supabaseAdmin();
       const { data: tenants } = await admin
         .from('tenants')
         .select('tenant_id, admin_user_id, created_at')
-        .eq('admin_email', user.email)
+        .eq('admin_email', userEmail)
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -60,7 +89,7 @@ export async function GET(req: NextRequest) {
       if (tenant && !tenant.admin_user_id) {
         await admin
           .from('tenants')
-          .update({ admin_user_id: user.id, updated_at: new Date().toISOString() })
+          .update({ admin_user_id: userId, updated_at: new Date().toISOString() })
           .eq('tenant_id', tenant.tenant_id);
       }
     } catch (e) {
