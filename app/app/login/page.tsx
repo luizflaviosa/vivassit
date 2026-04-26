@@ -37,7 +37,12 @@ function LoginInner() {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const { error: err } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}` },
+        options: {
+          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          // Pede scope de leitura de calendário pra integração com agenda nativa
+          scopes: 'https://www.googleapis.com/auth/calendar.readonly',
+          queryParams: { access_type: 'offline', prompt: 'consent' },
+        },
       });
       if (err) throw err;
     } catch (err) {
