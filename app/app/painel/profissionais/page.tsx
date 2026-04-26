@@ -361,13 +361,21 @@ function ProfissionaisInner() {
 
                 {/* Calendar */}
                 <Section title="Google Calendar" icon={<Calendar className="w-3.5 h-3.5" />}>
+                  <CalendarManager
+                    doctorId={editingId}
+                    currentCalendarId={form.calendar_id}
+                    contactEmail={form.contact_email}
+                    onCreated={(id) => setField('calendar_id', id)}
+                  />
                   <FormInput
-                    placeholder="Calendar ID (email Google ou xxx@group.calendar.google.com)"
+                    placeholder="Calendar ID (preenchido automaticamente)"
                     value={form.calendar_id}
                     onChange={(v) => setField('calendar_id', v)}
                   />
                   <p className="text-[11px] text-zinc-400">
-                    Compartilhe esse calendar com o Service Account pra agenda funcionar.
+                    {form.calendar_id
+                      ? 'Calendar configurado. O Service Account precisa ter acesso (use "Verificar acesso" abaixo se duvida).'
+                      : 'Crie um novo calendar dedicado ou cole um ID existente (precisa ter compartilhamento com o SA).'}
                   </p>
                 </Section>
               </div>
@@ -394,6 +402,112 @@ function ProfissionaisInner() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function CalendarManager({
+  doctorId, currentCalendarId, contactEmail, onCreated,
+}: {
+  doctorId: string | null;
+  currentCalendarId: string;
+  contactEmail: string;
+  onCreated: (id: string) => void;
+}) {
+  const [busy, setBusy] = useState<'create' | 'verify' | null>(null);
+  const [verifyResult, setVerifyResult] = useState<{ ok: boolean; message: string; sa_email?: string; suggestion?: string } | null>(null);
+
+  if (!doctorId) {
+    return (
+      <p className="text-[12px] text-zinc-500 italic mb-2">
+        Salve o profissional primeiro pra poder criar/vincular um calendar.
+      </p>
+    );
+  }
+
+  const handleCreate = async () => {
+    if (!confirm('Criar um novo Google Calendar dedicado pra este profissional?\n\nO Service Account será o dono e (se tiver email cadastrado) será compartilhado com o profissional pra ele ver no Gmail dele.')) return;
+    setBusy('create');
+    try {
+      const res = await fetch(`/api/painel/profissionais/${doctorId}/calendar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', share_with: contactEmail || undefined }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.message || 'Erro ao criar calendar');
+        return;
+      }
+      onCreated(json.calendar_id);
+      const shareMsg = json.share?.shared
+        ? ` e compartilhado com ${json.share.with}`
+        : (json.share?.error ? ` (mas falhou compartilhar com ${json.share.with}: ${json.share.error})` : '');
+      toast.success(`Calendar criado${shareMsg}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro inesperado');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleVerify = async () => {
+    setBusy('verify');
+    setVerifyResult(null);
+    try {
+      const res = await fetch(`/api/painel/profissionais/${doctorId}/calendar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify' }),
+      });
+      const json = await res.json();
+      setVerifyResult({
+        ok: !!json.success,
+        message: json.message ?? (json.success ? 'OK' : 'Erro'),
+        sa_email: json.sa_email,
+        suggestion: json.suggestion,
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="space-y-2 mb-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {!currentCalendarId ? (
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={busy !== null}
+            className="h-9 px-3.5 rounded-md text-white text-[12.5px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110 disabled:opacity-60"
+            style={{ background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+          >
+            {busy === 'create' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+            Criar agenda Google automaticamente
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleVerify}
+            disabled={busy !== null}
+            className="h-9 px-3.5 rounded-md text-[12.5px] font-semibold text-zinc-700 border border-black/[0.10] hover:border-black/30 hover:bg-black/[0.02] inline-flex items-center gap-1.5 transition-all disabled:opacity-60"
+          >
+            {busy === 'verify' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+            Verificar acesso do Service Account
+          </button>
+        )}
+      </div>
+      {verifyResult && (
+        <div className={`text-[12px] rounded-lg px-3 py-2 leading-relaxed ${verifyResult.ok ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+          <p className="font-semibold mb-0.5">{verifyResult.ok ? '✓ Acesso OK' : '⚠ Sem acesso'}</p>
+          <p>{verifyResult.message}</p>
+          {verifyResult.suggestion && <p className="mt-1 font-mono text-[11px] break-all">{verifyResult.suggestion}</p>}
+          {verifyResult.sa_email && (
+            <p className="mt-1.5 text-[11px]">Service Account: <code className="font-mono">{verifyResult.sa_email}</code></p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
