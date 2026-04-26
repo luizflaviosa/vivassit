@@ -311,3 +311,67 @@ export async function getSubscription(id: string): Promise<AsaasSubscription> {
 export async function cancelSubscription(id: string): Promise<{ deleted: boolean; id: string }> {
   return asaasFetch(`/subscriptions/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Subcontas (Marketplace) — cada clinica vira uma subconta Asaas
+// Docs: https://docs.asaas.com/reference/criar-uma-subconta
+// ──────────────────────────────────────────────────────────────────────────────
+
+export type AsaasPersonType = 'FISICA' | 'JURIDICA';
+export type AsaasCompanyType =
+  | 'MEI' | 'LIMITED' | 'INDIVIDUAL' | 'ASSOCIATION';
+
+export interface CreateSubaccountInput {
+  name: string;                    // razao social ou nome completo
+  email: string;
+  loginEmail?: string;             // default = email
+  cpfCnpj: string;                 // 11 ou 14 digitos
+  birthDate?: string;              // YYYY-MM-DD (PF)
+  companyType?: AsaasCompanyType;  // (PJ)
+  personType: AsaasPersonType;
+  mobilePhone: string;
+  site?: string;
+  incomeValue: number;             // faturamento mensal estimado
+  address: string;
+  addressNumber: string;
+  complement?: string;
+  province: string;                // bairro
+  city?: string;                   // cidade (Asaas resolve via CEP)
+  state?: string;                  // UF
+  postalCode: string;              // CEP, 8 digitos
+}
+
+export interface AsaasSubaccount {
+  object: 'account';
+  id: string;
+  name: string;
+  email: string;
+  loginEmail: string;
+  walletId: string;
+  apiKey: string;                  // chave da subconta (criptografar!)
+  accountNumber?: { agency: string; account: string; accountDigit: string };
+  cpfCnpj: string;
+  personType: AsaasPersonType;
+  status: { commercialInfo: string; documentation: string; general: string };
+  // ...
+}
+
+export async function createSubaccount(input: CreateSubaccountInput): Promise<AsaasSubaccount> {
+  return asaasFetch<AsaasSubaccount>(`/accounts`, {
+    method: 'POST',
+    body: JSON.stringify({
+      ...input,
+      cpfCnpj: input.cpfCnpj.replace(/\D/g, ''),
+      mobilePhone: input.mobilePhone.replace(/\D/g, ''),
+      postalCode: input.postalCode.replace(/\D/g, ''),
+      loginEmail: input.loginEmail ?? input.email,
+    }),
+  });
+}
+
+export async function getSubaccountStatus(accountId: string): Promise<{
+  id: string;
+  status: { commercialInfo: string; documentation: string; general: string };
+}> {
+  return asaasFetch(`/accounts/${encodeURIComponent(accountId)}`);
+}
