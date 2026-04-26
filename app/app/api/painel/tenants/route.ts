@@ -13,7 +13,7 @@ export async function GET() {
   const admin = supabaseAdmin();
 
   // Busca por user_id OU email (qualquer match)
-  const queries: Promise<{ data: unknown[] | null }>[] = [
+  const queries = [
     admin
       .from('tenants')
       .select('tenant_id, clinic_name, plan_type, subscription_status, created_at')
