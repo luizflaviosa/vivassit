@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Mail, ArrowRight, Loader2, Check, Lock } from 'lucide-react';
+import { Mail, ArrowRight, Loader2, Check, Lock, KeyRound, Sparkles } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 type OAuthProvider = 'google';
+type Mode = 'password' | 'magic';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -16,11 +17,16 @@ const ACCENT_SOFT = '#F5F3FF';
 
 function LoginInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const next = searchParams?.get('next') ?? '/painel';
+
+  const [mode, setMode] = useState<Mode>('password');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
-  const [sent, setSent] = useState(false);
+  const [magicSent, setMagicSent] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleOAuth = async (provider: OAuthProvider) => {
@@ -31,22 +37,46 @@ function LoginInner() {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const { error: err } = await supabase.auth.signInWithOAuth({
         provider,
-        options: {
-          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-        },
+        options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}` },
       });
       if (err) throw err;
-      // Redirect acontece automaticamente
     } catch (err) {
       setError(err instanceof Error ? err.message : `Não foi possível entrar com ${provider}`);
       setOauthLoading(null);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (err) throw err;
+      router.replace(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível entrar';
+      // Mensagens em pt-BR
+      if (/invalid login credentials/i.test(msg)) {
+        setError('Email ou senha incorretos. Se ainda não definiu senha, use "Esqueci minha senha" abaixo.');
+      } else if (/email not confirmed/i.test(msg)) {
+        setError('Confirme seu email primeiro (cheque sua caixa de entrada).');
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
-
     setSubmitting(true);
     setError(null);
     try {
@@ -54,18 +84,44 @@ function LoginInner() {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const { error: err } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: {
-          emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-        },
+        options: { emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}` },
       });
       if (err) throw err;
-      setSent(true);
+      setMagicSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível enviar o link');
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handleResetPassword = async () => {
+    if (!email.trim()) {
+      setError('Digite seu email primeiro.');
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${origin}/auth/callback?next=/configurar-senha`,
+      });
+      if (err) throw err;
+      setResetSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível enviar o email');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const showSuccessCard = magicSent || resetSent;
+  const successTitle = resetSent ? 'Email enviado' : 'Link enviado';
+  const successBody = resetSent
+    ? 'Cheque sua caixa de entrada e clique no link pra definir uma nova senha.'
+    : 'Cheque sua caixa de entrada e clique no link pra entrar.';
 
   return (
     <div className="min-h-screen bg-[#FAFAF7] flex items-center justify-center px-5 py-12">
@@ -89,7 +145,7 @@ function LoginInner() {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="rounded-2xl border border-black/[0.07] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_18px_40px_-16px_rgba(0,0,0,0.10)] overflow-hidden"
         >
-          {sent ? (
+          {showSuccessCard ? (
             <div className="p-8 text-center">
               <motion.div
                 initial={{ scale: 0.6, opacity: 0 }}
@@ -101,23 +157,24 @@ function LoginInner() {
                 <Check className="w-6 h-6" strokeWidth={3} />
               </motion.div>
               <h1 className="text-[24px] font-medium tracking-[-0.02em] text-zinc-900 mb-2">
-                Link enviado
+                {successTitle}
               </h1>
               <p className="text-[14px] text-zinc-500 leading-relaxed">
-                Cheque sua caixa de entrada de <strong className="text-zinc-900">{email}</strong>{' '}
-                e clique no link mágico pra entrar.
+                {successBody.split(' ').slice(0, 5).join(' ')}{' '}
+                <strong className="text-zinc-900">{email}</strong>{' '}
+                {successBody.split(' ').slice(5).join(' ')}
               </p>
               <button
                 type="button"
-                onClick={() => { setSent(false); setEmail(''); }}
+                onClick={() => { setMagicSent(false); setResetSent(false); setEmail(''); setPassword(''); }}
                 className="mt-6 text-[13px] font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
               >
-                Usar outro email
+                Voltar
               </button>
             </div>
           ) : (
             <>
-              <div className="p-8 pb-6">
+              <div className="p-8 pb-5">
                 <h1 className="text-[26px] font-medium tracking-[-0.025em] text-zinc-900 mb-1.5">
                   Entrar no <span className="font-serif italic font-normal text-zinc-700">painel</span>
                 </h1>
@@ -126,8 +183,8 @@ function LoginInner() {
                 </p>
               </div>
 
-              {/* OAuth providers */}
-              <div className="px-8 pb-3 space-y-2">
+              {/* OAuth */}
+              <div className="px-8 pb-3">
                 <button
                   type="button"
                   onClick={() => handleOAuth('google')}
@@ -151,51 +208,143 @@ function LoginInner() {
               {/* Divider */}
               <div className="px-8 pb-4 flex items-center gap-3">
                 <div className="flex-1 h-px bg-black/[0.07]" />
-                <span className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-400">ou email</span>
+                <span className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-400">ou</span>
                 <div className="flex-1 h-px bg-black/[0.07]" />
               </div>
 
-              <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-3">
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoFocus
-                    autoComplete="email"
-                    className="w-full h-12 pl-10 pr-4 bg-white text-[16px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
-                  />
+              {/* Mode tabs */}
+              <div className="px-8 pb-4">
+                <div className="grid grid-cols-2 p-0.5 bg-zinc-100 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => { setMode('password'); setError(null); }}
+                    className={`h-8 text-[12px] font-semibold rounded-md inline-flex items-center justify-center gap-1.5 transition-all ${
+                      mode === 'password' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+                    }`}
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    Senha
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMode('magic'); setError(null); }}
+                    className={`h-8 text-[12px] font-semibold rounded-md inline-flex items-center justify-center gap-1.5 transition-all ${
+                      mode === 'magic' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Link mágico
+                  </button>
                 </div>
+              </div>
 
-                {error && (
-                  <p className="text-[13px] text-rose-600 px-1">{error}</p>
+              <AnimatePresence mode="wait">
+                {mode === 'password' ? (
+                  <motion.form
+                    key="pw"
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    transition={{ duration: 0.18 }}
+                    onSubmit={handlePasswordLogin}
+                    className="px-8 pb-6 space-y-2.5"
+                  >
+                    <div className="relative">
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                      <input
+                        type="email"
+                        required
+                        placeholder="seu@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoFocus
+                        autoComplete="email"
+                        className="w-full h-12 pl-10 pr-4 bg-white text-[16px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                      />
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                      <input
+                        type="password"
+                        required
+                        placeholder="Sua senha"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="current-password"
+                        className="w-full h-12 pl-10 pr-4 bg-white text-[16px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                      />
+                    </div>
+
+                    {error && <p className="text-[13px] text-rose-600 px-1 leading-relaxed">{error}</p>}
+
+                    <button
+                      type="submit"
+                      disabled={submitting || !!oauthLoading}
+                      className="w-full h-12 rounded-xl text-white text-[15px] font-semibold inline-flex items-center justify-center gap-2 transition-all hover:brightness-110 disabled:opacity-70"
+                      style={{
+                        background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
+                        boxShadow: '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 8px 24px -8px rgba(110,86,207,0.55)',
+                      }}
+                    >
+                      {submitting ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" />Entrando…</>
+                      ) : (
+                        <>Entrar<ArrowRight className="w-4 h-4" /></>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleResetPassword}
+                      disabled={submitting}
+                      className="w-full text-center text-[12.5px] font-medium text-zinc-500 hover:text-zinc-900 transition-colors py-1"
+                    >
+                      Esqueci minha senha · definir nova
+                    </button>
+                  </motion.form>
+                ) : (
+                  <motion.form
+                    key="ml"
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    transition={{ duration: 0.18 }}
+                    onSubmit={handleMagicLink}
+                    className="px-8 pb-6 space-y-3"
+                  >
+                    <div className="relative">
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                      <input
+                        type="email"
+                        required
+                        placeholder="seu@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoComplete="email"
+                        className="w-full h-12 pl-10 pr-4 bg-white text-[16px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                      />
+                    </div>
+
+                    {error && <p className="text-[13px] text-rose-600 px-1">{error}</p>}
+
+                    <button
+                      type="submit"
+                      disabled={submitting || !!oauthLoading}
+                      className="w-full h-12 rounded-xl text-white text-[15px] font-semibold inline-flex items-center justify-center gap-2 transition-all hover:brightness-110 disabled:opacity-70"
+                      style={{
+                        background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
+                        boxShadow: '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 8px 24px -8px rgba(110,86,207,0.55)',
+                      }}
+                    >
+                      {submitting ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" />Enviando…</>
+                      ) : (
+                        <>Enviar link mágico<ArrowRight className="w-4 h-4" /></>
+                      )}
+                    </button>
+                  </motion.form>
                 )}
-
-                <button
-                  type="submit"
-                  disabled={submitting || !!oauthLoading}
-                  className="w-full h-12 rounded-xl text-white text-[15px] font-semibold inline-flex items-center justify-center gap-2 transition-all hover:brightness-110 disabled:opacity-70"
-                  style={{
-                    background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
-                    boxShadow: '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 8px 24px -8px rgba(110,86,207,0.55)',
-                  }}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Enviando…
-                    </>
-                  ) : (
-                    <>
-                      Enviar link mágico
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              </form>
+              </AnimatePresence>
 
               <div className="px-8 py-4 bg-zinc-50/60 border-t border-black/[0.06] flex items-center gap-2 text-[12px] text-zinc-500">
                 <span
@@ -204,7 +353,7 @@ function LoginInner() {
                 >
                   <Lock className="w-3 h-3" strokeWidth={2.5} />
                 </span>
-                Sem senha, sem reset. Só email.
+                Senha, Google ou link mágico — escolha o que preferir.
               </div>
             </>
           )}
