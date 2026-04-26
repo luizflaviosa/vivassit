@@ -74,18 +74,23 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
     router.replace('/login');
   };
 
+  // Ordem: uso diário (top) → estrutura → setup → futuras → config (bottom)
   const navItems: NavItem[] = [
     { href: '/painel', label: 'Visão geral', icon: <LayoutGrid className="w-4 h-4" />, enabled: true },
-    { href: '/painel/profissionais', label: 'Profissionais', icon: <Users className="w-4 h-4" />, enabled: true },
-    { href: '/painel/pacientes', label: 'Pacientes', icon: <UserPlus className="w-4 h-4" />, enabled: true },
-    { href: '/painel/configuracoes', label: 'Configurações', icon: <SettingsIcon className="w-4 h-4" />, enabled: true },
-    { href: '/painel/cobrancas', label: 'Cobranças', icon: <CreditCard className="w-4 h-4" />, enabled: true },
+    // Uso diário
     { href: '/painel/agenda', label: 'Agenda', icon: <Calendar className="w-4 h-4" />, enabled: true },
+    { href: '/painel/pacientes', label: 'Pacientes', icon: <UserPlus className="w-4 h-4" />, enabled: true },
     { href: '/painel/mensagens', label: 'Mensagens', icon: <MessageCircle className="w-4 h-4" />, enabled: true },
+    { href: '/painel/cobrancas', label: 'Cobranças', icon: <CreditCard className="w-4 h-4" />, enabled: true },
     { href: '/painel/nf', label: 'Notas fiscais', icon: <FileText className="w-4 h-4" />, enabled: true },
     { href: '/painel/feedback', label: 'NPS / feedback', icon: <Star className="w-4 h-4" />, enabled: true },
+    // Estrutura (baixa frequência)
+    { href: '/painel/profissionais', label: 'Profissionais', icon: <Users className="w-4 h-4" />, enabled: true },
+    // Setup
     { href: '/painel/pagamentos/ativar', label: 'Ativar pagamentos', icon: <CreditCard className="w-4 h-4" />, enabled: true },
     { href: '/painel/visibilidade', label: 'Visibilidade', icon: <Megaphone className="w-4 h-4" />, enabled: false, hint: 'Tráfego pago e SEO' },
+    // Config (último)
+    { href: '/painel/configuracoes', label: 'Configurações', icon: <SettingsIcon className="w-4 h-4" />, enabled: true },
   ];
 
   if (loading) {

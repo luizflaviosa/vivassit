@@ -23,7 +23,7 @@ export async function GET() {
       .eq('status', 'active'),
     supabase
       .from('tenants')
-      .select('clinic_name, real_phone, assistant_prompt')
+      .select('clinic_name, real_phone, assistant_prompt, telegram_chat_id, telegram_bot_link')
       .eq('tenant_id', tenantId)
       .maybeSingle(),
     supabase
@@ -38,9 +38,13 @@ export async function GET() {
   const has_ai_prompt = !!(tenant?.assistant_prompt && tenant.assistant_prompt.trim().length > 20);
   const has_clinic_data = !!(tenant?.clinic_name && tenant?.real_phone);
   const has_payment = (payments?.length ?? 0) > 0;
+  const has_telegram = !!(tenant?.telegram_chat_id);
 
   return NextResponse.json({
     success: true,
-    status: { has_doctor, has_calendar, has_payment, has_ai_prompt, has_clinic_data },
+    status: {
+      has_doctor, has_calendar, has_payment, has_ai_prompt, has_clinic_data,
+      has_telegram, telegram_bot_link: tenant?.telegram_bot_link ?? null,
+    },
   });
 }

@@ -19,6 +19,7 @@ import { useMe } from '@/lib/painel-context';
 import { MetricCardSkeleton, StatRowSkeleton, PageHeadingSkeleton } from '@/lib/painel-skeleton';
 import TiltCard from './components/tilt-card';
 import SetupChecklist from './components/setup-checklist';
+import TelegramCTA from './components/telegram-cta';
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
@@ -93,6 +94,7 @@ function PainelInner() {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [tgInfo, setTgInfo] = useState<{ link: string | null; chat_id: string | null } | null>(null);
   const [upcoming, setUpcoming] = useState<UpcomingAppointment[]>([]);
   const [series, setSeries] = useState<SeriesPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,7 +114,13 @@ function PainelInner() {
         const tJson = await tRes.json();
         const mJson = await mRes.json();
         const sJson = await sRes.json();
-        if (tJson.success) setTenant(tJson.tenant);
+        if (tJson.success) {
+          setTenant(tJson.tenant);
+          setTgInfo({
+            link: tJson.tenant.telegram_bot_link ?? null,
+            chat_id: tJson.tenant.telegram_chat_id ?? null,
+          });
+        }
         if (mJson.success) setMetrics(mJson.metrics);
         if (sJson.success) {
           setStats(sJson.stats);
@@ -179,6 +187,11 @@ function PainelInner() {
           </p>
         )}
       </motion.div>
+
+      {/* Telegram CTA — promove o canal principal */}
+      {tgInfo && (
+        <TelegramCTA telegramBotLink={tgInfo.link} hasChatId={!!tgInfo.chat_id} />
+      )}
 
       {/* Setup checklist (some/aparece se faltar config) */}
       <SetupChecklist />

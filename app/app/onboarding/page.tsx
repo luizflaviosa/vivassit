@@ -1029,8 +1029,8 @@ function OnboardingPageInner() {
             </Field>
 
             <Field
-              label="WhatsApp / Telefone"
-              hint="DDD + número"
+              label="Número WhatsApp do canal de atendimento"
+              hint="É o WhatsApp onde a IA vai atender pacientes (vira instância Evolution). Pode ser da clínica ou seu chip dedicado."
               error={errors.real_phone}
             >
               <input

@@ -50,6 +50,7 @@ interface FormData {
   doctor_crm: string;
   speciality: string;
   evolution_phone_number: string;
+  elevenlabs_voice_id: string;
   assistant_prompt: string;
 }
 
@@ -57,7 +58,7 @@ const EMPTY: FormData = {
   clinic_name: '', cnpj: '', email: '', phone: '', real_phone: '',
   admin_email: '', accountant_email: '', address: '',
   doctor_name: '', doctor_crm: '', speciality: '',
-  evolution_phone_number: '', assistant_prompt: '',
+  evolution_phone_number: '', elevenlabs_voice_id: '', assistant_prompt: '',
 };
 
 function ConfigInner() {
@@ -97,6 +98,7 @@ function ConfigInner() {
             doctor_crm: t.doctor_crm ?? '',
             speciality: t.speciality ?? '',
             evolution_phone_number: t.evolution_phone_number ?? '',
+            elevenlabs_voice_id: t.elevenlabs_voice_id ?? '',
             assistant_prompt: t.assistant_prompt ?? '',
           });
         }
@@ -237,10 +239,10 @@ function ConfigInner() {
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Telefone WhatsApp (real)" hint="Onde a IA atende">
+            <Field label="WhatsApp do canal IA (Evolution)" hint="Número onde a IA atende paciente. É a instância Evolution.">
               <input type="tel" value={form.real_phone} onChange={(e) => setField('real_phone', e.target.value)} placeholder="+5511999999999" className={inputClasses()} />
             </Field>
-            <Field label="Telefone alternativo" hint="Pra exibir publicamente, se diferente">
+            <Field label="Telefone público alternativo" hint="Apenas se diferente do canal IA (raro)">
               <input type="tel" value={form.phone} onChange={(e) => setField('phone', e.target.value)} className={inputClasses()} />
             </Field>
           </div>
@@ -271,13 +273,26 @@ function ConfigInner() {
             status={tenant?.asaas_account_status === 'APPROVED' || tenant?.asaas_account_status === 'active' ? 'ok' : (tenant?.asaas_account_status ? 'warn' : 'off')}
             statusLabel={tenant?.asaas_account_status ?? 'não ativado'}
           />
-          <ReadOnlyField
-            label="Voz da IA (ElevenLabs)"
-            value={tenant?.elevenlabs_voice_id ?? '—'}
-            status={tenant?.elevenlabs_voice_id ? 'ok' : 'off'}
-            statusLabel={tenant?.elevenlabs_voice_id ? 'configurada' : 'padrão'}
-            icon={<Music className="w-3 h-3" />}
-          />
+          <div className="rounded-lg border border-black/[0.07] bg-white px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <span className="text-[12px] font-semibold text-zinc-700 inline-flex items-center gap-1.5">
+                <Music className="w-3 h-3" />
+                Voz da IA (ElevenLabs)
+              </span>
+              <span className={`text-[10px] uppercase tracking-[0.08em] font-bold px-1.5 py-0.5 rounded border ${
+                form.elevenlabs_voice_id ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-zinc-50 text-zinc-500 border-zinc-200'
+              }`}>
+                {form.elevenlabs_voice_id ? 'configurada' : 'voz padrão'}
+              </span>
+            </div>
+            <input
+              type="text"
+              value={form.elevenlabs_voice_id}
+              onChange={(e) => setField('elevenlabs_voice_id', e.target.value)}
+              placeholder="ID da voz (ex: 21m00Tcm4TlvDq8ikWAM) — deixe vazio pra voz padrão"
+              className="w-full text-[12px] font-mono text-zinc-700 bg-transparent border-0 focus:outline-none focus:ring-0 p-0 placeholder:text-zinc-400"
+            />
+          </div>
         </div>
         <p className="text-[11px] text-zinc-400 mt-3">
           Pra ativar/reconfigurar essas integrações, vá em /painel/pagamentos/ativar e nas suas configs N8N.

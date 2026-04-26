@@ -24,6 +24,8 @@ interface ChecklistData {
   has_payment: boolean;
   has_ai_prompt: boolean;
   has_clinic_data: boolean;
+  has_telegram: boolean;
+  telegram_bot_link: string | null;
 }
 
 export default function SetupChecklist() {
@@ -47,6 +49,13 @@ export default function SetupChecklist() {
 
   const items: ChecklistItem[] = [
     {
+      key: 'telegram',
+      label: 'Conectar Telegram (cockpit)',
+      desc: 'Seu canal principal de operação no dia-a-dia',
+      href: data.telegram_bot_link ?? '/painel/configuracoes',
+      done: data.has_telegram,
+    },
+    {
       key: 'doctor',
       label: 'Cadastrar profissional',
       desc: 'Quem atende, valor da consulta, especialidade',
@@ -56,7 +65,7 @@ export default function SetupChecklist() {
     {
       key: 'calendar',
       label: 'Configurar agenda Google',
-      desc: 'Adicionar calendar_id do profissional pra IA marcar',
+      desc: 'Calendar_id pra IA marcar consultas',
       href: '/painel/profissionais',
       done: data.has_calendar,
     },
@@ -70,7 +79,7 @@ export default function SetupChecklist() {
     {
       key: 'clinic',
       label: 'Dados da clínica',
-      desc: 'Nome, telefone, endereço',
+      desc: 'Nome, endereço, contato administrativo',
       href: '/painel/configuracoes',
       done: data.has_clinic_data,
     },

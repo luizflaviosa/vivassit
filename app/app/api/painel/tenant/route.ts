@@ -38,6 +38,7 @@ interface UpdateBody {
   consultation_duration?: number;
   establishment_type?: string;
   evolution_phone_number?: string;
+  elevenlabs_voice_id?: string;
   payment_info?: Record<string, unknown>;
 }
 
@@ -53,6 +54,7 @@ export async function PATCH(req: NextRequest) {
     'assistant_prompt', 'clinic_name', 'cnpj', 'email', 'phone', 'real_phone',
     'admin_email', 'accountant_email', 'address', 'doctor_name', 'doctor_crm',
     'speciality', 'establishment_type', 'evolution_phone_number',
+    'elevenlabs_voice_id',
   ];
   for (const f of stringFields) {
     const v = body[f];
