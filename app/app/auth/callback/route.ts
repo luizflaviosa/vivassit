@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { supabaseAdmin } from '@/lib/supabase';
 
 // Callback do magic link: troca code por session, linka tenant.admin_user_id
@@ -10,25 +10,27 @@ export async function GET(req: NextRequest) {
   const code = url.searchParams.get('code');
   const next = url.searchParams.get('next') ?? '/painel';
 
-  const res = NextResponse.redirect(new URL(next, url.origin));
-
   if (!code) {
     return NextResponse.redirect(new URL('/login?error=missing_code', url.origin));
   }
+
+  // Cria response final ja com a redirect; cookies serao adicionadas inline
+  let response = NextResponse.redirect(new URL(next, url.origin));
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value;
+        getAll() {
+          return req.cookies.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
-          res.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          res.cookies.set({ name, value: '', ...options });
+        setAll(cookiesToSet) {
+          // Recria response preservando o redirect, adiciona cookies novos
+          response = NextResponse.redirect(new URL(next, url.origin));
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
         },
       },
     }
@@ -37,13 +39,14 @@ export async function GET(req: NextRequest) {
   const { error, data } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     console.error('[auth/callback] exchange erro:', error);
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin));
+    return NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin)
+    );
   }
 
   const user = data?.user;
   if (user?.email) {
     // Linka o user ao tenant mais recente cujo admin_email bate
-    // (se ainda nao tem admin_user_id setado)
     try {
       const admin = supabaseAdmin();
       const { data: tenants } = await admin
@@ -66,5 +69,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return res;
+  return response;
 }

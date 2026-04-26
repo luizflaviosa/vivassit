@@ -1,32 +1,35 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+  // Cria response que vai ser modificado conforme cookies sao definidos
+  let supabaseResponse = NextResponse.next({ request: req });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value;
+        getAll() {
+          return req.cookies.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
-          res.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          res.cookies.set({ name, value: '', ...options });
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value));
+          supabaseResponse = NextResponse.next({ request: req });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
         },
       },
     }
   );
 
+  // IMPORTANTE: nao executar nenhuma logica entre createServerClient e getUser
   const { data: { user } } = await supabase.auth.getUser();
 
   const path = req.nextUrl.pathname;
   const isPainel = path.startsWith('/painel');
-  const isLogin = path === '/login' || path.startsWith('/auth/');
+  const isLogin = path === '/login';
 
   // Sem session em rota protegida → /login
   if (isPainel && !user) {
@@ -37,16 +40,19 @@ export async function middleware(req: NextRequest) {
   }
 
   // Com session em /login → painel
-  if (isLogin && user && path === '/login') {
+  if (isLogin && user) {
     const url = req.nextUrl.clone();
     url.pathname = '/painel';
     url.searchParams.delete('next');
     return NextResponse.redirect(url);
   }
 
-  return res;
+  return supabaseResponse;
 }
 
 export const config = {
-  matcher: ['/painel/:path*', '/login', '/auth/:path*'],
+  matcher: [
+    // Aplica em todas rotas EXCETO assets e API auth callback
+    '/((?!_next/static|_next/image|favicon.ico|api/auth|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 };
