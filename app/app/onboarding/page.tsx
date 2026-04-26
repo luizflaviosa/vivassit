@@ -9,7 +9,7 @@ import {
   useTransform,
   type MotionValue,
 } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import Image from 'next/image';
 import {
@@ -612,6 +612,7 @@ function AccessRow({
 // ──────────────────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
+  const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<OnboardingData>(() => {
     if (typeof window === 'undefined') return INITIAL_DATA;
@@ -622,6 +623,15 @@ export default function OnboardingPage() {
       return INITIAL_DATA;
     }
   });
+
+  // Pre-seleciona plano vindo da URL (?plan=basic|professional|premium|enterprise)
+  useEffect(() => {
+    const planFromUrl = searchParams?.get('plan');
+    if (planFromUrl && ['basic', 'professional', 'premium', 'enterprise'].includes(planFromUrl)) {
+      setFormData(prev => ({ ...prev, plan_type: planFromUrl }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [qualifications, setQualifications] = useState<QualificationOption[]>(INITIAL_QUALIFICATIONS);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});

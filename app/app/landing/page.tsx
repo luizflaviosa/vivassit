@@ -105,6 +105,7 @@ const FEATURES = [
 const PRICING_PLANS = [
   {
     name: 'Starter',
+    slug: 'basic',
     price: 97,
     tagline: 'Para iniciar com leveza',
     popular: false,
@@ -117,6 +118,7 @@ const PRICING_PLANS = [
   },
   {
     name: 'Professional',
+    slug: 'professional',
     price: 197,
     tagline: 'O mais escolhido por clínicas',
     popular: true,
@@ -131,6 +133,7 @@ const PRICING_PLANS = [
   },
   {
     name: 'Enterprise',
+    slug: 'enterprise',
     price: 397,
     tagline: 'Para múltiplas unidades',
     popular: false,
@@ -343,7 +346,10 @@ export default function LandingPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleStartTrial = () => router.push('/onboarding');
+  const handleStartTrial = (plan?: string) => {
+    const url = plan ? `/onboarding?plan=${encodeURIComponent(plan)}` : '/onboarding';
+    router.push(url);
+  };
 
   return (
     <div className="relative min-h-screen bg-[#FAFAF7] text-zinc-900 overflow-hidden selection:bg-zinc-900 selection:text-white pb-24 md:pb-0">
@@ -351,7 +357,7 @@ export default function LandingPage() {
 
       {/* Sticky bottom CTA — mobile only */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/85 backdrop-blur-xl border-t border-black/[0.07]">
-        <PrimaryButton onClick={handleStartTrial} size="lg" fullWidth>
+        <PrimaryButton onClick={() => handleStartTrial()} size="lg" fullWidth>
           Começar grátis
         </PrimaryButton>
       </div>
@@ -425,9 +431,9 @@ export default function LandingPage() {
               5.247 médicos online
             </span>
             <div className="hidden sm:block">
-              <GhostButton onClick={handleStartTrial}>Entrar</GhostButton>
+              <GhostButton onClick={() => handleStartTrial()}>Entrar</GhostButton>
             </div>
-            <PrimaryButton onClick={handleStartTrial}>Começar</PrimaryButton>
+            <PrimaryButton onClick={() => handleStartTrial()}>Começar</PrimaryButton>
           </div>
         </div>
       </header>
@@ -461,7 +467,7 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center px-2 sm:px-0">
-            <PrimaryButton onClick={handleStartTrial} size="lg" fullWidth>
+            <PrimaryButton onClick={() => handleStartTrial()} size="lg" fullWidth>
               Começar grátis
             </PrimaryButton>
             <a
@@ -743,7 +749,7 @@ export default function LandingPage() {
 
                 {plan.popular ? (
                   <button
-                    onClick={handleStartTrial}
+                    onClick={() => handleStartTrial(plan.slug)}
                     className="group h-[52px] sm:h-10 rounded-xl sm:rounded-lg text-white text-[15px] sm:text-[13px] font-semibold inline-flex items-center justify-center gap-2 sm:gap-1.5 transition-all hover:brightness-110"
                     style={{
                       background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
@@ -756,7 +762,7 @@ export default function LandingPage() {
                   </button>
                 ) : (
                   <button
-                    onClick={handleStartTrial}
+                    onClick={() => handleStartTrial(plan.slug)}
                     className="group h-[52px] sm:h-10 rounded-xl sm:rounded-lg border border-black/[0.10] text-zinc-900 text-[15px] sm:text-[13px] font-semibold inline-flex items-center justify-center gap-2 sm:gap-1.5 transition-all hover:border-black/30 hover:bg-black/[0.02]"
                   >
                     Começar grátis
@@ -799,7 +805,7 @@ export default function LandingPage() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
-              <PrimaryButton onClick={handleStartTrial} size="lg" fullWidth>
+              <PrimaryButton onClick={() => handleStartTrial()} size="lg" fullWidth>
                 Começar agora
               </PrimaryButton>
             </div>

@@ -1,0 +1,32 @@
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+// Server-side client com service_role: bypassa RLS, uso APENAS em rotas /api.
+// Nunca importar este client em codigo client-side ('use client').
+
+let cached: SupabaseClient | null = null;
+
+export function supabaseAdmin(): SupabaseClient {
+  if (cached) return cached;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url) throw new Error('SUPABASE_URL nao configurada');
+  if (!serviceKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY nao configurada');
+
+  cached = createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return cached;
+}
+
+// Tabela de precos do plano SaaS Vivassit
+export const SAAS_PLAN_AMOUNTS: Record<string, number> = {
+  basic: 97,
+  professional: 197,
+  premium: 297,
+  enterprise: 397,
+};
+
+// Trial padrao (em dias)
+export const TRIAL_DAYS = 7;

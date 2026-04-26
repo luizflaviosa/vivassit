@@ -1,6 +1,6 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
+import { supabaseAdmin, SAAS_PLAN_AMOUNTS, TRIAL_DAYS } from '@/lib/supabase';
 
 const E164_REGEX = /^\+\d{10,15}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,11 +26,10 @@ const normalizePhoneToE164 = (phone: string): string => {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
     const normalizedPhone = normalizePhoneToE164(body?.real_phone ?? '');
 
+    // ── Validacao ─────────────────────────────────────────────────────────────
     const validationErrors: Record<string, string> = {};
-
     if (!body?.doctor_name?.trim()) validationErrors.doctor_name = 'Obrigatório';
     if (!body?.doctor_crm?.trim()) validationErrors.doctor_crm = 'Obrigatório';
     if (!body?.speciality?.trim()) validationErrors.speciality = 'Obrigatório';
@@ -60,8 +59,85 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ── Setup ─────────────────────────────────────────────────────────────────
     const tenantId = generateTenantId(body.clinic_name);
+    const planType = body?.plan_type ?? 'professional';
+    const planAmount = SAAS_PLAN_AMOUNTS[planType] ?? SAAS_PLAN_AMOUNTS.professional;
+    const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const consultationDuration = parseInt(body?.consultation_duration ?? '30', 10) || 30;
+    const externalReference = `vvst-${tenantId}-${Date.now()}`;
+    const qualifications: string[] = body?.qualifications ?? [];
 
+    const supabase = supabaseAdmin();
+
+    // ── Persistencia: tenants ─────────────────────────────────────────────────
+    const tenantRow = {
+      tenant_id: tenantId,
+      clinic_name: body.clinic_name,
+      email: body.admin_email,
+      phone: normalizedPhone,
+      real_phone: normalizedPhone,
+      admin_email: body.admin_email,
+      doctor_name: body.doctor_name,
+      doctor_crm: body.doctor_crm,
+      speciality: body.speciality,
+      consultation_duration: consultationDuration,
+      establishment_type: body?.establishment_type ?? 'small_clinic',
+      plan_type: planType,
+      status: 'pending_payment',
+      subscription_status: 'trialing',
+      trial_ends_at: trialEndsAt,
+      payment_info: { qualifications, source: 'vivassit-frontend', version: '4.0' },
+    };
+
+    const { error: tenantErr } = await supabase
+      .from('tenants')
+      .insert(tenantRow);
+
+    if (tenantErr) {
+      console.error('[onboarding] erro ao inserir tenant:', tenantErr);
+      return NextResponse.json(
+        { success: false, message: 'Erro ao criar conta. Tente novamente.', error_code: 'TENANT_INSERT_FAILED', detail: tenantErr.message },
+        { status: 500 }
+      );
+    }
+
+    // ── Persistencia: saas_orders (assinatura SaaS Vivassit, pendente) ────────
+    const orderRow = {
+      external_reference: externalReference,
+      clinic_name: body.clinic_name,
+      plan_type: planType,
+      amount: planAmount,
+      clinic_data: {
+        doctor_name: body.doctor_name,
+        doctor_crm: body.doctor_crm,
+        speciality: body.speciality,
+        admin_email: body.admin_email,
+        real_phone: normalizedPhone,
+        establishment_type: body?.establishment_type ?? 'small_clinic',
+        consultation_duration: consultationDuration,
+        qualifications,
+      },
+      payment_status: 'pending',
+      tenant_id: tenantId,
+      provider: 'asaas',
+      trial_ends_at: trialEndsAt,
+    };
+
+    const { data: orderData, error: orderErr } = await supabase
+      .from('saas_orders')
+      .insert(orderRow)
+      .select('id, external_reference')
+      .single();
+
+    if (orderErr) {
+      console.error('[onboarding] erro ao inserir saas_order:', orderErr);
+      // Tenant ja foi criado: nao bloqueia o usuario, mas loga critico
+    }
+
+    const orderId = orderData?.id ?? null;
+
+    // ── N8N webhook (provisionamento da clinica) ──────────────────────────────
     const payload = {
       real_phone: normalizedPhone,
       clinic_name: body.clinic_name,
@@ -69,28 +145,27 @@ export async function POST(request: NextRequest) {
       doctor_name: body.doctor_name,
       doctor_crm: body.doctor_crm,
       speciality: body.speciality,
-      consultation_duration: (body?.consultation_duration ?? '30').toString(),
+      consultation_duration: consultationDuration.toString(),
       establishment_type: body?.establishment_type ?? 'small_clinic',
-      plan_type: body?.plan_type ?? 'professional',
-
-      qualifications: body?.qualifications ?? [],
-      selected_features: body?.qualifications ?? [],
-
+      plan_type: planType,
+      qualifications,
+      selected_features: qualifications,
       tenant_id: tenantId,
+      order_id: orderId,
+      external_reference: externalReference,
+      trial_ends_at: trialEndsAt,
       source: 'vivassit-frontend',
       version: '4.0',
       timestamp: new Date().toISOString(),
-
       user_agent: request.headers.get('user-agent') || 'unknown',
       ip_address:
         request.headers.get('x-forwarded-for') ||
         request.headers.get('x-real-ip') ||
         'unknown',
-
-      status: 'pending_approval',
+      status: 'trial_started',
+      subscription_status: 'trialing',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-
       frontend_context: {
         user_timezone: body?.user_timezone || 'America/Sao_Paulo',
         client_version: request.headers.get('x-client-version') || 'unknown',
@@ -99,60 +174,59 @@ export async function POST(request: NextRequest) {
       },
     };
 
+    let n8nSummary: Record<string, unknown> | null = null;
     const webhookUrl = process.env.N8N_WEBHOOK_URL;
-    if (!webhookUrl) {
-      console.error('N8N_WEBHOOK_URL não configurada');
-      return NextResponse.json(
-        { success: false, message: 'Serviço temporariamente indisponível.', error_code: 'WEBHOOK_NOT_CONFIGURED' },
-        { status: 503 }
-      );
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30_000);
-
-    let webhookResult: Record<string, unknown> | null = null;
-    try {
-      const webhookResponse = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Source': 'vivassit-frontend',
-          'X-Version': '4.0',
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
+    if (webhookUrl) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30_000);
       try {
-        webhookResult = await webhookResponse.json();
-      } catch {
-        // N8N pode não retornar JSON em alguns casos
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Source': 'vivassit-frontend',
+            'X-Version': '4.0',
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        try {
+          n8nSummary = await webhookResponse.json();
+        } catch {
+          // N8N pode nao retornar JSON
+        }
+        if (!webhookResponse.ok) {
+          console.error('[onboarding] N8N retornou erro:', webhookResponse.status, n8nSummary);
+        }
+      } catch (err) {
+        clearTimeout(timeoutId);
+        const isTimeout = err instanceof Error && err.name === 'AbortError';
+        console.error(isTimeout ? '[onboarding] N8N timeout' : '[onboarding] N8N error:', err);
+        // Nao bloqueia: o tenant ja foi criado no Supabase, N8N pode rodar async depois
       }
-
-      if (!webhookResponse.ok) {
-        console.error('Webhook retornou erro:', webhookResponse.status, webhookResult);
-        throw new Error(`Webhook status ${webhookResponse.status}`);
-      }
-    } catch (err) {
-      clearTimeout(timeoutId);
-      const isTimeout = err instanceof Error && err.name === 'AbortError';
-      console.error(isTimeout ? 'Webhook timeout' : 'Webhook error:', err);
-      throw new Error(isTimeout ? 'Timeout na comunicação com o serviço' : 'Falha ao contatar o serviço de onboarding');
+    } else {
+      console.warn('[onboarding] N8N_WEBHOOK_URL nao configurada, pulando provisionamento');
     }
 
-    const n8nSummary = webhookResult as Record<string, unknown> | null;
-
+    // ── Resposta ──────────────────────────────────────────────────────────────
     return NextResponse.json({
       success: true,
-      message: 'Cadastro realizado com sucesso! Em breve você receberá um email com os próximos passos.',
+      message: 'Cadastro realizado! Confirme seu pagamento para ativar a conta.',
       data: {
         tenant_id: tenantId,
+        order_id: orderId,
+        external_reference: externalReference,
         clinic_name: payload.clinic_name,
         doctor_name: payload.doctor_name,
         admin_email: payload.admin_email,
-        status: payload.status,
+        plan_type: planType,
+        amount: planAmount,
+        trial_ends_at: trialEndsAt,
+        subscription_status: 'trialing',
+        next_step: 'checkout',
+        checkout_url: orderId ? `/checkout/${orderId}` : null,
+        // Dados de provisionamento N8N (se disponiveis)
         calendar_link: n8nSummary?.calendar_access_link ?? null,
         telegram_link: n8nSummary?.telegram_bot_link ?? null,
         whatsapp_pairing_code: n8nSummary?.whatsapp_pairing_code ?? null,
@@ -162,7 +236,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Erro na API de onboarding:', error);
+    console.error('[onboarding] erro fatal:', error);
     return NextResponse.json(
       {
         success: false,
@@ -184,5 +258,8 @@ export async function GET() {
     status: 'active',
     required_fields: ['real_phone', 'clinic_name', 'admin_email', 'doctor_name', 'doctor_crm', 'speciality'],
     phone_format: 'E.164 (+5511999999999)',
+    persistence: 'supabase',
+    trial_days: TRIAL_DAYS,
+    plans: SAAS_PLAN_AMOUNTS,
   });
 }
