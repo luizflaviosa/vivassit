@@ -26,6 +26,7 @@ export const SAAS_PLAN_AMOUNTS: Record<string, number> = {
   professional: 197,
   premium: 297,
   enterprise: 397,
+  enterprise_plus: 597,
 };
 
 // Trial padrao (em dias)

@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { Sparkles, Save, Loader2, Building2 } from 'lucide-react';
+import { Sparkles, Save, Loader2, Building2, Bot, ChevronDown, ChevronUp } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 
 const ACCENT = '#6E56CF';
@@ -16,6 +16,7 @@ interface Tenant {
   admin_email: string;
   real_phone: string;
   assistant_prompt: string | null;
+  rendered_prompt: string | null;
   payment_info: Record<string, unknown> | null;
 }
 
@@ -139,6 +140,9 @@ function ConfigInner() {
         </p>
       </motion.div>
 
+      {/* Preview do prompt completo */}
+      {tenant?.rendered_prompt && <PromptPreview rendered={tenant.rendered_prompt} />}
+
       {/* Dados da clínica */}
       <motion.div
         initial={{ opacity: 0, y: 6 }}
@@ -200,7 +204,112 @@ function ConfigInner() {
           Salvar alterações
         </button>
       </div>
+
+      {/* Zona perigosa: cancelar assinatura */}
+      <SubscriptionDangerZone />
     </div>
+  );
+}
+
+function PromptPreview({ rendered }: { rendered: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.05 }}
+      className="rounded-2xl border border-black/[0.07] bg-zinc-50/40 overflow-hidden"
+    >
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-3 p-4 sm:p-5 text-left hover:bg-black/[0.02] transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-md flex items-center justify-center bg-zinc-100 text-zinc-600">
+            <Bot className="w-4 h-4" strokeWidth={1.75} />
+          </div>
+          <div>
+            <h3 className="text-[14px] font-semibold text-zinc-900">O que sua IA sabe</h3>
+            <p className="text-[12px] text-zinc-500">Bloco gerado automaticamente do banco</p>
+          </div>
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+      </button>
+      {open && (
+        <div className="border-t border-black/[0.06] bg-white p-4 sm:p-5">
+          <pre className="text-[12px] font-mono text-zinc-700 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
+            {rendered}
+          </pre>
+          <p className="text-[11px] text-zinc-400 mt-3">
+            Atualizado automaticamente quando você edita profissionais ou personalização da IA.
+            O agente lê esse texto antes de cada conversa no WhatsApp.
+          </p>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function SubscriptionDangerZone() {
+  const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const cancel = async () => {
+    setCancelling(true);
+    try {
+      const res = await fetch('/api/painel/subscription', { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.message || 'Erro ao cancelar');
+        return;
+      }
+      toast.success(json.message || 'Assinatura cancelada');
+      setConfirming(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro inesperado');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.1 }}
+      className="rounded-2xl border border-rose-200 bg-rose-50/40 p-5 sm:p-6 mt-8"
+    >
+      <h2 className="text-[15px] font-semibold text-rose-900 mb-1">Cancelar assinatura</h2>
+      <p className="text-[13px] text-rose-700 leading-relaxed mb-4">
+        Encerra a renovação automática. Você mantém acesso até o fim do ciclo
+        já pago. Não há reembolso proporcional.
+      </p>
+      {!confirming ? (
+        <button
+          onClick={() => setConfirming(true)}
+          className="h-10 px-4 rounded-lg border border-rose-300 text-rose-700 text-[13px] font-semibold hover:bg-rose-100 transition-colors"
+        >
+          Cancelar assinatura
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={cancel}
+            disabled={cancelling}
+            className="h-10 px-4 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[13px] font-semibold transition-colors disabled:opacity-70"
+          >
+            {cancelling ? 'Cancelando…' : 'Confirmar cancelamento'}
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            disabled={cancelling}
+            className="h-10 px-4 rounded-lg text-zinc-600 text-[13px] font-medium hover:bg-black/[0.04]"
+          >
+            Voltar
+          </button>
+        </div>
+      )}
+    </motion.div>
   );
 }
 

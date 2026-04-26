@@ -107,12 +107,12 @@ const PRICING_PLANS = [
     name: 'Starter',
     slug: 'basic',
     price: 97,
-    tagline: 'Para iniciar com leveza',
+    tagline: 'Consultório solo, começo de jornada',
     popular: false,
     features: [
       'Até 100 pacientes',
-      'Agenda básica',
-      'WhatsApp simples',
+      'Agenda inteligente',
+      'WhatsApp + IA básica',
       'Suporte por email',
     ],
   },
@@ -124,9 +124,9 @@ const PRICING_PLANS = [
     popular: true,
     features: [
       'Pacientes ilimitados',
-      'IA completa',
+      'IA completa + assistente humana',
       'WhatsApp Business',
-      'Pagamentos integrados',
+      'Marketplace de cobranças',
       'Relatórios avançados',
       'Suporte prioritário',
     ],
@@ -135,15 +135,30 @@ const PRICING_PLANS = [
     name: 'Enterprise',
     slug: 'enterprise',
     price: 397,
-    tagline: 'Para múltiplas unidades',
+    tagline: 'Clínica até 5 profissionais',
     popular: false,
     features: [
-      'Múltiplas clínicas',
+      'Multi-profissional',
+      'CRM completo',
+      'NF automática',
       'API personalizada',
-      'Integrações ilimitadas',
-      'Gerente dedicado',
       'Treinamento exclusivo',
       'Suporte 24/7',
+    ],
+  },
+  {
+    name: 'Clínica+',
+    slug: 'enterprise_plus',
+    price: 597,
+    tagline: 'Clínica com 6+ profissionais',
+    popular: false,
+    features: [
+      'Profissionais ilimitados',
+      'Multi-unidades',
+      'Painel BI dedicado',
+      'Gerente de conta dedicado',
+      'SLA garantido',
+      'Onboarding white-glove',
     ],
   },
 ];
@@ -684,7 +699,7 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-3">
           {PRICING_PLANS.map((plan, i) => (
             <Tilt key={plan.name} max={3} scale={1.008} glare={plan.popular}>
               <motion.div

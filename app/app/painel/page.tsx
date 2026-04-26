@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
+import { MetricCardSkeleton, StatRowSkeleton, PageHeadingSkeleton } from '@/lib/painel-skeleton';
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
@@ -90,6 +91,26 @@ function PainelInner() {
 
   const daysLeft = trialDaysLeft(tenant?.trial_ends_at ?? null);
   const isTrialing = tenant?.subscription_status === 'trialing';
+
+  // Loading state com skeletons
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <PageHeadingSkeleton />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+          <MetricCardSkeleton />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <StatRowSkeleton />
+          <StatRowSkeleton />
+          <StatRowSkeleton />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

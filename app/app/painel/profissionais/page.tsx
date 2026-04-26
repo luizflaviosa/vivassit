@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Plus, Trash2, User, Star, Mail, Phone, Loader2, X, Check } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
+import { DoctorCardSkeleton, PageHeadingSkeleton } from '@/lib/painel-skeleton';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -151,8 +152,10 @@ function ProfissionaisInner() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 text-zinc-400 animate-spin" />
+        <div className="space-y-2">
+          <DoctorCardSkeleton />
+          <DoctorCardSkeleton />
+          <DoctorCardSkeleton />
         </div>
       ) : doctors.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-black/[0.10] p-12 text-center">

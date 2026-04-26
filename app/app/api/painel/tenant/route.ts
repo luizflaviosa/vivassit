@@ -10,7 +10,7 @@ export async function GET() {
   const { data: tenant, error } = await supabase
     .from('tenants')
     .select(
-      'tenant_id, clinic_name, email, phone, real_phone, admin_email, doctor_name, doctor_crm, speciality, consultation_duration, establishment_type, chatwoot_type, plan_type, status, subscription_status, trial_ends_at, subscription_renews_at, assistant_prompt, payment_info, calendar_config, created_at'
+      'tenant_id, clinic_name, email, phone, real_phone, admin_email, doctor_name, doctor_crm, speciality, consultation_duration, establishment_type, chatwoot_type, plan_type, status, subscription_status, trial_ends_at, subscription_renews_at, assistant_prompt, rendered_prompt, payment_info, calendar_config, created_at'
     )
     .eq('tenant_id', auth.ctx.tenant.tenant_id)
     .maybeSingle();

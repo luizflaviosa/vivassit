@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { Loader2, UserPlus, Phone, Mail, Calendar } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
+import { PatientRowSkeleton } from '@/lib/painel-skeleton';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -87,8 +88,12 @@ function PacientesInner() {
       />
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 text-zinc-400 animate-spin" />
+        <div className="rounded-2xl border border-black/[0.07] bg-white overflow-hidden">
+          <PatientRowSkeleton />
+          <PatientRowSkeleton />
+          <PatientRowSkeleton />
+          <PatientRowSkeleton />
+          <PatientRowSkeleton />
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-black/[0.10] p-12 text-center">
