@@ -67,6 +67,21 @@ export async function POST(request: NextRequest) {
     const consultationDuration = parseInt(body?.consultation_duration ?? '30', 10) || 30;
     const externalReference = `vvst-${tenantId}-${Date.now()}`;
     const qualifications: string[] = body?.qualifications ?? [];
+    const professionalType: string = body?.professional_type ?? 'medico';
+    const establishmentType: string = body?.establishment_type ?? 'private_practice';
+    // chatwoot: 1 prof = compartilhado na conta singulare; clinicas = dedicada
+    const chatwootType: 'shared' | 'dedicated' =
+      establishmentType === 'private_practice' ? 'shared' : 'dedicated';
+    const acceptsInsurance: boolean = !!body?.accepts_insurance;
+    const insuranceList: string[] = Array.isArray(body?.insurance_list) ? body.insurance_list : [];
+    const paymentMethodsArr: string[] = Array.isArray(body?.payment_methods) ? body.payment_methods : [];
+    const consultationValue: number | null = body?.consultation_value
+      ? parseFloat(String(body.consultation_value).replace(',', '.'))
+      : null;
+    const followupWindowDays: number = parseInt(String(body?.followup_window_days ?? '30'), 10) || 30;
+    const workingHours = body?.working_hours && typeof body.working_hours === 'object' ? body.working_hours : {};
+    const assistantPrompt: string = (body?.assistant_prompt ?? '').toString().trim();
+    const lgpdAccepted: boolean = !!body?.lgpd_accepted;
 
     const supabase = supabaseAdmin();
 
@@ -82,12 +97,33 @@ export async function POST(request: NextRequest) {
       doctor_crm: body.doctor_crm,
       speciality: body.speciality,
       consultation_duration: consultationDuration,
-      establishment_type: body?.establishment_type ?? 'small_clinic',
+      establishment_type: establishmentType,
+      chatwoot_type: chatwootType,
       plan_type: planType,
       status: 'pending_payment',
       subscription_status: 'trialing',
       trial_ends_at: trialEndsAt,
-      payment_info: { qualifications, source: 'vivassit-frontend', version: '4.0' },
+      assistant_prompt: assistantPrompt || null,
+      payment_info: {
+        qualifications,
+        source: 'vivassit-frontend',
+        version: '4.1',
+        professional_type: professionalType,
+        accepts_insurance: acceptsInsurance,
+        insurance_list: insuranceList,
+        accepted_payment_methods: paymentMethodsArr,
+        charge_timing: body?.charge_timing ?? 'optional',
+        partial_charge_pct: body?.partial_charge_pct ?? 100,
+        followup_window_days: followupWindowDays,
+        auto_emit_nf: !!body?.auto_emit_nf,
+        accountant_email: body?.accountant_email ?? null,
+        lgpd_accepted: lgpdAccepted,
+        lgpd_accepted_at: lgpdAccepted ? new Date().toISOString() : null,
+        lgpd_accepted_ip:
+          request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+          request.headers.get('x-real-ip') ||
+          null,
+      },
     };
 
     const { error: tenantErr } = await supabase
@@ -100,6 +136,52 @@ export async function POST(request: NextRequest) {
         { success: false, message: 'Erro ao criar conta. Tente novamente.', error_code: 'TENANT_INSERT_FAILED', detail: tenantErr.message },
         { status: 500 }
       );
+    }
+
+    // ── Persistencia: tenant_doctors (profissional principal) ─────────────────
+    // Trigger SQL regenera tenants.rendered_prompt automaticamente apos isso.
+    // Formato compativel: payment_methods string, working_hours jsonb {seg..dom}.
+    const paymentMethodsString = paymentMethodsArr.length
+      ? paymentMethodsArr
+          .map((m) => {
+            switch (m) {
+              case 'pix': return 'PIX';
+              case 'credit_card': return 'cartão';
+              case 'boleto': return 'boleto';
+              case 'cash': return 'dinheiro';
+              default: return m;
+            }
+          })
+          .join(', ')
+      : null;
+
+    const doctorRow = {
+      tenant_id: tenantId,
+      doctor_name: body.doctor_name,
+      doctor_crm: body.doctor_crm || null,
+      specialty: body.speciality,
+      is_primary: true,
+      status: 'active',
+      consultation_value: consultationValue,
+      consultation_duration: consultationDuration,
+      payment_methods: paymentMethodsString,
+      working_hours: workingHours,
+      accepts_insurance: acceptsInsurance,
+      insurance_note: insuranceList.length ? insuranceList.join(', ') : null,
+      followup_value: 0,
+      followup_window_days: followupWindowDays,
+      followup_duration: 30,
+      contact_email: body.admin_email,
+      contact_phone: normalizedPhone,
+    };
+
+    const { error: doctorErr } = await supabase
+      .from('tenant_doctors')
+      .insert(doctorRow);
+
+    if (doctorErr) {
+      console.error('[onboarding] erro ao inserir tenant_doctor:', doctorErr);
+      // Nao bloqueia: o tenant ja existe; doctor pode ser inserido depois
     }
 
     // ── Persistencia: saas_orders (assinatura SaaS Vivassit, pendente) ────────
@@ -145,17 +227,26 @@ export async function POST(request: NextRequest) {
       doctor_name: body.doctor_name,
       doctor_crm: body.doctor_crm,
       speciality: body.speciality,
+      professional_type: professionalType,
       consultation_duration: consultationDuration.toString(),
-      establishment_type: body?.establishment_type ?? 'small_clinic',
+      establishment_type: establishmentType,
+      chatwoot_type: chatwootType,
       plan_type: planType,
       qualifications,
       selected_features: qualifications,
+      consultation_value: consultationValue,
+      payment_methods: paymentMethodsString,
+      accepts_insurance: acceptsInsurance,
+      insurance_list: insuranceList,
+      followup_window_days: followupWindowDays,
+      working_hours: workingHours,
+      assistant_prompt: assistantPrompt,
       tenant_id: tenantId,
       order_id: orderId,
       external_reference: externalReference,
       trial_ends_at: trialEndsAt,
       source: 'vivassit-frontend',
-      version: '4.0',
+      version: '4.1',
       timestamp: new Date().toISOString(),
       user_agent: request.headers.get('user-agent') || 'unknown',
       ip_address:

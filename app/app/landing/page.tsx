@@ -41,25 +41,25 @@ const ACCENT_SOFT = '#F5F3FF';
 
 const TESTIMONIALS = [
   {
-    name: 'Dr. Ana Carolina',
-    specialty: 'Cardiologia',
-    clinic: 'CardioVida',
+    name: 'Dra. Ana Carolina',
+    specialty: 'Psicologia',
+    clinic: 'Consultório próprio',
     rating: 5,
-    text: 'Reduzi 40% do tempo administrativo. Agora foco 100% nos meus pacientes.',
+    text: 'Atendo 100% pelo WhatsApp. A IA cuida de agenda e cobrança, eu foco nas sessões.',
   },
   {
     name: 'Dr. Roberto Silva',
-    specialty: 'Ortopedia',
-    clinic: 'Centro Ortopédico',
+    specialty: 'Odontologia',
+    clinic: 'Clínica OrtoSorriso',
     rating: 5,
-    text: 'Minhas consultas aumentaram 60% desde que comecei a usar a Vivassit.',
+    text: 'Minhas consultas aumentaram 60% e diminuí faltas em 70%. Vivassit virou parte do time.',
   },
   {
-    name: 'Dra. Mariana Costa',
-    specialty: 'Dermatologia',
-    clinic: 'DermaCare',
+    name: 'Mariana Costa',
+    specialty: 'Nutrição',
+    clinic: 'Nutri & Movimento',
     rating: 5,
-    text: 'A melhor decisão que tomei para minha clínica. ROI em menos de 30 dias.',
+    text: 'A melhor decisão que tomei pro consultório. ROI em menos de 30 dias.',
   },
 ];
 
@@ -120,7 +120,7 @@ const PRICING_PLANS = [
     name: 'Professional',
     slug: 'professional',
     price: 197,
-    tagline: 'O mais escolhido por clínicas',
+    tagline: 'O mais escolhido pelos profissionais',
     popular: true,
     features: [
       'Pacientes ilimitados',
@@ -149,7 +149,7 @@ const PRICING_PLANS = [
 ];
 
 const STATS = [
-  { value: '+5.247', label: 'Médicos ativos' },
+  { value: '+5.247', label: 'Profissionais ativos' },
   { value: '98%',    label: 'Satisfação' },
   { value: '4.9',    label: 'Avaliação média', star: true },
   { value: '60%',    label: 'Menos faltas' },
@@ -420,7 +420,7 @@ export default function LandingPage() {
           <nav className="hidden md:flex items-center gap-1 text-[13px] text-zinc-600">
             <a href="#features" className="px-3 py-1.5 rounded-md hover:text-zinc-900 hover:bg-black/[0.03] transition-colors">Funcionalidades</a>
             <a href="#pricing" className="px-3 py-1.5 rounded-md hover:text-zinc-900 hover:bg-black/[0.03] transition-colors">Planos</a>
-            <a href="#testimonials" className="px-3 py-1.5 rounded-md hover:text-zinc-900 hover:bg-black/[0.03] transition-colors">Médicos</a>
+            <a href="#testimonials" className="px-3 py-1.5 rounded-md hover:text-zinc-900 hover:bg-black/[0.03] transition-colors">Depoimentos</a>
           </nav>
           <div className="flex items-center gap-1.5 sm:gap-2">
             <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] text-zinc-500 mr-2">
@@ -428,7 +428,7 @@ export default function LandingPage() {
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
               </span>
-              5.247 médicos online
+              5.247 profissionais online
             </span>
             <div className="hidden sm:block">
               <GhostButton onClick={() => handleStartTrial()}>Entrar</GhostButton>
@@ -449,21 +449,20 @@ export default function LandingPage() {
             <Sparkles className="w-3.5 h-3.5 sm:w-3 sm:h-3" style={{ color: ACCENT_DEEP }} />
             <span>Workflow N8N v4 ao vivo</span>
             <span className="hidden sm:inline text-zinc-300">·</span>
-            <span className="hidden sm:inline text-zinc-500">5.247 clínicas</span>
+            <span className="hidden sm:inline text-zinc-500">5.247 profissionais</span>
           </div>
 
           <h1 className="text-[52px] sm:text-[64px] md:text-[80px] leading-[0.95] sm:leading-[0.98] tracking-[-0.04em] sm:tracking-[-0.035em] font-medium text-zinc-900 mb-6 sm:mb-6">
-            Sua clínica,
+            Seu consultório,
             <br />
             <span className="font-serif italic font-normal text-zinc-700">
-              automatizada
-            </span>{' '}
-            em 5 minutos.
+              no piloto automático.
+            </span>
           </h1>
 
           <p className="text-[18px] sm:text-[19px] text-zinc-500 leading-[1.5] sm:leading-relaxed max-w-2xl mx-auto mb-10 sm:mb-10 px-2 sm:px-0">
-            Transforme consultórios tradicionais em clínicas modernas, lucrativas e
-            eficientes. Sem complicação.
+            Para dentistas, médicos, psicólogos, fisios, nutris e mais. A IA atende
+            seu paciente no WhatsApp, agenda, cobra e organiza tudo. Sem complicação.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center px-2 sm:px-0">
@@ -528,14 +527,14 @@ export default function LandingPage() {
             Funcionalidades
           </p>
           <h2 className="text-[36px] sm:text-[44px] leading-[1.05] sm:leading-[1.05] tracking-[-0.03em] sm:tracking-[-0.025em] font-medium text-zinc-900 mb-5 sm:mb-4">
-            Tudo que sua clínica precisa,{' '}
+            Tudo que seu atendimento precisa,{' '}
             <span className="font-serif italic font-normal text-zinc-700">
               em um só lugar.
             </span>
           </h2>
           <p className="text-[17px] sm:text-[16px] text-zinc-500 leading-[1.5] sm:leading-relaxed">
-            Pare de usar 10 sistemas diferentes. Vivassit unifica agenda, pagamentos,
-            comunicação e relatórios.
+            Pare de usar 10 sistemas. Vivassit unifica agenda, pagamentos,
+            comunicação e prontuário pra qualquer profissional de saúde.
           </p>
         </div>
 
@@ -584,10 +583,10 @@ export default function LandingPage() {
             className="text-[12px] sm:text-[11px] uppercase tracking-[0.14em] sm:tracking-[0.12em] font-semibold mb-4 sm:mb-3"
             style={{ color: ACCENT_DEEP }}
           >
-            Médicos
+            Profissionais
           </p>
           <h2 className="text-[32px] sm:text-[38px] leading-[1.05] sm:leading-[1.05] tracking-[-0.03em] sm:tracking-[-0.025em] font-medium text-zinc-900">
-            Práticas que se{' '}
+            Atendimentos que se{' '}
             <span className="font-serif italic font-normal text-zinc-700">
               transformaram.
             </span>
@@ -676,7 +675,7 @@ export default function LandingPage() {
           <h2 className="text-[36px] sm:text-[44px] leading-[1.05] sm:leading-[1.05] tracking-[-0.03em] sm:tracking-[-0.025em] font-medium text-zinc-900 mb-5 sm:mb-4">
             Escolha o ideal para{' '}
             <span className="font-serif italic font-normal text-zinc-700">
-              sua clínica.
+              o seu atendimento.
             </span>
           </h2>
           <p className="text-[17px] sm:text-[16px] text-zinc-500 leading-[1.5] sm:leading-relaxed max-w-xl mx-auto px-2 sm:px-0">
@@ -797,11 +796,11 @@ export default function LandingPage() {
               <span className="font-serif italic font-normal text-zinc-700">
                 transformar
               </span>{' '}
-              sua clínica?
+              seu atendimento?
             </h2>
             <p className="text-[17px] sm:text-[16px] text-zinc-500 leading-[1.5] sm:leading-relaxed max-w-lg mx-auto mb-8 sm:mb-8">
-              Junte-se a mais de 5.000 médicos que já automatizaram suas práticas
-              e aumentaram a receita.
+              Junte-se a mais de 5.000 profissionais de saúde que automatizaram
+              o atendimento e aumentaram a receita.
             </p>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">

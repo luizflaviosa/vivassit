@@ -40,9 +40,13 @@ import {
   ValueBlock,
   QualificationOption,
   WizardStep,
-  ESTABLISHMENT_TYPES,
   PLAN_TYPES,
-  SPECIALITIES,
+  PROFESSIONAL_TYPES,
+  COUNCIL_BY_PROFESSIONAL,
+  SPECIALTIES_BY_PROFESSIONAL,
+  ESTABLISHMENT_SIZES,
+  type ProfessionalTypeKey,
+  type EstablishmentSizeKey,
 } from '@/lib/types';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -94,31 +98,31 @@ const VALUE_BLOCKS: ValueBlock[] = [
 ];
 
 const INITIAL_QUALIFICATIONS: QualificationOption[] = [
-  { id: 'telemedicine', label: 'Telemedicina', selected: false },
+  { id: 'telemedicine', label: 'Atendimento online', selected: false },
   { id: 'agenda', label: 'Gestão de Agenda', selected: true },
-  { id: 'billing', label: 'Faturamento', selected: false },
+  { id: 'billing', label: 'Cobrança via WhatsApp', selected: false },
   { id: 'patients', label: 'Cadastro de Pacientes', selected: true },
-  { id: 'reports', label: 'Relatórios Médicos', selected: false },
-  { id: 'integration', label: 'Integração com Planos', selected: true },
+  { id: 'reports', label: 'Relatórios e indicadores', selected: false },
+  { id: 'integration', label: 'Integração com Convênios', selected: true },
 ];
 
 const WIZARD_STEPS: WizardStep[] = [
   {
     id: 1,
     title: 'Profissional',
-    description: 'Quem é você como profissional de saúde',
-    fields: ['doctor_name', 'doctor_crm', 'speciality'],
+    description: 'Conta pra gente quem é você',
+    fields: ['professional_type', 'doctor_name', 'doctor_crm', 'speciality'],
   },
   {
     id: 2,
-    title: 'Clínica',
-    description: 'Informações do seu estabelecimento',
+    title: 'Onde atende',
+    description: 'Seu consultório ou clínica',
     fields: ['clinic_name', 'admin_email', 'real_phone'],
   },
   {
     id: 3,
-    title: 'Preferências',
-    description: 'Configure o atendimento do seu jeito',
+    title: 'Atendimento',
+    description: 'Tipo de atendimento, duração e plano',
     fields: ['consultation_duration', 'establishment_type', 'plan_type'],
   },
   {
@@ -130,6 +134,8 @@ const WIZARD_STEPS: WizardStep[] = [
 ];
 
 const INITIAL_DATA: OnboardingData = {
+  professional_type: 'medico',
+  establishment_size: 'private_practice',
   real_phone: '',
   clinic_name: '',
   admin_email: '',
@@ -137,8 +143,21 @@ const INITIAL_DATA: OnboardingData = {
   doctor_crm: '',
   speciality: '',
   consultation_duration: '30',
-  establishment_type: 'small_clinic',
+  establishment_type: 'private_practice',
   plan_type: 'professional',
+  // Atendimento (preenchidos depois quando ativados)
+  consultation_value: '',
+  payment_methods: [],
+  charge_timing: 'optional',
+  partial_charge_pct: 100,
+  accepts_insurance: false,
+  insurance_list: [],
+  followup_window_days: 30,
+  working_hours: {},
+  auto_emit_nf: false,
+  // IA + LGPD
+  assistant_prompt: '',
+  lgpd_accepted: false,
 };
 
 const DRAFT_KEY = 'vivassit_onboarding_draft';
@@ -794,41 +813,77 @@ function OnboardingPageInner() {
   const renderStepContent = () => {
     switch (currentStep) {
       // ── Step 0: Profissional ───────────────────────────────────────────────
-      case 0:
+      case 0: {
+        const profType = (formData.professional_type as ProfessionalTypeKey) || 'medico';
+        const council = COUNCIL_BY_PROFESSIONAL[profType];
+        const specialties = SPECIALTIES_BY_PROFESSIONAL[profType] ?? [];
+
         return (
-          <div className="space-y-5">
+          <div className="space-y-6">
+            <Field label="Você é">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {(Object.entries(PROFESSIONAL_TYPES) as [ProfessionalTypeKey, string][]).map(([key, label]) => {
+                  const selected = profType === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        handleInputChange('professional_type', key);
+                        // limpa especialidade ao trocar de tipo (lista muda)
+                        if ((formData.professional_type as ProfessionalTypeKey) !== key) {
+                          handleInputChange('speciality', '');
+                        }
+                      }}
+                      className={`group relative w-full px-3 py-3 rounded-lg text-left transition-all ${
+                        selected
+                          ? 'bg-white border border-transparent'
+                          : 'bg-white border border-black/[0.08] hover:border-black/20'
+                      }`}
+                      style={selected ? { boxShadow: `0 0 0 1px ${ACCENT}` } : undefined}
+                    >
+                      <span className={`text-[13px] font-medium ${selected ? '' : 'text-zinc-700'}`}
+                            style={selected ? { color: ACCENT_DEEP } : undefined}>
+                        {label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+
             <Field label="Nome completo" error={errors.doctor_name}>
               <input
                 type="text"
                 value={formData.doctor_name}
                 onChange={e => handleInputChange('doctor_name', e.target.value)}
-                placeholder="Dr. João Silva"
+                placeholder="Ex: Ana Silva"
                 autoComplete="name"
                 className={inputClasses(!!errors.doctor_name)}
               />
             </Field>
 
-            <Field label="CRM" hint="Conselho Regional de Medicina" error={errors.doctor_crm}>
+            <Field label={council.label} hint="Registro profissional" error={errors.doctor_crm}>
               <input
                 type="text"
                 value={formData.doctor_crm}
                 onChange={e => handleInputChange('doctor_crm', e.target.value)}
-                placeholder="CRM/SP 123456"
+                placeholder={council.placeholder}
                 className={inputClasses(!!errors.doctor_crm)}
               />
             </Field>
 
-            <Field label="Especialidade" error={errors.speciality}>
+            <Field label="Especialidade / Área de atuação" error={errors.speciality}>
               <div className="relative">
                 <select
                   value={formData.speciality}
                   onChange={e => handleInputChange('speciality', e.target.value)}
                   className={`${inputClasses(!!errors.speciality)} appearance-none pr-10 cursor-pointer`}
                 >
-                  <option value="">Selecione sua especialidade</option>
-                  {SPECIALITIES.map(spec => (
+                  <option value="">Selecione</option>
+                  {specialties.map(spec => (
                     <option key={spec} value={spec}>
-                      {spec.charAt(0).toUpperCase() + spec.slice(1)}
+                      {spec}
                     </option>
                   ))}
                 </select>
@@ -837,6 +892,7 @@ function OnboardingPageInner() {
             </Field>
           </div>
         );
+      }
 
       // ── Step 1: Clínica ────────────────────────────────────────────────────
       case 1:
@@ -915,16 +971,16 @@ function OnboardingPageInner() {
               </div>
             </Field>
 
-            <Field label="Tipo de estabelecimento">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {Object.entries(ESTABLISHMENT_TYPES).map(([key, label]) => {
+            <Field label="Como você atende">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(Object.entries(ESTABLISHMENT_SIZES) as [EstablishmentSizeKey, typeof ESTABLISHMENT_SIZES[EstablishmentSizeKey]][]).map(([key, info]) => {
                   const selected = formData.establishment_type === key;
                   return (
                     <Tilt key={key} max={4} scale={1.01}>
                       <button
                         type="button"
                         onClick={() => handleInputChange('establishment_type', key)}
-                        className={`group relative w-full p-3.5 sm:p-3 rounded-lg text-left transition-all min-h-[76px] sm:min-h-0 ${
+                        className={`group relative w-full p-4 sm:p-3.5 rounded-lg text-left transition-all min-h-[88px] ${
                           selected
                             ? 'bg-white border border-transparent ring-1'
                             : 'bg-white border border-black/[0.08] hover:border-black/20'
@@ -932,16 +988,17 @@ function OnboardingPageInner() {
                         style={selected ? { boxShadow: `0 0 0 1px ${ACCENT}` } : undefined}
                       >
                         <div
-                          className={`mb-2 inline-flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-md transition-colors ${
+                          className={`mb-2 inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
                             selected ? '' : 'bg-zinc-100 text-zinc-500'
                           }`}
                           style={selected ? { background: ACCENT_SOFT, color: ACCENT_DEEP } : undefined}
                         >
                           {ESTABLISHMENT_ICONS[key]}
                         </div>
-                        <div className="text-[13px] sm:text-[12px] font-medium text-zinc-900 leading-tight">
-                          {label}
+                        <div className="text-[14px] sm:text-[13px] font-semibold text-zinc-900 leading-tight">
+                          {info.label}
                         </div>
+                        <div className="text-[12px] text-zinc-500 mt-0.5">{info.desc}</div>
                       </button>
                     </Tilt>
                   );
@@ -1059,9 +1116,8 @@ function OnboardingPageInner() {
                 ['Consulta', `${formData.consultation_duration} min`],
                 [
                   'Tipo',
-                  ESTABLISHMENT_TYPES[
-                    formData.establishment_type as keyof typeof ESTABLISHMENT_TYPES
-                  ],
+                  ESTABLISHMENT_SIZES[formData.establishment_type as EstablishmentSizeKey]?.label
+                    ?? formData.establishment_type,
                 ],
                 [
                   'Plano',
