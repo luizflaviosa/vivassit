@@ -34,9 +34,9 @@ A agenda do painel agora usa um Service Account compartilhado, não o login do u
 
 ### Compartilhar calendar de cada profissional
 
-Pra cada médico cadastrado em `tenant_doctors` (que tem `calendar_id`):
+Pra cada profissional cadastrado em `tenant_doctors` (que tem `calendar_id`):
 
-1. Esse médico abre **Google Calendar** (calendar.google.com)
+1. Esse profissional abre **Google Calendar** (calendar.google.com)
 2. Settings (⚙️) → escolhe o calendar dele à esquerda → **Settings and sharing**
 3. Seção **Share with specific people or groups** → **+ Add people**
 4. Cola o email do service account: `singulare-calendar@<seu-projeto>.iam.gserviceaccount.com`
