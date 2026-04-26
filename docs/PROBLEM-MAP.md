@@ -70,24 +70,33 @@ calendar_id              = NULL            ← FALTA
 
 ---
 
-### Decisão 2: Telegram como front principal
+### Decisão 2: Chat IA do painel = fachada do Agente Interno (decidido)
 
-**Visão (certa) do user:**
+**Visão clarificada pelo user:**
 > "o telegram é para o profissional o canal de interacao com o seu agente interno"
-> "ele precisa ser praticamente o front do app depois de cadastrado para o profissional"
-> "td que ele for querer fazer ele vai pedir para o assistente"
+> "achei que ficaria menos profissional por isso pensei em simular um chat IA
+> que na verdade por trás teria toda a logica ja criada para o agente interno"
 
-**Implicações imediatas (low-risk, low-code):**
-- Painel recebe destaque pro Telegram logo após o login (banner "Abra seu Telegram pra começar")
-- Setup checklist inclui "Abrir Telegram" como item importante
-- Welcome tour menciona Telegram como canal principal
+**Decisão final:**
+- Telegram permanece operacional nos bastidores (notificações push, mobilidade)
+- Frontend NÃO promove Telegram explicitamente (parece menos profissional)
+- O **chat-drawer no painel** É O FRONT do Agente Interno
+- Mesma lógica/workflow N8N atende ambos canais
+- Backend roteia por `source === 'web'` ou `source === 'telegram'`
 
-**Implicações grandes (high-risk, requer revisão N8N):**
-- Workflow "6. Assistente Interno" precisa ter intents amplas: criar paciente, ver agenda, gerar cobrança, cancelar consulta, ver faturamento, etc
-- Painel passa a ser "control room visual" (gráficos, listas) e não mais "principal action surface"
-- Talvez o chat-drawer no painel deva ABRIR DIRETO o Telegram em vez de duplicar a IA
+**Implementado:**
+- ❌ Removido `<TelegramCTA />` (banner que sugeria usar Telegram)
+- ✅ Adicionado `<AssistantCTA />` (banner promovendo o chat IA do painel)
+- ❌ Removido item "Conectar Telegram" do SetupChecklist
+- ✅ Chat-drawer continua sendo a interface principal (já existente)
 
-**Recomendação:** fazer só o low-risk agora. Discutir o high-risk com você antes de mexer no N8N.
+**Workflows N8N corretos pra dev:**
+- Onboarding: `0. On Boarding Vivassit v4.1 BACKUP` (`p2NZXbrP3gIdisQ3`)
+- Agente Interno: `6. Assistente Interno BACKUP` (`WmM47MvuJPU8szyM`)
+- Master Secretária: `1. Master Secretária BACKUP` (`1ItWxEZZsAQN7luV`)
+
+**Pendência crítica:** habilitar **MCP availability** nesses 3 workflows pra eu
+poder revisar o código deles. Sem isso, fico cego.
 
 ---
 

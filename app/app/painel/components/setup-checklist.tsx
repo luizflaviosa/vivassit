@@ -24,8 +24,6 @@ interface ChecklistData {
   has_payment: boolean;
   has_ai_prompt: boolean;
   has_clinic_data: boolean;
-  has_telegram: boolean;
-  telegram_bot_link: string | null;
 }
 
 export default function SetupChecklist() {
@@ -48,13 +46,6 @@ export default function SetupChecklist() {
   if (!data || dismissed) return null;
 
   const items: ChecklistItem[] = [
-    {
-      key: 'telegram',
-      label: 'Conectar Telegram (cockpit)',
-      desc: 'Seu canal principal de operação no dia-a-dia',
-      href: data.telegram_bot_link ?? '/painel/configuracoes',
-      done: data.has_telegram,
-    },
     {
       key: 'doctor',
       label: 'Cadastrar profissional',
