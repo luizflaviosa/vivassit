@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Fragment } from 'react';
+import { useState, useEffect, useCallback, Fragment, Suspense } from 'react';
 import {
   motion,
   AnimatePresence,
@@ -611,7 +611,7 @@ function AccessRow({
 // Main page
 // ──────────────────────────────────────────────────────────────────────────────
 
-export default function OnboardingPage() {
+function OnboardingPageInner() {
   const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<OnboardingData>(() => {
@@ -1418,6 +1418,19 @@ export default function OnboardingPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+// useSearchParams() exige Suspense boundary no Next.js 14 App Router
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#FAFAF7] flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-2 border-zinc-200 border-t-zinc-900 animate-spin" />
+      </div>
+    }>
+      <OnboardingPageInner />
+    </Suspense>
   );
 }
 
