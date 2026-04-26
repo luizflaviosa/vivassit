@@ -235,6 +235,40 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── Magic link de primeiro acesso (passa para N8N enviar via email) ───────
+    // Estrategia:
+    //   1. Cria user no auth (idempotente; se ja existe, ignora)
+    //   2. Gera magic link autenticando esse user; redirect para /painel
+    //   3. Inclui URL no payload pro N8N enviar no email de boas-vindas
+    let magicLinkUrl: string | null = null;
+    try {
+      const origin = request.nextUrl.origin || 'https://app.singulare.org';
+      const redirectTo = `${origin}/auth/callback?next=/painel`;
+
+      // Cria user pre-confirmado (silenciosa em caso de "already exists")
+      await supabase.auth.admin.createUser({
+        email: body.admin_email,
+        email_confirm: true,
+        user_metadata: { tenant_id: tenantId, clinic_name: body.clinic_name },
+      }).catch(() => null);
+
+      // Gera magic link (user agora existe garantidamente)
+      const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
+        type: 'magiclink',
+        email: body.admin_email,
+        options: { redirectTo },
+      });
+
+      if (linkErr) {
+        console.warn('[onboarding] generateLink falhou:', linkErr.message);
+      } else {
+        magicLinkUrl = linkData?.properties?.action_link ?? null;
+      }
+    } catch (e) {
+      console.error('[onboarding] erro ao gerar magic link:', e);
+      // Nao bloqueia: usuario pode entrar via /login normalmente
+    }
+
     // ── Persistencia: saas_orders (assinatura SaaS Vivassit, pendente) ────────
     const orderRow = {
       external_reference: externalReference,
@@ -296,8 +330,14 @@ export async function POST(request: NextRequest) {
       order_id: orderId,
       external_reference: externalReference,
       trial_ends_at: trialEndsAt,
+      // Magic link de primeiro acesso - inserir como CTA principal do email N8N
+      magic_link_url: magicLinkUrl,
+      panel_url: `${request.nextUrl.origin || 'https://app.singulare.org'}/painel`,
+      checkout_url: orderId
+        ? `${request.nextUrl.origin || 'https://app.singulare.org'}/checkout/${externalReference}`
+        : null,
       source: 'vivassit-frontend',
-      version: '4.1',
+      version: '4.2',
       timestamp: new Date().toISOString(),
       user_agent: request.headers.get('user-agent') || 'unknown',
       ip_address:
@@ -368,6 +408,7 @@ export async function POST(request: NextRequest) {
         subscription_status: 'trialing',
         next_step: 'checkout',
         checkout_url: orderId ? `/checkout/${orderId}` : null,
+        magic_link_url: magicLinkUrl,
         // Dados de provisionamento N8N (se disponiveis)
         calendar_link: n8nSummary?.calendar_access_link ?? null,
         telegram_link: n8nSummary?.telegram_bot_link ?? null,
