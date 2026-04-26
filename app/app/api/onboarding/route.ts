@@ -139,8 +139,10 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Persistencia: tenant_doctors (profissional principal) ─────────────────
-    // Trigger SQL regenera tenants.rendered_prompt automaticamente apos isso.
-    // Formato compativel: payment_methods string, working_hours jsonb {seg..dom}.
+    // O trigger SQL `trg_tenant_onboard_doctor` (em tenants AFTER INSERT) JA
+    // criou um tenant_doctor minimo. Aqui so completamos os campos restantes
+    // via UPDATE para evitar duplicacao + conflito UNIQUE em doctor_crm.
+    // Trigger `trg_doctor_prompt_rebuild` regenera rendered_prompt apos isso.
     const paymentMethodsString = paymentMethodsArr.length
       ? paymentMethodsArr
           .map((m) => {
@@ -155,13 +157,7 @@ export async function POST(request: NextRequest) {
           .join(', ')
       : null;
 
-    const doctorRow = {
-      tenant_id: tenantId,
-      doctor_name: body.doctor_name,
-      doctor_crm: body.doctor_crm || null,
-      specialty: body.speciality,
-      is_primary: true,
-      status: 'active',
+    const doctorUpdateData = {
       consultation_value: consultationValue,
       consultation_duration: consultationDuration,
       payment_methods: paymentMethodsString,
@@ -173,15 +169,36 @@ export async function POST(request: NextRequest) {
       followup_duration: 30,
       contact_email: body.admin_email,
       contact_phone: normalizedPhone,
+      updated_at: new Date().toISOString(),
     };
 
-    const { error: doctorErr } = await supabase
+    const { data: updatedDoctor, error: doctorErr } = await supabase
       .from('tenant_doctors')
-      .insert(doctorRow);
+      .update(doctorUpdateData)
+      .eq('tenant_id', tenantId)
+      .eq('is_primary', true)
+      .select('id')
+      .maybeSingle();
 
     if (doctorErr) {
-      console.error('[onboarding] erro ao inserir tenant_doctor:', doctorErr);
-      // Nao bloqueia: o tenant ja existe; doctor pode ser inserido depois
+      console.error('[onboarding] erro ao atualizar tenant_doctor:', doctorErr);
+      // Nao bloqueia: o tenant ja existe e o trigger criou um doctor minimo
+    } else if (!updatedDoctor) {
+      // Fallback: trigger nao criou (caso doctor_name vazio?). Insere manualmente.
+      const { error: insertErr } = await supabase
+        .from('tenant_doctors')
+        .insert({
+          tenant_id: tenantId,
+          doctor_name: body.doctor_name,
+          doctor_crm: body.doctor_crm || null,
+          specialty: body.speciality,
+          is_primary: true,
+          status: 'active',
+          ...doctorUpdateData,
+        });
+      if (insertErr) {
+        console.error('[onboarding] fallback INSERT tenant_doctor falhou:', insertErr);
+      }
     }
 
     // ── Persistencia: saas_orders (assinatura SaaS Vivassit, pendente) ────────
