@@ -1335,39 +1335,80 @@ function OnboardingPageInner() {
 
             {/* Working hours — só se private_practice */}
             {isSolo && (
-              <Field label="Dias e horários de atendimento">
-                <div className="space-y-1.5">
+              <Field
+                label="Dias e horários de atendimento"
+                hint="Ex: 08:00-18:00 ou 08:00-12:00,14:00-18:00"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {days.map(d => {
                     const value = workingHours[d.key] ?? 'fechado';
                     const isClosed = value === 'fechado';
                     return (
-                      <div key={d.key} className="flex items-center gap-2">
-                        <span className="text-[13px] font-semibold text-zinc-700 w-10">{d.label}</span>
+                      <div
+                        key={d.key}
+                        className={`flex items-center gap-2 rounded-lg border p-2 transition-colors ${
+                          isClosed ? 'bg-zinc-50 border-black/[0.06]' : 'bg-white border-black/10'
+                        }`}
+                      >
                         <button
                           type="button"
                           onClick={() => setWorkingHour(d.key, isClosed ? '08:00-18:00' : 'fechado')}
-                          className={`flex-shrink-0 h-9 px-3 rounded-md text-[12px] font-medium transition-all ${
-                            isClosed ? 'bg-zinc-100 text-zinc-500' : 'text-white'
+                          className={`flex-shrink-0 inline-flex items-center justify-center w-12 h-9 rounded-md text-[12px] font-semibold transition-all ${
+                            isClosed
+                              ? 'bg-white border border-black/[0.10] text-zinc-400'
+                              : 'text-white'
                           }`}
                           style={!isClosed ? { background: ACCENT_DEEP } : undefined}
+                          aria-label={isClosed ? `${d.label} fechado` : `${d.label} aberto`}
                         >
-                          {isClosed ? 'Fechado' : 'Aberto'}
+                          {d.label}
                         </button>
-                        {!isClosed && (
-                          <input
-                            type="text"
-                            value={value}
-                            onChange={e => setWorkingHour(d.key, e.target.value)}
-                            placeholder="08:00-18:00"
-                            className="flex-1 h-9 px-3 text-[13px] rounded-md border border-black/10 focus:outline-none focus:border-zinc-900"
-                          />
-                        )}
+                        <input
+                          type="text"
+                          value={isClosed ? '' : value}
+                          onChange={e => setWorkingHour(d.key, e.target.value)}
+                          placeholder="08:00-18:00"
+                          disabled={isClosed}
+                          className="flex-1 min-w-0 h-9 px-2.5 text-[13px] rounded-md border border-black/10 focus:outline-none focus:border-zinc-900 disabled:bg-zinc-50 disabled:text-zinc-300 disabled:placeholder:text-zinc-300 disabled:cursor-not-allowed"
+                        />
                       </div>
                     );
                   })}
                 </div>
+                <p className="text-[11px] text-zinc-400 mt-1.5">
+                  Toque no dia pra abrir/fechar. O agente IA usa esses horários pra agendar.
+                </p>
               </Field>
             )}
+
+            {/* Janela de retorno */}
+            <Field
+              label="Janela de retorno (dias)"
+              hint="Retorno é gratuito"
+            >
+              <div className="grid grid-cols-4 gap-2">
+                {[15, 30, 60, 90].map(days => {
+                  const selected = (formData.followup_window_days ?? 30) === days;
+                  return (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => handleInputChange('followup_window_days', String(days))}
+                      className={`h-12 rounded-md text-[13px] font-semibold transition-all ${
+                        selected
+                          ? 'bg-zinc-900 text-white'
+                          : 'bg-white border border-black/[0.08] text-zinc-700 hover:border-black/20'
+                      }`}
+                    >
+                      {days} dias
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-1.5">
+                Período em que o paciente pode marcar retorno gratuito após a consulta.
+              </p>
+            </Field>
 
             {/* Personalize sua IA */}
             <Field label="Personalize sua IA" hint="Opcional">
