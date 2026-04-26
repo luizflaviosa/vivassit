@@ -199,9 +199,24 @@ export interface PixQrCode {
 }
 
 export async function getPixQrCode(paymentId: string): Promise<PixQrCode> {
-  return asaasFetch<PixQrCode>(
-    `/payments/${encodeURIComponent(paymentId)}/pixQrCode`
-  );
+  // Asaas as vezes leva ate 2s para processar o PIX apos createPayment.
+  // Tenta ate 4 vezes com backoff antes de desistir.
+  const delays = [0, 800, 1500, 3000];
+  let lastErr: unknown = null;
+  for (const delay of delays) {
+    if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+    try {
+      return await asaasFetch<PixQrCode>(
+        `/payments/${encodeURIComponent(paymentId)}/pixQrCode`
+      );
+    } catch (err) {
+      lastErr = err;
+      const status = (err as { status?: number }).status;
+      // So faz retry em erros transitorios (400/404). Outros (401, 500) falham direto.
+      if (status !== 400 && status !== 404) throw err;
+    }
+  }
+  throw lastErr;
 }
 
 export interface BoletoIdentification {
