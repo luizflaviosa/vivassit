@@ -396,6 +396,48 @@ export async function POST(request: NextRequest) {
         if (!webhookResponse.ok) {
           console.error('[onboarding] N8N retornou erro:', webhookResponse.status, n8nSummary);
         }
+
+        // ── Persiste dados do N8N de volta no tenants ─────────────────────────
+        // O workflow N8N retorna calendar_id, evolution_phone_number, telegram_bot_link, etc
+        // mas nao salva no banco. Sem isso, o painel fica sem essas integracoes.
+        if (n8nSummary) {
+          const sum = n8nSummary as Record<string, unknown>;
+          const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+          if (typeof sum.calendar_id === 'string') updates.calendar_id = sum.calendar_id;
+          if (typeof sum.evolution_phone_number === 'string') updates.evolution_phone_number = sum.evolution_phone_number;
+          if (typeof sum.evolution_instance_name === 'string') updates.evolution_instance_name = sum.evolution_instance_name;
+          if (typeof sum.evolution_instance_id === 'string') updates.evolution_instance_id = sum.evolution_instance_id;
+          if (typeof sum.evolution_status === 'string') updates.evolution_status = sum.evolution_status;
+          if (typeof sum.evolution_qr_code === 'string') updates.evolution_qr_code = sum.evolution_qr_code;
+          if (typeof sum.telegram_bot_link === 'string') updates.telegram_bot_link = sum.telegram_bot_link;
+          if (typeof sum.telegram_chat_id === 'string') updates.telegram_chat_id = sum.telegram_chat_id;
+          if (typeof sum.chatwoot_account_id === 'string') updates.chatwoot_account_id = sum.chatwoot_account_id;
+          if (typeof sum.chatwoot_domain === 'string') updates.chatwoot_domain = sum.chatwoot_domain;
+          if (typeof sum.chatwoot_type === 'string') updates.chatwoot_type = sum.chatwoot_type;
+          if (typeof sum.drive_folder_id === 'string') updates.drive_folder_id = sum.drive_folder_id;
+          if (sum.calendar_config && typeof sum.calendar_config === 'object') updates.calendar_config = sum.calendar_config;
+
+          if (Object.keys(updates).length > 1) {
+            const { error: updErr } = await supabase
+              .from('tenants')
+              .update(updates)
+              .eq('tenant_id', tenantId);
+            if (updErr) {
+              console.error('[onboarding] falha ao salvar dados N8N no tenants:', updErr);
+            } else {
+              console.log('[onboarding] tenants atualizado com', Object.keys(updates).length - 1, 'campos do N8N');
+            }
+
+            // Tambem atualiza tenant_doctors do principal com calendar_id (se veio)
+            if (typeof sum.calendar_id === 'string' && sum.calendar_id) {
+              await supabase
+                .from('tenant_doctors')
+                .update({ calendar_id: sum.calendar_id, updated_at: new Date().toISOString() })
+                .eq('tenant_id', tenantId)
+                .eq('is_primary', true);
+            }
+          }
+        }
       } catch (err) {
         clearTimeout(timeoutId);
         const isTimeout = err instanceof Error && err.name === 'AbortError';

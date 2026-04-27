@@ -56,7 +56,7 @@ export default function SetupChecklist() {
     {
       key: 'calendar',
       label: 'Configurar agenda Google',
-      desc: 'Adicionar calendar_id do profissional pra IA marcar',
+      desc: 'Calendar_id pra IA marcar consultas',
       href: '/painel/profissionais',
       done: data.has_calendar,
     },
@@ -70,7 +70,7 @@ export default function SetupChecklist() {
     {
       key: 'clinic',
       label: 'Dados da clínica',
-      desc: 'Nome, telefone, endereço',
+      desc: 'Nome, endereço, contato administrativo',
       href: '/painel/configuracoes',
       done: data.has_clinic_data,
     },

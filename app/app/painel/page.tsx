@@ -19,6 +19,7 @@ import { useMe } from '@/lib/painel-context';
 import { MetricCardSkeleton, StatRowSkeleton, PageHeadingSkeleton } from '@/lib/painel-skeleton';
 import TiltCard from './components/tilt-card';
 import SetupChecklist from './components/setup-checklist';
+import AssistantCTA from './components/assistant-cta';
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
@@ -179,6 +180,9 @@ function PainelInner() {
           </p>
         )}
       </motion.div>
+
+      {/* Banner promovendo o chat IA como cockpit principal */}
+      <AssistantCTA />
 
       {/* Setup checklist (some/aparece se faltar config) */}
       <SetupChecklist />

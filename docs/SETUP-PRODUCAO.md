@@ -104,10 +104,13 @@ Em **Asaas painel** → **Integrações** → **Webhook**:
 
 Pra a bolha de chat no painel responder. Hoje cai em fallback "modo manutenção".
 
-### A) Adicionar Webhook trigger no workflow "6. Assistente Interno"
+### A) Adicionar Webhook trigger no workflow correto
 
-1. Abre seu n8n (provavelmente `https://n8n.suaempresa.com` ou self-hosted)
-2. Workflow **"6. Assistente Interno"**
+**ATENÇÃO:** o workflow oficial pra dev é o **"6. Assistente Interno BACKUP"**
+(ID `WmM47MvuJPU8szyM`), não o "6. Assistente Interno" antigo.
+
+1. Abre seu n8n
+2. Workflow **"6. Assistente Interno BACKUP"**
 3. Adiciona **novo nó Webhook** no início (paralelo ao Telegram trigger):
    - Method: **POST**
    - Path: `vivassit-internal-chat` (ou o que preferir)

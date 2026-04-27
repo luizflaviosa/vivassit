@@ -3,13 +3,18 @@
 import { useEffect, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Plus, Trash2, User, Star, Mail, Phone, Loader2, X, Check, Pencil, Calendar } from 'lucide-react';
+import {
+  Plus, Trash2, User, Star, Mail, Phone, Loader2, X, Check, Pencil, Calendar,
+  Clock, MapPin, CreditCard, Shield, Repeat,
+} from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
-import { DoctorCardSkeleton, PageHeadingSkeleton } from '@/lib/painel-skeleton';
+import { DoctorCardSkeleton } from '@/lib/painel-skeleton';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
+
+type WorkingHours = Record<string, string>;
 
 interface Doctor {
   id: string;
@@ -19,16 +24,57 @@ interface Doctor {
   is_primary: boolean;
   status: string;
   consultation_value: number | string | null;
-  consultation_duration: number;
+  consultation_duration: number | null;
   payment_methods: string | null;
-  working_hours: Record<string, string>;
+  working_hours: WorkingHours | null;
   accepts_insurance: boolean;
   insurance_note: string | null;
-  followup_window_days: number;
+  followup_value: number | string | null;
+  followup_duration: number | null;
+  followup_window_days: number | null;
   contact_email: string | null;
   contact_phone: string | null;
+  address: string | null;
   calendar_id: string | null;
 }
+
+interface FormData {
+  doctor_name: string;
+  doctor_crm: string;
+  specialty: string;
+  consultation_value: string;
+  consultation_duration: string;
+  contact_email: string;
+  contact_phone: string;
+  address: string;
+  calendar_id: string;
+  payment_methods: string;
+  accepts_insurance: boolean;
+  insurance_note: string;
+  followup_value: string;
+  followup_duration: string;
+  followup_window_days: string;
+  working_hours: WorkingHours;
+}
+
+const EMPTY_FORM: FormData = {
+  doctor_name: '', doctor_crm: '', specialty: '',
+  consultation_value: '', consultation_duration: '60',
+  contact_email: '', contact_phone: '', address: '', calendar_id: '',
+  payment_methods: '', accepts_insurance: false, insurance_note: '',
+  followup_value: '', followup_duration: '30', followup_window_days: '30',
+  working_hours: {},
+};
+
+const DAYS = [
+  { key: 'seg', label: 'Segunda' },
+  { key: 'ter', label: 'Terça' },
+  { key: 'qua', label: 'Quarta' },
+  { key: 'qui', label: 'Quinta' },
+  { key: 'sex', label: 'Sexta' },
+  { key: 'sab', label: 'Sábado' },
+  { key: 'dom', label: 'Domingo' },
+];
 
 function ProfissionaisInner() {
   const me = useMe();
@@ -39,40 +85,41 @@ function ProfissionaisInner() {
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  // Form state
-  const [name, setName] = useState('');
-  const [register, setRegister] = useState('');
-  const [specialty, setSpecialty] = useState('');
-  const [value, setValue] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [calendarId, setCalendarId] = useState('');
+  const [form, setForm] = useState<FormData>(EMPTY_FORM);
 
   const isEditing = editingId !== null;
   const modalOpen = showAdd || isEditing;
 
-  const resetForm = () => {
-    setName(''); setRegister(''); setSpecialty(''); setValue('');
-    setEmail(''); setPhone(''); setCalendarId('');
-  };
+  const setField = <K extends keyof FormData>(key: K, value: FormData[K]) =>
+    setForm((f) => ({ ...f, [key]: value }));
 
   const closeModal = () => {
     setShowAdd(false);
     setEditingId(null);
-    resetForm();
+    setForm(EMPTY_FORM);
   };
 
   const startEdit = (d: Doctor) => {
     setEditingId(d.id);
     setShowAdd(false);
-    setName(d.doctor_name);
-    setRegister(d.doctor_crm ?? '');
-    setSpecialty(d.specialty);
-    setValue(d.consultation_value ? String(d.consultation_value) : '');
-    setEmail(d.contact_email ?? '');
-    setPhone(d.contact_phone ?? '');
-    setCalendarId(d.calendar_id ?? '');
+    setForm({
+      doctor_name: d.doctor_name,
+      doctor_crm: d.doctor_crm ?? '',
+      specialty: d.specialty,
+      consultation_value: d.consultation_value ? String(d.consultation_value) : '',
+      consultation_duration: d.consultation_duration ? String(d.consultation_duration) : '60',
+      contact_email: d.contact_email ?? '',
+      contact_phone: d.contact_phone ?? '',
+      address: d.address ?? '',
+      calendar_id: d.calendar_id ?? '',
+      payment_methods: d.payment_methods ?? '',
+      accepts_insurance: d.accepts_insurance ?? false,
+      insurance_note: d.insurance_note ?? '',
+      followup_value: d.followup_value ? String(d.followup_value) : '',
+      followup_duration: d.followup_duration ? String(d.followup_duration) : '30',
+      followup_window_days: d.followup_window_days ? String(d.followup_window_days) : '30',
+      working_hours: d.working_hours ?? {},
+    });
   };
 
   const load = async () => {
@@ -96,68 +143,57 @@ function ProfissionaisInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
 
-  const handleAdd = async () => {
-    if (!name.trim() || !specialty.trim()) {
-      toast.error('Nome e especialidade são obrigatórios');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/painel/profissionais', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          doctor_name: name,
-          doctor_crm: register || null,
-          specialty,
-          consultation_value: value || null,
-          contact_email: email || null,
-          contact_phone: phone || null,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        toast.error(json.message || 'Erro ao cadastrar');
-        return;
-      }
-      toast.success('Profissional cadastrado!');
-      closeModal();
-      load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erro inesperado');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const buildPayload = () => ({
+    doctor_name: form.doctor_name.trim(),
+    doctor_crm: form.doctor_crm.trim() || null,
+    specialty: form.specialty.trim(),
+    consultation_value: form.consultation_value ? parseFloat(form.consultation_value) : null,
+    consultation_duration: form.consultation_duration ? parseInt(form.consultation_duration, 10) : null,
+    contact_email: form.contact_email.trim() || null,
+    contact_phone: form.contact_phone.trim() || null,
+    address: form.address.trim() || null,
+    calendar_id: form.calendar_id.trim() || null,
+    payment_methods: form.payment_methods.trim() || null,
+    accepts_insurance: form.accepts_insurance,
+    insurance_note: form.insurance_note.trim() || null,
+    followup_value: form.followup_value ? parseFloat(form.followup_value) : null,
+    followup_duration: form.followup_duration ? parseInt(form.followup_duration, 10) : null,
+    followup_window_days: form.followup_window_days ? parseInt(form.followup_window_days, 10) : null,
+    working_hours: form.working_hours,
+  });
 
-  const handleSaveEdit = async () => {
-    if (!editingId) return;
-    if (!name.trim() || !specialty.trim()) {
+  const handleSubmit = async () => {
+    if (!form.doctor_name.trim() || !form.specialty.trim()) {
       toast.error('Nome e especialidade são obrigatórios');
       return;
     }
     setSubmitting(true);
     try {
+      const isPatch = isEditing;
       const res = await fetch('/api/painel/profissionais', {
-        method: 'PATCH',
+        method: isPatch ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingId,
-          doctor_name: name,
-          doctor_crm: register || null,
-          specialty,
-          consultation_value: value || null,
-          contact_email: email || null,
-          contact_phone: phone || null,
-          calendar_id: calendarId || null,
-        }),
+        body: JSON.stringify(isPatch ? { id: editingId, ...buildPayload() } : buildPayload()),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
         toast.error(json.message || 'Erro ao salvar');
         return;
       }
-      toast.success('Profissional atualizado');
+      // Feedback rico se calendar foi auto-criado no POST
+      if (!isPatch && json.calendar?.calendar_id) {
+        toast.success('Profissional cadastrado · agenda Google criada automaticamente', {
+          description: json.calendar.share_status?.startsWith('shared_with_')
+            ? `Compartilhada com ${json.calendar.share_status.replace('shared_with_', '')}`
+            : undefined,
+        });
+      } else if (!isPatch && json.calendar?.share_status?.includes('skipped')) {
+        toast.success('Profissional cadastrado', {
+          description: 'Service Account não configurado — agenda pode ser criada manualmente depois.',
+        });
+      } else {
+        toast.success(isPatch ? 'Profissional atualizado' : 'Profissional cadastrado');
+      }
       closeModal();
       load();
     } catch (e) {
@@ -191,7 +227,7 @@ function ProfissionaisInner() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[12px] uppercase tracking-[0.12em] font-semibold mb-2" style={{ color: ACCENT_DEEP }}>
             Equipe
@@ -238,25 +274,24 @@ function ProfissionaisInner() {
         </div>
       )}
 
-      {/* Modal Add/Edit */}
+      {/* Modal Add/Edit (dialog padrão Apple/Linear: centralizado, scroll interno) */}
       <AnimatePresence>
         {modalOpen && (
-          <>
+          <motion.div
+            className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 sm:p-6 bg-black/40 overflow-y-auto"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={closeModal}
+          >
             <motion.div
-              className="fixed inset-0 z-50 bg-black/40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeModal}
-            />
-            <motion.div
-              className="fixed inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 top-1/2 -translate-y-1/2 z-50 w-auto sm:w-[480px] bg-white rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full sm:max-w-[560px] my-auto bg-white rounded-2xl shadow-2xl flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)]"
               initial={{ opacity: 0, y: 20, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.96 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-black/[0.06]">
+              {/* Header (sticky no topo do modal) */}
+              <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-black/[0.06] flex-shrink-0">
                 <h2 className="text-[16px] font-semibold text-zinc-900">
                   {isEditing ? 'Editar profissional' : 'Novo profissional'}
                 </h2>
@@ -267,27 +302,99 @@ function ProfissionaisInner() {
                   <X className="w-4 h-4 text-zinc-500" />
                 </button>
               </div>
-              <div className="p-5 sm:p-6 space-y-3 max-h-[70vh] overflow-y-auto">
-                <FormInput placeholder="Nome completo" value={name} onChange={setName} />
-                <div className="grid grid-cols-2 gap-3">
-                  <FormInput placeholder="Registro (CRM/CRO/CRP...)" value={register} onChange={setRegister} />
-                  <FormInput placeholder="Especialidade" value={specialty} onChange={setSpecialty} />
-                </div>
-                <FormInput placeholder="Valor da consulta (R$)" value={value} onChange={setValue} inputMode="decimal" />
-                <FormInput placeholder="Email de contato" value={email} onChange={setEmail} type="email" />
-                <FormInput placeholder="Telefone de contato" value={phone} onChange={setPhone} type="tel" />
-                <div>
-                  <FormInput
-                    placeholder="Calendar ID Google (ex: profissional@gmail.com ou xxx@group.calendar.google.com)"
-                    value={calendarId}
-                    onChange={setCalendarId}
-                  />
-                  <p className="text-[11px] text-zinc-400 mt-1.5 px-1">
-                    Compartilhe esse calendar com o Service Account pra agenda funcionar.
+
+              {/* Body (scrollavel) */}
+              <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
+                {/* Identidade */}
+                <Section title="Identidade">
+                  <FormInput placeholder="Nome completo *" value={form.doctor_name} onChange={(v) => setField('doctor_name', v)} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormInput placeholder="Registro (CRM/CRO/CRP)" value={form.doctor_crm} onChange={(v) => setField('doctor_crm', v)} />
+                    <FormInput placeholder="Especialidade *" value={form.specialty} onChange={(v) => setField('specialty', v)} />
+                  </div>
+                </Section>
+
+                {/* Contato */}
+                <Section title="Contato" icon={<Mail className="w-3.5 h-3.5" />}>
+                  <FormInput placeholder="Email" value={form.contact_email} onChange={(v) => setField('contact_email', v)} type="email" />
+                  <FormInput placeholder="Telefone" value={form.contact_phone} onChange={(v) => setField('contact_phone', v)} type="tel" />
+                  <FormInput placeholder="Endereço (rua, número, cidade)" value={form.address} onChange={(v) => setField('address', v)} />
+                </Section>
+
+                {/* Consulta */}
+                <Section title="Consulta" icon={<CreditCard className="w-3.5 h-3.5" />}>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormInput placeholder="Valor (R$)" value={form.consultation_value} onChange={(v) => setField('consultation_value', v)} inputMode="decimal" />
+                    <FormInput placeholder="Duração (min)" value={form.consultation_duration} onChange={(v) => setField('consultation_duration', v)} inputMode="numeric" />
+                  </div>
+                  <FormInput placeholder="Métodos aceitos (ex: PIX, dinheiro, cartão)" value={form.payment_methods} onChange={(v) => setField('payment_methods', v)} />
+                </Section>
+
+                {/* Convênio */}
+                <Section title="Convênios" icon={<Shield className="w-3.5 h-3.5" />}>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setField('accepts_insurance', !form.accepts_insurance)}
+                      className={`h-6 w-11 rounded-full transition-colors relative ${form.accepts_insurance ? 'bg-violet-500' : 'bg-zinc-300'}`}
+                    >
+                      <span className={`absolute top-0.5 h-5 w-5 bg-white rounded-full transition-transform shadow-sm ${form.accepts_insurance ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                    <span className="text-[13px] text-zinc-700">Aceita convênios</span>
+                  </div>
+                  {form.accepts_insurance && (
+                    <FormTextarea
+                      placeholder="Quais convênios aceita? (ex: Unimed, Amil, GreenLine)"
+                      value={form.insurance_note}
+                      onChange={(v) => setField('insurance_note', v)}
+                      rows={2}
+                    />
+                  )}
+                </Section>
+
+                {/* Follow-up */}
+                <Section title="Retorno (follow-up)" icon={<Repeat className="w-3.5 h-3.5" />}>
+                  <div className="grid grid-cols-3 gap-3">
+                    <FormInput placeholder="Valor (R$)" value={form.followup_value} onChange={(v) => setField('followup_value', v)} inputMode="decimal" />
+                    <FormInput placeholder="Duração (min)" value={form.followup_duration} onChange={(v) => setField('followup_duration', v)} inputMode="numeric" />
+                    <FormInput placeholder="Janela (dias)" value={form.followup_window_days} onChange={(v) => setField('followup_window_days', v)} inputMode="numeric" />
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Janela = dias depois da consulta em que o paciente pode marcar retorno.
                   </p>
-                </div>
+                </Section>
+
+                {/* Horários */}
+                <Section title="Dias e horários de atendimento" icon={<Clock className="w-3.5 h-3.5" />}>
+                  <WorkingHoursEditor
+                    value={form.working_hours}
+                    onChange={(v) => setField('working_hours', v)}
+                  />
+                </Section>
+
+                {/* Calendar */}
+                <Section title="Google Calendar" icon={<Calendar className="w-3.5 h-3.5" />}>
+                  <CalendarManager
+                    doctorId={editingId}
+                    currentCalendarId={form.calendar_id}
+                    contactEmail={form.contact_email}
+                    onCreated={(id) => setField('calendar_id', id)}
+                  />
+                  <FormInput
+                    placeholder="Calendar ID (preenchido automaticamente)"
+                    value={form.calendar_id}
+                    onChange={(v) => setField('calendar_id', v)}
+                  />
+                  <p className="text-[11px] text-zinc-400">
+                    {form.calendar_id
+                      ? 'Calendar configurado. O Service Account precisa ter acesso (use "Verificar acesso" abaixo se duvida).'
+                      : 'Crie um novo calendar dedicado ou cole um ID existente (precisa ter compartilhamento com o SA).'}
+                  </p>
+                </Section>
               </div>
-              <div className="flex items-center justify-end gap-2 px-5 sm:px-6 py-4 bg-zinc-50/60 border-t border-black/[0.06]">
+
+              {/* Footer (sticky bottom) */}
+              <div className="flex items-center justify-end gap-2 px-5 sm:px-6 py-4 bg-zinc-50/60 border-t border-black/[0.06] flex-shrink-0">
                 <button
                   onClick={closeModal}
                   className="h-10 px-4 rounded-lg text-[13px] font-semibold text-zinc-700 hover:bg-black/[0.04] transition-colors"
@@ -295,21 +402,191 @@ function ProfissionaisInner() {
                   Cancelar
                 </button>
                 <button
-                  onClick={isEditing ? handleSaveEdit : handleAdd}
+                  onClick={handleSubmit}
                   disabled={submitting}
                   className="h-10 px-4 rounded-lg text-white text-[13px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110 disabled:opacity-70"
-                  style={{
-                    background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
-                  }}
+                  style={{ background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})` }}
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  {isEditing ? 'Salvar alterações' : 'Cadastrar'}
+                  {isEditing ? 'Salvar' : 'Cadastrar'}
                 </button>
               </div>
             </motion.div>
-          </>
+          </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function CalendarManager({
+  doctorId, currentCalendarId, contactEmail, onCreated,
+}: {
+  doctorId: string | null;
+  currentCalendarId: string;
+  contactEmail: string;
+  onCreated: (id: string) => void;
+}) {
+  const [busy, setBusy] = useState<'create' | 'verify' | null>(null);
+  const [verifyResult, setVerifyResult] = useState<{ ok: boolean; message: string; sa_email?: string; suggestion?: string } | null>(null);
+
+  if (!doctorId) {
+    return (
+      <p className="text-[12px] text-zinc-500 italic mb-2">
+        Salve o profissional primeiro pra poder criar/vincular um calendar.
+      </p>
+    );
+  }
+
+  const handleCreate = async () => {
+    if (!confirm('Criar um novo Google Calendar dedicado pra este profissional?\n\nO Service Account será o dono e (se tiver email cadastrado) será compartilhado com o profissional pra ele ver no Gmail dele.')) return;
+    setBusy('create');
+    try {
+      const res = await fetch(`/api/painel/profissionais/${doctorId}/calendar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', share_with: contactEmail || undefined }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.message || 'Erro ao criar calendar');
+        return;
+      }
+      onCreated(json.calendar_id);
+      const shareMsg = json.share?.shared
+        ? ` e compartilhado com ${json.share.with}`
+        : (json.share?.error ? ` (mas falhou compartilhar com ${json.share.with}: ${json.share.error})` : '');
+      toast.success(`Calendar criado${shareMsg}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro inesperado');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleVerify = async () => {
+    setBusy('verify');
+    setVerifyResult(null);
+    try {
+      const res = await fetch(`/api/painel/profissionais/${doctorId}/calendar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify' }),
+      });
+      const json = await res.json();
+      setVerifyResult({
+        ok: !!json.success,
+        message: json.message ?? (json.success ? 'OK' : 'Erro'),
+        sa_email: json.sa_email,
+        suggestion: json.suggestion,
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="space-y-2 mb-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {!currentCalendarId ? (
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={busy !== null}
+            className="h-9 px-3.5 rounded-md text-white text-[12.5px] font-semibold inline-flex items-center gap-1.5 transition-all hover:brightness-110 disabled:opacity-60"
+            style={{ background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+          >
+            {busy === 'create' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+            Criar agenda Google automaticamente
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleVerify}
+            disabled={busy !== null}
+            className="h-9 px-3.5 rounded-md text-[12.5px] font-semibold text-zinc-700 border border-black/[0.10] hover:border-black/30 hover:bg-black/[0.02] inline-flex items-center gap-1.5 transition-all disabled:opacity-60"
+          >
+            {busy === 'verify' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+            Verificar acesso do Service Account
+          </button>
+        )}
+      </div>
+      {verifyResult && (
+        <div className={`text-[12px] rounded-lg px-3 py-2 leading-relaxed ${verifyResult.ok ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+          <p className="font-semibold mb-0.5">{verifyResult.ok ? '✓ Acesso OK' : '⚠ Sem acesso'}</p>
+          <p>{verifyResult.message}</p>
+          {verifyResult.suggestion && <p className="mt-1 font-mono text-[11px] break-all">{verifyResult.suggestion}</p>}
+          {verifyResult.sa_email && (
+            <p className="mt-1.5 text-[11px]">Service Account: <code className="font-mono">{verifyResult.sa_email}</code></p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Section({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">
+        {icon}
+        {title}
+      </div>
+      <div className="space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+function WorkingHoursEditor({ value, onChange }: { value: WorkingHours; onChange: (v: WorkingHours) => void }) {
+  const setDay = (key: string, val: string) => {
+    const next = { ...value };
+    if (val === 'fechado' || !val) {
+      next[key] = 'fechado';
+    } else {
+      next[key] = val;
+    }
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-1.5 rounded-xl border border-black/[0.08] bg-zinc-50/40 p-3">
+      {DAYS.map((d) => {
+        const v = value[d.key] ?? 'fechado';
+        const isClosed = v === 'fechado' || v === '';
+        const [start, end] = isClosed ? ['', ''] : v.split('-');
+        return (
+          <div key={d.key} className="flex items-center gap-3 py-1">
+            <span className="w-20 text-[13px] font-medium text-zinc-700 flex-shrink-0">{d.label}</span>
+            <button
+              type="button"
+              onClick={() => setDay(d.key, isClosed ? '08:00-18:00' : 'fechado')}
+              className={`h-6 w-10 rounded-full transition-colors relative flex-shrink-0 ${!isClosed ? 'bg-violet-500' : 'bg-zinc-300'}`}
+              aria-label={isClosed ? 'Abrir' : 'Fechar'}
+            >
+              <span className={`absolute top-0.5 h-5 w-5 bg-white rounded-full transition-transform shadow-sm ${!isClosed ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </button>
+            {isClosed ? (
+              <span className="text-[12px] text-zinc-400 italic">fechado</span>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="time"
+                  value={start ?? '08:00'}
+                  onChange={(e) => setDay(d.key, `${e.target.value}-${end || '18:00'}`)}
+                  className="h-8 px-2 text-[13px] rounded-md border border-black/10 bg-white"
+                />
+                <span className="text-[12px] text-zinc-400">–</span>
+                <input
+                  type="time"
+                  value={end ?? '18:00'}
+                  onChange={(e) => setDay(d.key, `${start || '08:00'}-${e.target.value}`)}
+                  className="h-8 px-2 text-[13px] rounded-md border border-black/10 bg-white"
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -335,6 +612,11 @@ function DoctorCard({ doctor, onDelete, onEdit }: { doctor: Doctor; onDelete: (i
               Principal
             </span>
           )}
+          {doctor.calendar_id && (
+            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] font-semibold px-2 py-0.5 rounded text-emerald-700 bg-emerald-50">
+              <Calendar className="w-2.5 h-2.5" /> calendar
+            </span>
+          )}
           {doctor.status !== 'active' && (
             <span className="inline-flex items-center text-[10px] uppercase tracking-[0.08em] font-semibold px-2 py-0.5 rounded bg-zinc-100 text-zinc-500">
               Inativo
@@ -348,14 +630,13 @@ function DoctorCard({ doctor, onDelete, onEdit }: { doctor: Doctor; onDelete: (i
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[12px] text-zinc-500">
           {doctor.consultation_value && (
             <span className="font-medium text-zinc-700">
-              R$ {Number(doctor.consultation_value).toFixed(0)} / {doctor.consultation_duration}min
+              R$ {Number(doctor.consultation_value).toFixed(0)} / {doctor.consultation_duration ?? 60}min
             </span>
           )}
           {doctor.payment_methods && <span>{doctor.payment_methods}</span>}
-          {doctor.contact_email && (
-            <span className="inline-flex items-center gap-1">
-              <Mail className="w-3 h-3" />
-              {doctor.contact_email}
+          {doctor.address && (
+            <span className="inline-flex items-center gap-1 truncate max-w-[280px]">
+              <MapPin className="w-3 h-3" /> {doctor.address}
             </span>
           )}
           {doctor.contact_phone && (
@@ -367,11 +648,6 @@ function DoctorCard({ doctor, onDelete, onEdit }: { doctor: Doctor; onDelete: (i
         </div>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
-        {doctor.calendar_id && (
-          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-            <Calendar className="w-2.5 h-2.5" /> calendar
-          </span>
-        )}
         <button
           onClick={onEdit}
           className="h-9 w-9 rounded-md hover:bg-zinc-100 hover:text-zinc-900 text-zinc-400 inline-flex items-center justify-center transition-colors"
@@ -395,11 +671,7 @@ function DoctorCard({ doctor, onDelete, onEdit }: { doctor: Doctor; onDelete: (i
 }
 
 function FormInput({
-  placeholder,
-  value,
-  onChange,
-  type = 'text',
-  inputMode,
+  placeholder, value, onChange, type = 'text', inputMode,
 }: {
   placeholder: string;
   value: string;
@@ -414,7 +686,26 @@ function FormInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       inputMode={inputMode}
-      className="w-full h-11 px-3.5 bg-white text-[15px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+      className="w-full h-11 px-3.5 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+    />
+  );
+}
+
+function FormTextarea({
+  placeholder, value, onChange, rows = 3,
+}: {
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+}) {
+  return (
+    <textarea
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      rows={rows}
+      className="w-full px-3.5 py-2.5 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all resize-none"
     />
   );
 }

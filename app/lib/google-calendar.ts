@@ -3,15 +3,12 @@ import crypto from 'crypto';
 // ─────────────────────────────────────────────────────────────────────────────
 // Google Calendar API via Service Account (sem dep externa, JWT signing nativo)
 //
-// Setup esperado:
-//   - env GOOGLE_SERVICE_ACCOUNT_JSON: o JSON inteiro do service account (string)
-//     (gere no Google Cloud Console → IAM → Service Accounts → Keys → Add JSON)
-//   - cada profissional compartilha o calendar dele com o email do service account
-//     (1 click em Calendar settings → Share with specific people)
-//
-// Vantagem: o painel não precisa do OAuth do usuário pra ler agenda.
-// O mesmo SA pode ler agenda de qualquer profissional cadastrado, com base no
-// calendar_id armazenado em tenant_doctors.
+// Setup:
+//   - env GOOGLE_SERVICE_ACCOUNT_JSON: JSON inteiro do service account
+//   - SA é DONO dos calendars criados via createCalendar()
+//   - Profissionais ganham acesso via shareCalendarWith(email)
+//   - Calendars já existentes (criados por outros) precisam ser compartilhados
+//     com o SA antes de poderem ser lidos via API
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface ServiceAccount {
@@ -22,7 +19,10 @@ interface ServiceAccount {
 interface CachedToken {
   access_token: string;
   expires_at: number;
+  scope: string;
 }
+
+const SCOPE_FULL = 'https://www.googleapis.com/auth/calendar';
 
 let cached: CachedToken | null = null;
 
@@ -43,22 +43,19 @@ function base64url(input: Buffer | string): string {
   return buf.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
-async function fetchAccessToken(sa: ServiceAccount): Promise<string> {
-  // Reusa token se ainda tem >5min de vida
-  if (cached && cached.expires_at - Date.now() > 5 * 60_000) {
+async function fetchAccessToken(sa: ServiceAccount, scope: string = SCOPE_FULL): Promise<string> {
+  if (cached && cached.scope === scope && cached.expires_at - Date.now() > 5 * 60_000) {
     return cached.access_token;
   }
-
   const now = Math.floor(Date.now() / 1000);
   const claims = {
     iss: sa.client_email,
-    scope: 'https://www.googleapis.com/auth/calendar.readonly',
+    scope,
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
     iat: now,
   };
   const header = { alg: 'RS256', typ: 'JWT' };
-
   const signingInput = `${base64url(JSON.stringify(header))}.${base64url(JSON.stringify(claims))}`;
   const signature = crypto.sign('RSA-SHA256', Buffer.from(signingInput), sa.private_key);
   const jwt = `${signingInput}.${base64url(signature)}`;
@@ -76,11 +73,11 @@ async function fetchAccessToken(sa: ServiceAccount): Promise<string> {
     const txt = await res.text().catch(() => '');
     throw new Error(`Google OAuth falhou: ${res.status} ${txt.slice(0, 200)}`);
   }
-
   const data = (await res.json()) as { access_token: string; expires_in: number };
   cached = {
     access_token: data.access_token,
     expires_at: Date.now() + data.expires_in * 1000,
+    scope,
   };
   return data.access_token;
 }
@@ -99,6 +96,9 @@ export interface CalendarEvent {
   meet_link: string | null;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// READ: lista eventos
+// ─────────────────────────────────────────────────────────────────────────────
 export async function listEvents(opts: {
   calendarId: string;
   timeMin: string;
@@ -123,22 +123,16 @@ export async function listEvents(opts: {
     singleEvents: 'true',
     orderBy: 'startTime',
   });
-
   const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(opts.calendarId)}/events?${params}`;
 
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: 'no-store',
-  });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
 
   if (res.status === 403 || res.status === 404) {
-    // 404 = calendar não existe / não tem acesso. 403 = acesso negado.
     return {
       error: `Acesso negado à agenda. Compartilhe o calendar "${opts.calendarId}" com ${sa.client_email}`,
       code: 'no_access',
     };
   }
-
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
     console.error('[google-calendar] api erro', res.status, txt.slice(0, 200));
@@ -173,6 +167,123 @@ export async function listEvents(opts: {
   }));
 
   return { events };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CREATE: cria novo calendar de propriedade do SA
+// ─────────────────────────────────────────────────────────────────────────────
+export async function createCalendar(opts: {
+  summary: string;
+  description?: string;
+  timeZone?: string;
+}): Promise<{ calendar_id: string; summary: string } | { error: string; code: 'no_sa' | 'fetch_error' }> {
+  const sa = getServiceAccount();
+  if (!sa) return { error: 'GOOGLE_SERVICE_ACCOUNT_JSON não configurado', code: 'no_sa' };
+
+  let token: string;
+  try {
+    token = await fetchAccessToken(sa);
+  } catch (e) {
+    console.error('[google-calendar] erro token:', e);
+    return { error: 'Falha ao autenticar', code: 'fetch_error' };
+  }
+
+  const res = await fetch('https://www.googleapis.com/calendar/v3/calendars', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      summary: opts.summary,
+      description: opts.description ?? `Agenda Singulare · ${opts.summary}`,
+      timeZone: opts.timeZone ?? 'America/Sao_Paulo',
+    }),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    console.error('[google-calendar] createCalendar erro', res.status, txt.slice(0, 300));
+    return { error: `Google API erro ${res.status}: ${txt.slice(0, 100)}`, code: 'fetch_error' };
+  }
+
+  const data = (await res.json()) as { id: string; summary: string };
+  return { calendar_id: data.id, summary: data.summary };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARE: compartilha o calendar com um email externo
+// ─────────────────────────────────────────────────────────────────────────────
+export async function shareCalendarWith(opts: {
+  calendarId: string;
+  email: string;
+  role: 'reader' | 'writer' | 'owner';
+}): Promise<{ ok: true } | { error: string; code: 'no_sa' | 'no_access' | 'fetch_error' }> {
+  const sa = getServiceAccount();
+  if (!sa) return { error: 'GOOGLE_SERVICE_ACCOUNT_JSON não configurado', code: 'no_sa' };
+
+  let token: string;
+  try {
+    token = await fetchAccessToken(sa);
+  } catch {
+    return { error: 'Falha ao autenticar', code: 'fetch_error' };
+  }
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(opts.calendarId)}/acl`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        role: opts.role,
+        scope: { type: 'user', value: opts.email },
+      }),
+    }
+  );
+
+  if (res.status === 403) {
+    return {
+      error: `Sem permissão pra adicionar ACL no calendar "${opts.calendarId}". O Service Account precisa ser dono ou ter role 'owner' nele.`,
+      code: 'no_access',
+    };
+  }
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    console.error('[google-calendar] shareCalendarWith erro', res.status, txt.slice(0, 200));
+    return { error: `Google API erro ${res.status}`, code: 'fetch_error' };
+  }
+  return { ok: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENSURE ACCESS: verifica se o SA consegue ler o calendar
+// ─────────────────────────────────────────────────────────────────────────────
+export async function ensureSAAccess(calendarId: string): Promise<
+  { ok: true; level: 'owner' | 'reader' | 'writer' | 'unknown' } | { error: string; code: 'no_sa' | 'no_access' | 'fetch_error' }
+> {
+  const sa = getServiceAccount();
+  if (!sa) return { error: 'GOOGLE_SERVICE_ACCOUNT_JSON não configurado', code: 'no_sa' };
+
+  let token: string;
+  try {
+    token = await fetchAccessToken(sa);
+  } catch {
+    return { error: 'Falha ao autenticar', code: 'fetch_error' };
+  }
+
+  // Tenta ler metadata do calendar — se acessar, tem permissão
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}`,
+    { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }
+  );
+
+  if (res.status === 403 || res.status === 404) {
+    return {
+      error: `Sem acesso ao calendar "${calendarId}". Compartilhe com ${sa.client_email}`,
+      code: 'no_access',
+    };
+  }
+  if (!res.ok) {
+    return { error: `Google API erro ${res.status}`, code: 'fetch_error' };
+  }
+  return { ok: true, level: 'unknown' };
 }
 
 export function getServiceAccountEmail(): string | null {

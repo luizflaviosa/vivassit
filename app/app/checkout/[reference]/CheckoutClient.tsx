@@ -243,7 +243,7 @@ export default function CheckoutClient({
             alt="Singulare"
             width={120}
             height={40}
-            className="h-7 w-auto"
+            className="h-10 sm:h-11 w-auto"
             priority
           />
           <span className="inline-flex items-center gap-1.5 text-[12px] text-zinc-500">
