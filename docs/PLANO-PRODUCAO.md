@@ -18,6 +18,7 @@
 - ✅ PWA install (mobile)
 - ✅ Workflow N8N "6. Assistente Interno BACKUP" ativo + Web webhook funcionando (você acabou de fazer)
 - ✅ 2 tenants ativos (Singulare + Voda), 1 com calendar Google integrado, 1 com Telegram vinculado
+- ✅ NPS pós-consulta: workflow n8n cron 19h BRT lê Calendar + Master Secretária trata respostas. Painel `/painel/feedback` já consome `patient_feedback`. Spec: `docs/superpowers/specs/2026-04-28-nps-pos-consulta-design.md` · Smoke: `docs/n8n/nps-smoke-test.md`
 
 ### O que está QUEBRADO ou faltando
 - 🔴 **Magic link não funciona** (você confirmou) — bloqueia user que não usa Google
