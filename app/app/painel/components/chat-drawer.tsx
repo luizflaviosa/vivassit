@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Send, Mic, MicOff, Bot, User, Sparkles, Loader2 } from 'lucide-react';
+import { MessageCircle, X, ArrowUp, Mic, MicOff, Bot, Sparkles, Loader2, Trash2 } from 'lucide-react';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -22,10 +22,9 @@ const SUGGESTIONS = [
   'Minha agenda hoje',
   'Faturamento do mês',
   'Próximo paciente',
-  'Cancelar última consulta',
+  'Reagendar última',
 ];
 
-// Web Speech API minimo type
 interface SpeechRecognitionResultLike {
   results: ArrayLike<ArrayLike<{ transcript: string }>>;
 }
@@ -50,7 +49,7 @@ export default function ChatDrawer() {
   const [keyboardOffset, setKeyboardOffset] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
   // Restore historico
@@ -89,19 +88,23 @@ export default function ChatDrawer() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, open]);
+  }, [messages, open, keyboardOffset]);
 
-  // Foco no input ao abrir
+  // Foco no input ao abrir (desktop apenas — mobile não força foco pra evitar
+  // teclado abrindo na hora errada)
   useEffect(() => {
     if (open) {
       setUnread(0);
-      setTimeout(() => inputRef.current?.focus(), 200);
+      const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+      if (isDesktop) {
+        setTimeout(() => inputRef.current?.focus(), 200);
+      }
     }
   }, [open]);
 
-  // iOS Safari: visualViewport encolhe quando o teclado abre. Calculamos
-  // o offset pra empurrar o input acima do teclado em versões antigas
-  // (iOS < 16.4 não respeita interactive-widget=resizes-content).
+  // iOS Safari: visualViewport encolhe quando o teclado abre. Calcula offset
+  // pra empurrar a barra de composição acima do teclado (iOS < 16.4 não
+  // respeita interactive-widget=resizes-content).
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
     const vv = window.visualViewport;
@@ -118,6 +121,18 @@ export default function ChatDrawer() {
     };
   }, []);
 
+  // Lock body scroll quando drawer abre no mobile (evita rubber-band atrás)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (open) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [open]);
+
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -130,7 +145,6 @@ export default function ChatDrawer() {
         timestamp: Date.now(),
       };
 
-      // Optimistic UI: mensagem do user aparece IMEDIATAMENTE
       const aiPlaceholder: Msg = {
         id: 'a-' + Date.now(),
         role: 'ai',
@@ -155,11 +169,10 @@ export default function ChatDrawer() {
 
         if (!res.ok || !res.body) {
           const errText = await res.text().catch(() => '');
-          updateAiMsg(aiPlaceholder.id, `⚠️ ${errText || 'Sem resposta'}`);
+          updateAiMsg(aiPlaceholder.id, `Tive um problema (${res.status}). ${errText.slice(0, 80)}`);
           return;
         }
 
-        // Stream chunks
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let acc = '';
@@ -173,7 +186,7 @@ export default function ChatDrawer() {
       } catch (e) {
         updateAiMsg(
           aiPlaceholder.id,
-          '⚠️ Sem conexão. Tenta de novo ou usa o Telegram por enquanto.'
+          'Sem conexão agora. Tenta de novo em alguns segundos.'
         );
         console.error('[chat] erro:', e);
       } finally {
@@ -190,7 +203,6 @@ export default function ChatDrawer() {
     );
   };
 
-  // ── Voz ──────────────────────────────────────────────────────────────────
   const toggleVoice = () => {
     if (recording) {
       recognitionRef.current?.stop();
@@ -203,7 +215,7 @@ export default function ChatDrawer() {
     };
     const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
     if (!SR) {
-      alert('Seu navegador não suporta voz. Usa Chrome ou Safari recente.');
+      alert('Seu navegador não suporta voz. Use Chrome ou Safari recente.');
       return;
     }
 
@@ -215,7 +227,6 @@ export default function ChatDrawer() {
       const transcript = e.results[0]?.[0]?.transcript ?? '';
       if (transcript) {
         setInput(transcript);
-        // Auto-send se o transcript for uma frase completa
         setTimeout(() => send(transcript), 200);
       }
     };
@@ -230,7 +241,7 @@ export default function ChatDrawer() {
   };
 
   const clear = () => {
-    if (confirm('Limpar histórico desta conversa?')) {
+    if (confirm('Apagar este histórico?')) {
       setMessages([]);
       try {
         localStorage.removeItem(STORAGE_KEY);
@@ -240,12 +251,29 @@ export default function ChatDrawer() {
     }
   };
 
+  // Auto-grow textarea
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    const ta = e.target;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter (sem shift) envia. Em mobile, enterKeyHint=send mostra a tecla certa.
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send(input);
+    }
+  };
+
   return (
     <>
-      {/* Bolha flutuante */}
+      {/* Bolha flutuante mobile */}
       <AnimatePresence>
         {!open && (
           <motion.button
+            key="fab-m"
             initial={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.6 }}
@@ -265,6 +293,7 @@ export default function ChatDrawer() {
         )}
         {!open && (
           <motion.button
+            key="fab-d"
             initial={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.6 }}
@@ -288,9 +317,10 @@ export default function ChatDrawer() {
       <AnimatePresence>
         {open && (
           <>
-            {/* Backdrop mobile */}
+            {/* Backdrop só no desktop (mobile vira full-screen) */}
             <motion.div
-              className="md:hidden fixed inset-0 z-40 bg-black/40"
+              key="bd"
+              className="hidden md:block fixed inset-0 z-40 bg-black/30"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -298,40 +328,61 @@ export default function ChatDrawer() {
             />
 
             <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.96 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              style={{ paddingBottom: `env(safe-area-inset-bottom)` }}
-              className="fixed z-50 bg-white shadow-[0_24px_64px_-16px_rgba(0,0,0,0.25)] flex flex-col
-                         inset-x-0 bottom-0 top-12 rounded-t-2xl max-h-[100dvh]
-                         md:inset-auto md:bottom-6 md:right-6 md:top-auto md:w-[420px] md:h-[640px] md:rounded-2xl md:max-h-[80vh]"
+              key="dr"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="fixed z-50 bg-[#FAFAF7] flex flex-col
+                         inset-0 h-[100dvh]
+                         md:inset-auto md:bottom-6 md:right-6 md:w-[420px] md:h-[640px]
+                         md:rounded-2xl md:shadow-[0_24px_64px_-16px_rgba(0,0,0,0.25)] md:max-h-[80vh] md:bg-white"
             >
-              {/* Header */}
-              <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-black/[0.06]">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div
-                    className="h-9 w-9 rounded-full flex items-center justify-center text-white flex-shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
-                  >
-                    <Bot className="w-4 h-4" />
+              {/* Header sticky com blur — fica fixo mesmo com teclado aberto */}
+              <header
+                className="flex-shrink-0 sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 bg-white/85 backdrop-blur-xl border-b border-black/[0.06]"
+                style={{ paddingTop: `max(12px, env(safe-area-inset-top))` }}
+              >
+                <button
+                  onClick={() => setOpen(false)}
+                  className="md:hidden h-10 w-10 -ml-2 rounded-full hover:bg-black/[0.04] inline-flex items-center justify-center"
+                  aria-label="Fechar"
+                >
+                  <X className="w-5 h-5 text-zinc-700" />
+                </button>
+
+                <div className="flex items-center gap-2.5 min-w-0 flex-1 md:flex-initial">
+                  <div className="relative h-9 w-9 flex-shrink-0">
+                    <div
+                      className="h-9 w-9 rounded-full flex items-center justify-center text-white"
+                      style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+                    >
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[14px] font-semibold text-zinc-900 truncate">Sua IA</p>
-                    <p className="text-[11px] text-zinc-500">Online · responde em segundos</p>
+                    <p className="text-[15px] font-semibold text-zinc-900 truncate leading-tight">Sua IA</p>
+                    <p className="text-[11.5px] text-zinc-500 leading-tight">
+                      {streaming ? 'digitando…' : 'online · responde em segundos'}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    onClick={clear}
-                    className="h-8 px-2 rounded-md text-[11px] font-medium text-zinc-500 hover:text-zinc-900 hover:bg-black/[0.04]"
-                    title="Limpar histórico"
-                  >
-                    Limpar
-                  </button>
+
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  {messages.length > 0 && (
+                    <button
+                      onClick={clear}
+                      className="h-10 w-10 rounded-full hover:bg-black/[0.04] inline-flex items-center justify-center text-zinc-500 hover:text-zinc-900"
+                      aria-label="Apagar histórico"
+                      title="Apagar histórico"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                   <button
                     onClick={() => setOpen(false)}
-                    className="h-9 w-9 rounded-md hover:bg-black/[0.04] inline-flex items-center justify-center"
+                    className="hidden md:inline-flex h-10 w-10 rounded-full hover:bg-black/[0.04] items-center justify-center"
                     aria-label="Fechar"
                   >
                     <X className="w-4 h-4 text-zinc-500" />
@@ -339,27 +390,37 @@ export default function ChatDrawer() {
                 </div>
               </header>
 
-              {/* Mensagens */}
-              <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              {/* Mensagens — scroll só aqui */}
+              <div
+                ref={scrollRef}
+                className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-3"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
                 {messages.length === 0 ? (
                   <EmptyChat onSuggestion={(s) => send(s)} />
                 ) : (
-                  messages.map((m) => <Bubble key={m.id} msg={m} />)
+                  messages.map((m, i) => (
+                    <Bubble
+                      key={m.id}
+                      msg={m}
+                      isFirst={i === 0 || messages[i - 1].role !== m.role}
+                    />
+                  ))
                 )}
                 {streaming && messages[messages.length - 1]?.text === '' && (
                   <TypingDots />
                 )}
               </div>
 
-              {/* Sugestões rápidas (só quando vazio ou poucas mensagens) */}
-              {messages.length < 3 && messages.length > 0 && (
-                <div className="px-4 pb-2 flex gap-1.5 overflow-x-auto">
+              {/* Sugestões rápidas — só quando há 1-2 mensagens */}
+              {messages.length > 0 && messages.length < 3 && (
+                <div className="flex-shrink-0 px-4 pb-2 flex gap-1.5 overflow-x-auto scrollbar-none">
                   {SUGGESTIONS.map((s) => (
                     <button
                       key={s}
                       onClick={() => send(s)}
                       disabled={streaming}
-                      className="flex-shrink-0 h-7 px-2.5 rounded-full bg-zinc-100 hover:bg-zinc-200 text-[11px] font-medium text-zinc-700 disabled:opacity-50"
+                      className="flex-shrink-0 h-8 px-3 rounded-full bg-white border border-black/[0.08] text-[12px] font-medium text-zinc-700 hover:border-black/20 disabled:opacity-50"
                     >
                       {s}
                     </button>
@@ -367,52 +428,77 @@ export default function ChatDrawer() {
                 </div>
               )}
 
-              {/* Input — empurra acima do teclado em iOS antigo */}
+              {/* Composer — fixo no fim, empurra acima do teclado em iOS antigo */}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   send(input);
                 }}
-                style={{ marginBottom: keyboardOffset > 0 ? keyboardOffset : undefined }}
-                className="flex items-center gap-2 px-4 py-3 border-t border-black/[0.06] bg-zinc-50/40 transition-[margin] duration-150"
+                style={{
+                  paddingBottom: `max(12px, env(safe-area-inset-bottom))`,
+                  marginBottom: keyboardOffset,
+                  transition: 'margin-bottom 150ms ease',
+                }}
+                className="flex-shrink-0 px-3 pt-2 bg-white/95 backdrop-blur-xl border-t border-black/[0.05]"
               >
-                <button
-                  type="button"
-                  onClick={toggleVoice}
-                  disabled={streaming}
-                  className={`h-11 w-11 flex-shrink-0 rounded-full inline-flex items-center justify-center transition-all ${
-                    recording
-                      ? 'bg-rose-500 text-white animate-pulse'
-                      : 'bg-white border border-black/[0.10] text-zinc-700 hover:bg-zinc-50'
-                  } disabled:opacity-50`}
-                  aria-label={recording ? 'Parar gravação' : 'Falar'}
-                >
-                  {recording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                </button>
+                <div className="flex items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleVoice}
+                    disabled={streaming}
+                    className={`h-10 w-10 flex-shrink-0 rounded-full inline-flex items-center justify-center transition-colors ${
+                      recording
+                        ? 'bg-rose-500 text-white'
+                        : 'bg-white border border-black/[0.10] text-zinc-700 hover:bg-zinc-50'
+                    } disabled:opacity-50`}
+                    aria-label={recording ? 'Parar gravação' : 'Falar'}
+                  >
+                    {recording ? (
+                      <span className="relative inline-flex">
+                        <MicOff className="w-4 h-4" />
+                        <span className="absolute inset-0 -m-2 rounded-full border-2 border-rose-300 animate-ping" />
+                      </span>
+                    ) : (
+                      <Mic className="w-4 h-4" />
+                    )}
+                  </button>
 
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={recording ? 'Ouvindo…' : 'Digite ou fale…'}
-                  disabled={streaming || recording}
-                  enterKeyHint="send"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  className="flex-1 min-w-0 h-11 px-4 bg-white text-[16px] sm:text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-full border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/[0.06] disabled:bg-zinc-50"
-                />
+                  <div className="flex-1 min-w-0 relative">
+                    <textarea
+                      ref={inputRef}
+                      rows={1}
+                      value={input}
+                      onChange={handleInputChange}
+                      onKeyDown={handleKeyDown}
+                      placeholder={recording ? 'Ouvindo…' : 'Mensagem'}
+                      disabled={streaming || recording}
+                      enterKeyHint="send"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="sentences"
+                      spellCheck={false}
+                      className="w-full resize-none px-4 py-2.5 bg-zinc-100/80 text-[16px] sm:text-[14px] leading-snug text-zinc-900 placeholder:text-zinc-400 rounded-3xl border-0 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50 transition-colors max-h-[120px]"
+                      style={{ minHeight: 40 }}
+                    />
+                  </div>
 
-                <button
-                  type="submit"
-                  disabled={!input.trim() || streaming}
-                  className="h-11 w-11 flex-shrink-0 rounded-full text-white inline-flex items-center justify-center transition-all hover:brightness-110 disabled:opacity-30"
-                  style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
-                  aria-label="Enviar"
-                >
-                  {streaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                </button>
+                  {/* Send: aparece em desktop sempre, e em mobile só quando há texto */}
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || streaming}
+                    className={`h-10 w-10 flex-shrink-0 rounded-full text-white inline-flex items-center justify-center transition-all ${
+                      input.trim() ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none md:opacity-30 md:scale-100 md:pointer-events-auto'
+                    }`}
+                    style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+                    aria-label="Enviar"
+                  >
+                    {streaming ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ArrowUp className="w-4 h-4" strokeWidth={2.5} />
+                    )}
+                  </button>
+                </div>
               </form>
             </motion.div>
           </>
@@ -422,74 +508,77 @@ export default function ChatDrawer() {
   );
 }
 
-function Bubble({ msg }: { msg: Msg }) {
+function Bubble({ msg, isFirst }: { msg: Msg; isFirst: boolean }) {
   const isUser = msg.role === 'user';
   return (
-    <div className={`flex items-end gap-2 ${isUser ? 'flex-row-reverse' : ''}`}>
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+      className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+    >
       <div
-        className={`h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-          isUser ? 'bg-zinc-200 text-zinc-600' : 'text-white'
+        className={`max-w-[82%] px-3.5 py-2 text-[15px] sm:text-[14px] leading-[1.4] whitespace-pre-wrap break-words ${
+          isUser
+            ? `text-white rounded-[20px] ${isFirst ? '' : 'rounded-tr-md'} rounded-br-md`
+            : `bg-white border border-black/[0.05] text-zinc-900 rounded-[20px] ${isFirst ? '' : 'rounded-tl-md'} rounded-bl-md shadow-[0_1px_2px_rgba(0,0,0,0.03)]`
         }`}
-        style={!isUser ? { background: ACCENT_DEEP } : undefined}
+        style={isUser ? { background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` } : undefined}
       >
-        {isUser ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+        {msg.text || <span className="opacity-40">…</span>}
       </div>
-      <div
-        className={`max-w-[80%] px-3.5 py-2 text-[14px] leading-relaxed whitespace-pre-wrap break-words ${
-          isUser ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm bg-zinc-100 text-zinc-900'
-        }`}
-        style={isUser ? { background: ACCENT_DEEP, color: 'white' } : undefined}
-      >
-        {msg.text || <span className="opacity-50">…</span>}
-      </div>
-    </div>
+    </motion.div>
   );
 }
 
 function TypingDots() {
   return (
-    <div className="flex items-end gap-2">
-      <div
-        className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 text-white"
-        style={{ background: ACCENT_DEEP }}
-      >
-        <Bot className="w-3.5 h-3.5" />
-      </div>
-      <div className="bg-zinc-100 rounded-2xl rounded-bl-sm px-3.5 py-3 inline-flex gap-1">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex justify-start"
+    >
+      <div className="bg-white border border-black/[0.05] rounded-[20px] rounded-bl-md px-4 py-3 inline-flex gap-1 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
         {[0, 1, 2].map((i) => (
           <span
             key={i}
             className="h-1.5 w-1.5 bg-zinc-400 rounded-full animate-bounce"
-            style={{ animationDelay: `${i * 100}ms` }}
+            style={{ animationDelay: `${i * 120}ms` }}
           />
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 function EmptyChat({ onSuggestion }: { onSuggestion: (s: string) => void }) {
   return (
-    <div className="text-center py-6">
-      <div
-        className="inline-flex h-12 w-12 items-center justify-center rounded-2xl mb-3"
+    <div className="flex flex-col items-center justify-center text-center pt-12 pb-6 px-6 min-h-full">
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 220, damping: 18 }}
+        className="inline-flex h-14 w-14 items-center justify-center rounded-2xl mb-4"
         style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
       >
-        <Sparkles className="w-5 h-5" />
-      </div>
-      <p className="text-[15px] font-semibold text-zinc-900">Conversa direta com a IA</p>
-      <p className="text-[12px] text-zinc-500 mt-1 mb-4 max-w-xs mx-auto">
-        Pergunte qualquer coisa do seu negócio. Texto ou voz.
+        <Sparkles className="w-6 h-6" strokeWidth={1.75} />
+      </motion.div>
+      <p className="text-[18px] font-medium text-zinc-900 tracking-tight">Como posso ajudar?</p>
+      <p className="text-[13.5px] text-zinc-500 mt-1.5 mb-6 max-w-[260px] leading-relaxed">
+        Pergunte sobre agenda, pacientes, faturamento ou peça pra reagendar uma consulta.
       </p>
-      <div className="flex flex-wrap gap-1.5 justify-center px-4">
-        {SUGGESTIONS.map((s) => (
-          <button
+      <div className="flex flex-col gap-2 w-full max-w-[280px]">
+        {SUGGESTIONS.map((s, i) => (
+          <motion.button
             key={s}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 + i * 0.04, duration: 0.3 }}
             onClick={() => onSuggestion(s)}
-            className="h-8 px-3 rounded-full bg-zinc-100 hover:bg-zinc-200 text-[12px] font-medium text-zinc-700 transition-colors"
+            className="h-11 px-4 text-left text-[14px] font-medium text-zinc-800 bg-white border border-black/[0.07] rounded-xl hover:border-black/20 hover:bg-zinc-50 transition-colors"
           >
             {s}
-          </button>
+          </motion.button>
         ))}
       </div>
     </div>
