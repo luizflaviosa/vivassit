@@ -34,6 +34,7 @@ interface Tenant {
   telegram_chat_id: string | null;
   elevenlabs_voice_id: string | null;
   assistant_prompt: string | null;
+  internal_agent_capabilities: string | null;
   rendered_prompt: string | null;
 }
 
@@ -52,6 +53,7 @@ interface FormData {
   evolution_phone_number: string;
   elevenlabs_voice_id: string;
   assistant_prompt: string;
+  internal_agent_capabilities: string;
 }
 
 const EMPTY: FormData = {
@@ -59,6 +61,7 @@ const EMPTY: FormData = {
   admin_email: '', accountant_email: '', address: '',
   doctor_name: '', doctor_crm: '', speciality: '',
   evolution_phone_number: '', elevenlabs_voice_id: '', assistant_prompt: '',
+  internal_agent_capabilities: '',
 };
 
 function ConfigInner() {
@@ -100,6 +103,7 @@ function ConfigInner() {
             evolution_phone_number: t.evolution_phone_number ?? '',
             elevenlabs_voice_id: t.elevenlabs_voice_id ?? '',
             assistant_prompt: t.assistant_prompt ?? '',
+            internal_agent_capabilities: t.internal_agent_capabilities ?? '',
           });
         }
       } catch (e) {
@@ -159,6 +163,7 @@ function ConfigInner() {
       </div>
 
       {/* Personalização da IA */}
+      <div id="ai-prompt" className="scroll-mt-20" />
       <Card icon={<Sparkles className="w-4 h-4" />} accent="violet" title="Personalize sua IA" subtitle="Direcione o tom, regras e limites">
         <textarea
           value={form.assistant_prompt}
@@ -175,7 +180,26 @@ function ConfigInner() {
       {/* Preview do prompt completo */}
       {tenant?.rendered_prompt && <PromptPreview rendered={tenant.rendered_prompt} />}
 
+      {/* Capacidades do Assistente Interno (chat IA do painel + Telegram) */}
+      <Card
+        icon={<Sparkles className="w-4 h-4" />}
+        title="Saudação do seu assistente interno"
+        subtitle="O texto abaixo é o que aparece quando você abre o chat. Mantenha alinhado com as ferramentas do agente."
+      >
+        <textarea
+          value={form.internal_agent_capabilities}
+          onChange={(e) => setField('internal_agent_capabilities', e.target.value)}
+          placeholder="Ex: Olá! Posso te ajudar com reagendar consultas, organizar tarefas e resumir e-mails."
+          rows={8}
+          className="w-full px-3.5 py-3 bg-white text-[15px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all resize-none font-mono"
+        />
+        <p className="text-[11px] text-zinc-400 mt-2">
+          Markdown leve: <code>**negrito**</code> e <code>•</code> ou <code>-</code> pra bullets. Atualiza a tela do chat na hora — basta salvar e reabrir.
+        </p>
+      </Card>
+
       {/* Identidade da clínica */}
+      <div id="clinica" className="scroll-mt-20" />
       <Card icon={<Building2 className="w-4 h-4" />} title="Identidade" subtitle={isClinic ? 'Dados públicos da clínica' : 'Dados públicos do consultório'}>
         <div className="space-y-3">
           <Field label={isClinic ? 'Nome da clínica' : 'Nome do consultório'}>

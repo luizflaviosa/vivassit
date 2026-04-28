@@ -47,6 +47,8 @@ export default function ChatDrawer() {
   const [recording, setRecording] = useState(false);
   const [unread, setUnread] = useState(0);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [capabilities, setCapabilities] = useState<string>('');
+  const [clinicName, setClinicName] = useState<string>('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -71,6 +73,19 @@ export default function ChatDrawer() {
     const handler = () => setOpen(true);
     window.addEventListener('singulare:open-chat', handler);
     return () => window.removeEventListener('singulare:open-chat', handler);
+  }, []);
+
+  // Carrega capacidades do agente (single source of truth no BD)
+  useEffect(() => {
+    fetch('/api/interno/info')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j) {
+          setCapabilities(j.capabilities ?? '');
+          setClinicName(j.clinic_name ?? '');
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Persist historico
@@ -397,7 +412,11 @@ export default function ChatDrawer() {
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
                 {messages.length === 0 ? (
-                  <EmptyChat onSuggestion={(s) => send(s)} />
+                  <EmptyChat
+                    onSuggestion={(s) => send(s)}
+                    capabilities={capabilities}
+                    clinicName={clinicName}
+                  />
                 ) : (
                   messages.map((m, i) => (
                     <Bubble
@@ -472,13 +491,13 @@ export default function ChatDrawer() {
                       onKeyDown={handleKeyDown}
                       placeholder={recording ? 'Ouvindo…' : 'Mensagem'}
                       disabled={streaming || recording}
-                      enterKeyHint="send"
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="sentences"
                       spellCheck={false}
                       className="w-full resize-none px-4 py-2.5 bg-zinc-100/80 text-[16px] sm:text-[14px] leading-snug text-zinc-900 placeholder:text-zinc-400 rounded-3xl border-0 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50 transition-colors max-h-[120px]"
                       style={{ minHeight: 40 }}
+                      {...({ enterKeyHint: 'send' } as Record<string, string>)}
                     />
                   </div>
 
@@ -551,9 +570,17 @@ function TypingDots() {
   );
 }
 
-function EmptyChat({ onSuggestion }: { onSuggestion: (s: string) => void }) {
+function EmptyChat({
+  onSuggestion,
+  capabilities,
+  clinicName,
+}: {
+  onSuggestion: (s: string) => void;
+  capabilities: string;
+  clinicName: string;
+}) {
   return (
-    <div className="flex flex-col items-center justify-center text-center pt-12 pb-6 px-6 min-h-full">
+    <div className="flex flex-col items-center text-center pt-10 pb-6 px-5">
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -563,17 +590,35 @@ function EmptyChat({ onSuggestion }: { onSuggestion: (s: string) => void }) {
       >
         <Sparkles className="w-6 h-6" strokeWidth={1.75} />
       </motion.div>
-      <p className="text-[18px] font-medium text-zinc-900 tracking-tight">Como posso ajudar?</p>
-      <p className="text-[13.5px] text-zinc-500 mt-1.5 mb-6 max-w-[260px] leading-relaxed">
-        Pergunte sobre agenda, pacientes, faturamento ou peça pra reagendar uma consulta.
-      </p>
+
+      {/* Saudação dinâmica vinda do BD (tenants.internal_agent_capabilities) */}
+      {capabilities ? (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05, duration: 0.3 }}
+          className="w-full max-w-[320px] text-left bg-white border border-black/[0.05] rounded-2xl px-4 py-3.5 mb-5 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+        >
+          <CapabilitiesMarkdown text={capabilities} />
+        </motion.div>
+      ) : (
+        <>
+          <p className="text-[18px] font-medium text-zinc-900 tracking-tight">
+            {clinicName ? `Olá, ${clinicName}` : 'Como posso ajudar?'}
+          </p>
+          <p className="text-[13.5px] text-zinc-500 mt-1.5 mb-6 max-w-[260px] leading-relaxed">
+            Pergunte sobre agenda, pacientes, faturamento ou peça pra reagendar uma consulta.
+          </p>
+        </>
+      )}
+
       <div className="flex flex-col gap-2 w-full max-w-[280px]">
         {SUGGESTIONS.map((s, i) => (
           <motion.button
             key={s}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 + i * 0.04, duration: 0.3 }}
+            transition={{ delay: 0.15 + i * 0.04, duration: 0.3 }}
             onClick={() => onSuggestion(s)}
             className="h-11 px-4 text-left text-[14px] font-medium text-zinc-800 bg-white border border-black/[0.07] rounded-xl hover:border-black/20 hover:bg-zinc-50 transition-colors"
           >
@@ -581,6 +626,37 @@ function EmptyChat({ onSuggestion }: { onSuggestion: (s: string) => void }) {
           </motion.button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Renderiza markdown leve (negrito **txt**, lista com bullet •) em parágrafos.
+// Não usa lib externa pra manter o bundle leve.
+function CapabilitiesMarkdown({ text }: { text: string }) {
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-1.5 text-[14px] leading-[1.5] text-zinc-800">
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={i} className="h-1" />;
+        const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-');
+        const content = isBullet ? trimmed.slice(1).trim() : trimmed;
+        const parts = content.split(/(\*\*[^*]+\*\*)/);
+        return (
+          <p key={i} className={isBullet ? 'pl-3.5 relative' : ''}>
+            {isBullet && <span className="absolute left-0 text-zinc-400">•</span>}
+            {parts.map((part, j) =>
+              part.startsWith('**') && part.endsWith('**') ? (
+                <strong key={j} className="font-semibold text-zinc-900">
+                  {part.slice(2, -2)}
+                </strong>
+              ) : (
+                <span key={j}>{part}</span>
+              )
+            )}
+          </p>
+        );
+      })}
     </div>
   );
 }

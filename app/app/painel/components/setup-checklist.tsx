@@ -45,39 +45,42 @@ export default function SetupChecklist() {
 
   if (!data || dismissed) return null;
 
+  // Deeplinks: cada link aterrissa exatamente onde o user precisa agir.
+  // - ?action=new abre o modal de novo profissional automaticamente
+  // - #ai-prompt / #clinica usa scroll-to-anchor nas configurações
   const items: ChecklistItem[] = [
     {
       key: 'doctor',
       label: 'Cadastrar profissional',
       desc: 'Quem atende, valor da consulta, especialidade',
-      href: '/painel/profissionais',
+      href: '/painel/profissionais?action=new',
       done: data.has_doctor,
     },
     {
       key: 'calendar',
-      label: 'Configurar agenda Google',
-      desc: 'Calendar_id pra IA marcar consultas',
+      label: 'Conectar agenda Google',
+      desc: 'A IA cria uma agenda dedicada automaticamente — só precisa abrir o profissional',
       href: '/painel/profissionais',
       done: data.has_calendar,
     },
     {
       key: 'ai',
-      label: 'Personalizar IA',
-      desc: 'Tom de voz, regras, o que oferecer',
-      href: '/painel/configuracoes',
+      label: 'Personalizar a IA',
+      desc: 'Tom de voz, regras, o que oferecer aos pacientes',
+      href: '/painel/configuracoes#ai-prompt',
       done: data.has_ai_prompt,
     },
     {
       key: 'clinic',
       label: 'Dados da clínica',
-      desc: 'Nome, endereço, contato administrativo',
-      href: '/painel/configuracoes',
+      desc: 'Nome, endereço, telefone administrativo',
+      href: '/painel/configuracoes#clinica',
       done: data.has_clinic_data,
     },
     {
       key: 'payment',
       label: 'Ativar pagamentos',
-      desc: 'Receber via PIX/cartão direto na sua conta',
+      desc: 'Receber via PIX, cartão ou boleto direto na sua conta',
       href: '/painel/pagamentos/ativar',
       done: data.has_payment,
     },

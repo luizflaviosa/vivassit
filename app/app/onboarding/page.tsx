@@ -1425,8 +1425,8 @@ function OnboardingPageInner() {
               label="Janela de retorno (dias)"
               hint="Retorno é gratuito"
             >
-              <div className="grid grid-cols-4 gap-2">
-                {[15, 30, 60, 90].map(days => {
+              <div className="grid grid-cols-2 gap-2">
+                {[30, 45].map(days => {
                   const selected = (formData.followup_window_days ?? 30) === days;
                   return (
                     <button

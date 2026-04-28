@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import {
@@ -79,6 +80,8 @@ const DAYS = [
 function ProfissionaisInner() {
   const me = useMe();
   const tenantId = me?.tenant_id ?? '';
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +89,14 @@ function ProfissionaisInner() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
+
+  // Deeplink: /painel/profissionais?action=new abre o modal automaticamente
+  useEffect(() => {
+    if (searchParams?.get('action') === 'new') {
+      setShowAdd(true);
+      router.replace('/painel/profissionais', { scroll: false });
+    }
+  }, [searchParams, router]);
 
   const isEditing = editingId !== null;
   const modalOpen = showAdd || isEditing;
@@ -372,7 +383,7 @@ function ProfissionaisInner() {
                   />
                 </Section>
 
-                {/* Calendar */}
+                {/* Calendar — criado automaticamente, sem campo manual */}
                 <Section title="Google Calendar" icon={<Calendar className="w-3.5 h-3.5" />}>
                   <CalendarManager
                     doctorId={editingId}
@@ -380,16 +391,15 @@ function ProfissionaisInner() {
                     contactEmail={form.contact_email}
                     onCreated={(id) => setField('calendar_id', id)}
                   />
-                  <FormInput
-                    placeholder="Calendar ID (preenchido automaticamente)"
-                    value={form.calendar_id}
-                    onChange={(v) => setField('calendar_id', v)}
-                  />
-                  <p className="text-[11px] text-zinc-400">
-                    {form.calendar_id
-                      ? 'Calendar configurado. O Service Account precisa ter acesso (use "Verificar acesso" abaixo se duvida).'
-                      : 'Crie um novo calendar dedicado ou cole um ID existente (precisa ter compartilhamento com o SA).'}
-                  </p>
+                  {form.calendar_id ? (
+                    <p className="text-[11px] text-zinc-400 break-all">
+                      Calendar dedicado ativo · <span className="font-mono text-[10px]">{form.calendar_id.slice(0, 28)}…</span>
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-zinc-400">
+                      Criamos uma agenda dedicada automaticamente quando você salvar este profissional. Não precisa configurar nada manualmente.
+                    </p>
+                  )}
                 </Section>
               </div>
 
