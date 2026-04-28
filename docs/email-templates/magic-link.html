@@ -1,0 +1,141 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>Singulare — Código de acesso</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style type="text/css">
+    /* Reset */
+    body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+    table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; }
+    img { -ms-interpolation-mode:bicubic; border:0; outline:none; text-decoration:none; }
+    body { margin:0 !important; padding:0 !important; width:100% !important; }
+
+    /* Mobile */
+    @media only screen and (max-width: 620px) {
+      .container { width:100% !important; max-width:100% !important; }
+      .px-side { padding-left:24px !important; padding-right:24px !important; }
+      .otp-code { font-size:36px !important; letter-spacing:10px !important; }
+      .h1 { font-size:20px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0; padding:0; background-color:#FAFAF7; font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif; color:#18181B;">
+
+  <!-- Preheader (texto invisível que aparece como preview no inbox) -->
+  <div style="display:none; max-height:0px; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#FAFAF7;">
+    Seu código de acesso é {{ .Token }}. Expira em 1 hora.
+    &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAFAF7;">
+    <tr>
+      <td align="center" style="padding:40px 16px 24px 16px;">
+
+        <!-- ===== Card ===== -->
+        <table role="presentation" class="container" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px; max-width:560px; background-color:#FFFFFF; border-radius:16px; border:1px solid rgba(0,0,0,0.06); box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+
+          <!-- Header / Logo -->
+          <tr>
+            <td class="px-side" align="left" style="padding:32px 40px 24px 40px; border-bottom:1px solid rgba(0,0,0,0.05);">
+              <a href="https://singulare.org" style="text-decoration:none; border:0; outline:none;">
+                <img src="https://singulare.org/logos/singulare-a.png"
+                     alt="Singulare"
+                     width="180"
+                     style="display:block; border:0; outline:none; text-decoration:none; width:180px; max-width:180px; height:auto;" />
+              </a>
+            </td>
+          </tr>
+
+          <!-- Headline -->
+          <tr>
+            <td class="px-side" style="padding:36px 40px 8px 40px;">
+              <h1 class="h1" style="margin:0 0 10px 0; font-family:-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif; font-size:24px; font-weight:500; letter-spacing:-0.4px; color:#18181B; line-height:1.3;">
+                Seu código de acesso
+              </h1>
+              <p style="margin:0; font-size:15px; line-height:1.6; color:#52525B;">
+                Use o código abaixo para entrar na sua conta Singulare.
+              </p>
+            </td>
+          </tr>
+
+          <!-- OTP Code box -->
+          <tr>
+            <td class="px-side" style="padding:28px 40px 8px 40px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="background-color:#F5F3FF; border:1px solid rgba(110,86,207,0.18); border-radius:12px; padding:28px 16px;">
+                    <div class="otp-code" style="font-family:'SF Mono', SFMono-Regular, ui-monospace, 'Menlo', 'Consolas', monospace; font-size:42px; font-weight:600; letter-spacing:14px; color:#5746AF; line-height:1; padding-left:14px;">
+                      {{ .Token }}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Expiration info -->
+          <tr>
+            <td class="px-side" style="padding:16px 40px 28px 40px;">
+              <p style="margin:0; font-size:13px; line-height:1.6; color:#71717A; text-align:center;">
+                O código expira em <strong style="color:#18181B; font-weight:600;">1 hora</strong>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td class="px-side" style="padding:0 40px;">
+              <div style="height:1px; line-height:1px; font-size:0; background-color:rgba(0,0,0,0.06);">&nbsp;</div>
+            </td>
+          </tr>
+
+          <!-- Safety note -->
+          <tr>
+            <td class="px-side" style="padding:22px 40px 36px 40px;">
+              <p style="margin:0; font-size:13px; line-height:1.65; color:#71717A;">
+                Se você não solicitou este código, pode ignorar este email com segurança. Sua conta continua protegida.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Card -->
+
+        <!-- Footer -->
+        <table role="presentation" class="container" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px; max-width:560px;">
+          <tr>
+            <td align="center" class="px-side" style="padding:24px 40px 16px 40px;">
+              <p style="margin:0 0 6px 0; font-size:12px; line-height:1.6; color:#A1A1AA;">
+                Singulare · Cockpit do seu consultório com IA
+              </p>
+              <p style="margin:0; font-size:12px; line-height:1.6; color:#A1A1AA;">
+                <a href="https://singulare.org" style="color:#A1A1AA; text-decoration:none;">singulare.org</a>
+                &nbsp;·&nbsp;
+                <a href="https://singulare.org/termos" style="color:#A1A1AA; text-decoration:none;">Termos</a>
+                &nbsp;·&nbsp;
+                <a href="https://singulare.org/privacidade" style="color:#A1A1AA; text-decoration:none;">Privacidade</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
