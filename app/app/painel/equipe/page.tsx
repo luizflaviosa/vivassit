@@ -147,7 +147,7 @@ function EquipeInner() {
         </p>
       )}
 
-      {/* Modal de convite */}
+      {/* Modal de convite — bottom sheet no mobile, centered no desktop */}
       <AnimatePresence>
         {showInvite && (
           <>
@@ -155,26 +155,35 @@ function EquipeInner() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/30"
+              className="fixed inset-0 z-40 bg-black/40"
               onClick={() => setShowInvite(false)}
             />
             <motion.div
-              initial={{ opacity: 0, y: 16, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.97 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md rounded-2xl bg-white shadow-[0_24px_64px_-16px_rgba(0,0,0,0.25)]"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+              className="fixed z-50 flex flex-col bg-white shadow-[0_-12px_40px_-8px_rgba(0,0,0,0.25)]
+                         inset-x-0 bottom-0 max-h-[92dvh] rounded-t-3xl
+                         md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2
+                         md:bottom-auto md:w-full md:max-w-md md:rounded-2xl md:max-h-[85vh]"
+              style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-black/[0.06]">
-                <h2 className="text-[16px] font-semibold text-zinc-900">Convidar membro</h2>
+              {/* Drag handle visual — só mobile */}
+              <div className="md:hidden pt-2.5 pb-1 flex justify-center flex-shrink-0">
+                <span className="block w-10 h-1 rounded-full bg-zinc-300" />
+              </div>
+              <div className="flex items-center justify-between px-5 py-3 md:py-4 border-b border-black/[0.06] flex-shrink-0">
+                <h2 className="text-[17px] md:text-[16px] font-semibold text-zinc-900">Convidar membro</h2>
                 <button
                   onClick={() => setShowInvite(false)}
                   className="h-9 w-9 -mr-1 inline-flex items-center justify-center rounded-md hover:bg-zinc-100"
+                  aria-label="Fechar"
                 >
                   <X className="w-4 h-4 text-zinc-500" />
                 </button>
               </div>
-              <form onSubmit={invite} className="px-5 py-4 space-y-4">
+              <form onSubmit={invite} className="px-5 py-4 space-y-4 overflow-y-auto">
                 <div>
                   <label className="text-[12.5px] font-semibold text-zinc-900 block mb-1.5">Email do convidado</label>
                   <div className="relative">
@@ -183,10 +192,11 @@ function EquipeInner() {
                       type="email"
                       autoFocus
                       required
+                      autoComplete="email"
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                       placeholder="medico@email.com"
-                      className="w-full h-11 pl-9 pr-3.5 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                      className="w-full h-12 sm:h-11 pl-9 pr-3.5 bg-white text-[16px] sm:text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
                     />
                   </div>
                 </div>
