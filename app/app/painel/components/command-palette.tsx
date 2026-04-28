@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, ArrowRight, Command as CommandIcon, CornerDownLeft,
   LayoutGrid, Users, UserPlus, Settings, CreditCard, Calendar as CalendarIcon,
-  MessageCircle, FileText, Star, KeyRound, LogOut, Bot, Plus, ExternalLink,
+  MessageCircle, FileText, Star, LogOut, Bot, Plus, ExternalLink,
 } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
@@ -87,7 +87,6 @@ export default function CommandPalette() {
       { id: 'nav-nf', label: 'Notas fiscais', group: 'navegação', icon: <FileText className="w-4 h-4" />, keywords: ['nf', 'fiscal'], onSelect: () => router.push('/painel/nf') },
       { id: 'nav-fb', label: 'NPS / feedback', group: 'navegação', icon: <Star className="w-4 h-4" />, keywords: ['nps', 'satisfacao'], onSelect: () => router.push('/painel/feedback') },
       { id: 'nav-pag', label: 'Ativar pagamentos', group: 'navegação', icon: <CreditCard className="w-4 h-4" />, keywords: ['marketplace', 'kyc', 'asaas'], onSelect: () => router.push('/painel/pagamentos/ativar') },
-      { id: 'act-senha', label: 'Definir/trocar senha', group: 'ação', icon: <KeyRound className="w-4 h-4" />, keywords: ['password', 'login'], onSelect: () => router.push('/configurar-senha') },
       { id: 'act-novo-prof', label: 'Cadastrar novo profissional', group: 'ação', icon: <Plus className="w-4 h-4" />, keywords: ['adicionar', 'medico'], onSelect: () => router.push('/painel/profissionais') },
       { id: 'act-chat', label: 'Falar com a IA interna', hint: 'abre chat', group: 'ação', icon: <Bot className="w-4 h-4" />, keywords: ['assistente', 'gpt', 'chat'], onSelect: () => {
         // Dispara abertura do chat-drawer via evento custom

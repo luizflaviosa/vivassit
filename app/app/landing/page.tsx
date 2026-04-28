@@ -342,7 +342,7 @@ export default function LandingPage() {
   const [successTenantId, setSuccessTenantId] = useState('');
   const [isLogged, setIsLogged] = useState<boolean | null>(null);
 
-  // Detecta se usuário tem sessão ativa pra trocar "Entrar" por "Painel"
+  // Detecta se usuário tem sessão ativa pra trocar "Entrar" por "Abrir minha clínica"
   useEffect(() => {
     fetch('/api/painel/me', { cache: 'no-store' })
       .then((r) => setIsLogged(r.ok))
@@ -386,7 +386,7 @@ export default function LandingPage() {
       {/* Sticky bottom CTA — mobile only */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/85 backdrop-blur-xl border-t border-black/[0.07]">
         <PrimaryButton onClick={() => handleStartTrial()} size="lg" fullWidth>
-          {isLogged ? 'Ir pro painel' : 'Começar grátis'}
+          {isLogged ? 'Abrir minha clínica' : 'Começar grátis'}
         </PrimaryButton>
       </div>
 
@@ -464,7 +464,7 @@ export default function LandingPage() {
                 onClick={() => router.push('/painel')}
                 className="h-9 px-3.5 rounded-md text-[13px] font-semibold text-zinc-900 hover:bg-black/[0.05] transition-colors inline-flex items-center gap-1.5"
               >
-                Ir pro painel
+                Abrir minha clínica
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             ) : (
@@ -519,7 +519,7 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center px-2 sm:px-0">
             <PrimaryButton onClick={() => handleStartTrial()} size="lg" fullWidth>
-              {isLogged ? 'Ir pro painel' : 'Começar grátis'}
+              {isLogged ? 'Abrir minha clínica' : 'Começar grátis'}
             </PrimaryButton>
             <a
               href="#features"
@@ -808,7 +808,7 @@ export default function LandingPage() {
                         '0 1px 0 0 rgba(255,255,255,0.18) inset, 0 8px 22px -6px rgba(110,86,207,0.6)',
                     }}
                   >
-                    {isLogged ? "Ir pro painel" : "Começar grátis"}
+                    {isLogged ? "Abrir minha clínica" : "Começar grátis"}
                     <ArrowRight className="w-4 h-4 sm:w-3.5 sm:h-3.5 transition-transform group-hover:translate-x-0.5" />
                   </button>
                 ) : (
@@ -816,7 +816,7 @@ export default function LandingPage() {
                     onClick={() => handleStartTrial(plan.slug)}
                     className="group h-[52px] sm:h-10 rounded-xl sm:rounded-lg border border-black/[0.10] text-zinc-900 text-[15px] sm:text-[13px] font-semibold inline-flex items-center justify-center gap-2 sm:gap-1.5 transition-all hover:border-black/30 hover:bg-black/[0.02]"
                   >
-                    {isLogged ? "Ir pro painel" : "Começar grátis"}
+                    {isLogged ? "Abrir minha clínica" : "Começar grátis"}
                     <ArrowRight className="w-4 h-4 sm:w-3.5 sm:h-3.5 transition-transform group-hover:translate-x-0.5 text-zinc-500" />
                   </button>
                 )}
@@ -857,7 +857,7 @@ export default function LandingPage() {
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
               <PrimaryButton onClick={() => handleStartTrial()} size="lg" fullWidth>
-                {isLogged ? 'Ir pro painel' : 'Começar agora'}
+                {isLogged ? 'Abrir minha clínica' : 'Começar agora'}
               </PrimaryButton>
             </div>
 

@@ -35,6 +35,8 @@ import {
   Lock,
   ChevronRight,
   CreditCard,
+  Plus,
+  X,
 } from 'lucide-react';
 import {
   OnboardingData,
@@ -58,6 +60,25 @@ import {
 const ACCENT = '#6E56CF';        // primary violet (refined)
 const ACCENT_DEEP = '#5746AF';   // text-on-light accent
 const ACCENT_SOFT = '#F5F3FF';   // tinted surface
+
+type DayInterval = { start: string; end: string };
+
+function parseDayIntervals(raw: string | undefined | null): DayInterval[] {
+  if (!raw || raw === 'fechado') return [];
+  return raw
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(part => {
+      const [start = '', end = ''] = part.split('-');
+      return { start: start.trim(), end: end.trim() };
+    });
+}
+
+function serializeDayIntervals(intervals: DayInterval[]): string {
+  if (intervals.length === 0) return 'fechado';
+  return intervals.map(i => `${i.start || '00:00'}-${i.end || '00:00'}`).join(',');
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -287,53 +308,6 @@ function Tilt({ children, className, max = 6, scale = 1.01, glare = false }: Til
 
 function Hairline({ className = '' }: { className?: string }) {
   return <div className={`h-px w-full bg-black/[0.07] ${className}`} />;
-}
-
-const WORKING_DAYS = [
-  { key: 'seg', label: 'Seg' },
-  { key: 'ter', label: 'Ter' },
-  { key: 'qua', label: 'Qua' },
-  { key: 'qui', label: 'Qui' },
-  { key: 'sex', label: 'Sex' },
-  { key: 'sab', label: 'Sáb' },
-  { key: 'dom', label: 'Dom' },
-];
-
-function WorkingHoursInline({ value, onChange }: {
-  value: Record<string, string>;
-  onChange: (v: Record<string, string>) => void;
-}) {
-  const set = (k: string, v: string) => onChange({ ...value, [k]: v });
-  return (
-    <div className="space-y-1.5 rounded-xl border border-black/[0.08] bg-zinc-50/40 p-3">
-      {WORKING_DAYS.map((d) => {
-        const v = value[d.key] ?? 'fechado';
-        const closed = v === 'fechado' || v === '';
-        const [start, end] = closed ? ['', ''] : v.split('-');
-        return (
-          <div key={d.key} className="flex items-center gap-3 py-1">
-            <span className="w-12 text-[13px] font-medium text-zinc-700 flex-shrink-0">{d.label}</span>
-            <button
-              type="button"
-              onClick={() => set(d.key, closed ? '08:00-18:00' : 'fechado')}
-              className={`h-6 w-10 rounded-full transition-colors relative flex-shrink-0 ${!closed ? 'bg-violet-500' : 'bg-zinc-300'}`}
-            >
-              <span className={`absolute top-0.5 h-5 w-5 bg-white rounded-full transition-transform shadow-sm ${!closed ? 'translate-x-5' : 'translate-x-0.5'}`} />
-            </button>
-            {closed ? (
-              <span className="text-[12px] text-zinc-400 italic">fechado</span>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <input type="time" value={start || '08:00'} onChange={(e) => set(d.key, `${e.target.value}-${end || '18:00'}`)} className="h-8 px-2 text-[13px] rounded-md border border-black/10 bg-white" />
-                <span className="text-[12px] text-zinc-400">–</span>
-                <input type="time" value={end || '18:00'} onChange={(e) => set(d.key, `${start || '08:00'}-${e.target.value}`)} className="h-8 px-2 text-[13px] rounded-md border border-black/10 bg-white" />
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 function Field({
@@ -626,8 +600,8 @@ function SuccessScreen({ data }: { data: SuccessData }) {
           transition={{ delay: 0.85, duration: 0.5 }}
           className="mt-6 text-center text-[13px] text-zinc-500"
         >
-          Verifique <span className="text-zinc-900 font-medium">{data.admin_email}</span> nos
-          próximos minutos para acessar o painel.
+          Em poucos minutos enviaremos o acesso para{' '}
+          <span className="text-zinc-900 font-medium">{data.admin_email}</span>.
         </motion.p>
 
         {/* CTA */}
@@ -798,10 +772,15 @@ function OnboardingPageInner() {
   );
 
   const handleNext = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, WIZARD_STEPS.length - 1));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    // Defer pra próxima tick: garante que o React processou o último onChange
+    // antes de validar. Resolve o duplo-clique residual em casos onde o user
+    // clica "Próximo" muito rápido após preencher o último campo.
+    requestAnimationFrame(() => {
+      if (validateStep(currentStep)) {
+        setCurrentStep(prev => Math.min(prev + 1, WIZARD_STEPS.length - 1));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
   };
 
   const handlePrev = () => {
@@ -1053,70 +1032,34 @@ function OnboardingPageInner() {
           </div>
         );
 
-      // ── Step 2: Preferências ───────────────────────────────────────────────
+      // ── Step 2: Como atende (duração — convênios e horários no próximo step)
       case 2:
         return (
           <div className="space-y-7">
-            <Field label="Duração da consulta">
-              <div className="grid grid-cols-5 gap-1.5">
-                {['15', '20', '30', '45', '60'].map(min => {
+            <Field label="Duração padrão da consulta" hint="Você pode ajustar caso a caso depois">
+              <div className="grid grid-cols-2 gap-2">
+                {['30', '60'].map(min => {
                   const selected = formData.consultation_duration === min;
                   return (
                     <button
                       key={min}
                       type="button"
                       onClick={() => handleInputChange('consultation_duration', min)}
-                      className={`h-12 sm:h-10 rounded-md text-[14px] sm:text-[13px] font-medium transition-all ${
+                      className={`h-14 sm:h-12 rounded-lg text-[15px] font-medium transition-all ${
                         selected
                           ? 'bg-zinc-900 text-white shadow-[0_1px_2px_rgba(0,0,0,0.1)]'
                           : 'bg-white border border-black/[0.08] text-zinc-700 hover:border-black/20'
                       }`}
                     >
-                      {min}<span className={selected ? 'text-white/60' : 'text-zinc-400'}> min</span>
+                      {min}<span className={selected ? 'text-white/60' : 'text-zinc-400'}> minutos</span>
                     </button>
                   );
                 })}
               </div>
             </Field>
-
-            <Field label="Dias e horários de atendimento" hint="Pode ajustar depois no painel">
-              <WorkingHoursInline
-                value={formData.working_hours ?? {}}
-                onChange={(v) => setFormData(prev => ({ ...prev, working_hours: v }))}
-              />
-            </Field>
-
-            <Field label="Aceita convênios?">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleInputChange('accepts_insurance', 'true')}
-                  className={`h-12 sm:h-10 rounded-md text-[14px] sm:text-[13px] font-medium transition-all border ${
-                    formData.accepts_insurance ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-700 border-black/[0.08] hover:border-black/20'
-                  }`}
-                >
-                  Sim
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleInputChange('accepts_insurance', '')}
-                  className={`h-12 sm:h-10 rounded-md text-[14px] sm:text-[13px] font-medium transition-all border ${
-                    !formData.accepts_insurance ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-700 border-black/[0.08] hover:border-black/20'
-                  }`}
-                >
-                  Só particular
-                </button>
-              </div>
-              {formData.accepts_insurance && (
-                <input
-                  type="text"
-                  placeholder="Quais convênios? (Unimed, Amil, Hapvida...)"
-                  value={(formData.insurance_list as string[] | undefined)?.join(', ') ?? ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, insurance_list: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
-                  className={inputClasses(false) + ' mt-2'}
-                />
-              )}
-            </Field>
+            <p className="text-[13px] text-zinc-500 leading-relaxed">
+              Próximo passo: você define dias e horários de trabalho, formas de cobrança e se atende convênios.
+            </p>
 
             <div className="pt-2">
               <div className="flex items-baseline justify-between mb-3">
@@ -1388,46 +1331,91 @@ function OnboardingPageInner() {
             {isSolo && (
               <Field
                 label="Dias e horários de atendimento"
-                hint="Ex: 08:00-18:00 ou 08:00-12:00,14:00-18:00"
+                hint="Adicione mais de um intervalo se houver pausa pro almoço"
               >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-2">
                   {days.map(d => {
-                    const value = workingHours[d.key] ?? 'fechado';
-                    const isClosed = value === 'fechado';
+                    const raw = workingHours[d.key] ?? 'fechado';
+                    const intervals = parseDayIntervals(raw);
+                    const isClosed = intervals.length === 0;
                     return (
                       <div
                         key={d.key}
-                        className={`flex items-center gap-2 rounded-lg border p-2 transition-colors ${
+                        className={`rounded-lg border p-3 transition-colors ${
                           isClosed ? 'bg-zinc-50 border-black/[0.06]' : 'bg-white border-black/10'
                         }`}
                       >
-                        <button
-                          type="button"
-                          onClick={() => setWorkingHour(d.key, isClosed ? '08:00-18:00' : 'fechado')}
-                          className={`flex-shrink-0 inline-flex items-center justify-center w-12 h-9 rounded-md text-[12px] font-semibold transition-all ${
-                            isClosed
-                              ? 'bg-white border border-black/[0.10] text-zinc-400'
-                              : 'text-white'
-                          }`}
-                          style={!isClosed ? { background: ACCENT_DEEP } : undefined}
-                          aria-label={isClosed ? `${d.label} fechado` : `${d.label} aberto`}
-                        >
-                          {d.label}
-                        </button>
-                        <input
-                          type="text"
-                          value={isClosed ? '' : value}
-                          onChange={e => setWorkingHour(d.key, e.target.value)}
-                          placeholder="08:00-18:00"
-                          disabled={isClosed}
-                          className="flex-1 min-w-0 h-9 px-2.5 text-[13px] rounded-md border border-black/10 focus:outline-none focus:border-zinc-900 disabled:bg-zinc-50 disabled:text-zinc-300 disabled:placeholder:text-zinc-300 disabled:cursor-not-allowed"
-                        />
+                        <div className="flex items-start gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setWorkingHour(d.key, isClosed ? '08:00-18:00' : 'fechado')}
+                            className={`flex-shrink-0 inline-flex items-center justify-center w-12 h-9 rounded-md text-[12px] font-semibold transition-all ${
+                              isClosed
+                                ? 'bg-white border border-black/[0.10] text-zinc-400'
+                                : 'text-white'
+                            }`}
+                            style={!isClosed ? { background: ACCENT_DEEP } : undefined}
+                            aria-label={isClosed ? `${d.label} fechado` : `${d.label} aberto`}
+                          >
+                            {d.label}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            {isClosed ? (
+                              <span className="text-[12px] text-zinc-400 italic block mt-2">fechado</span>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {intervals.map((iv, idx) => (
+                                  <div key={idx} className="flex items-center gap-1.5">
+                                    <input
+                                      type="time"
+                                      value={iv.start}
+                                      onChange={e => {
+                                        const next = [...intervals];
+                                        next[idx] = { ...next[idx], start: e.target.value };
+                                        setWorkingHour(d.key, serializeDayIntervals(next));
+                                      }}
+                                      className="h-9 px-2 text-[13px] rounded-md border border-black/10 bg-white focus:outline-none focus:border-zinc-900"
+                                    />
+                                    <span className="text-[12px] text-zinc-400">–</span>
+                                    <input
+                                      type="time"
+                                      value={iv.end}
+                                      onChange={e => {
+                                        const next = [...intervals];
+                                        next[idx] = { ...next[idx], end: e.target.value };
+                                        setWorkingHour(d.key, serializeDayIntervals(next));
+                                      }}
+                                      className="h-9 px-2 text-[13px] rounded-md border border-black/10 bg-white focus:outline-none focus:border-zinc-900"
+                                    />
+                                    {intervals.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setWorkingHour(d.key, serializeDayIntervals(intervals.filter((_, i) => i !== idx)))}
+                                        className="h-8 w-8 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                        aria-label="Remover intervalo"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => setWorkingHour(d.key, serializeDayIntervals([...intervals, { start: '14:00', end: '18:00' }]))}
+                                  className="inline-flex items-center gap-1 text-[12px] font-medium text-violet-700 hover:text-violet-900 transition-colors"
+                                >
+                                  <Plus className="w-3 h-3" /> intervalo
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
                 <p className="text-[11px] text-zinc-400 mt-1.5">
-                  Toque no dia pra abrir/fechar. O agente IA usa esses horários pra agendar.
+                  A IA usa esses horários pra propor encaixes aos pacientes via WhatsApp.
                 </p>
               </Field>
             )}

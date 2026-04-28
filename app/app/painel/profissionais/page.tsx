@@ -537,56 +537,104 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
   );
 }
 
+type Interval = { start: string; end: string };
+
+function parseIntervals(raw: string | undefined | null): Interval[] {
+  if (!raw || raw === 'fechado') return [];
+  return raw
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const [start = '', end = ''] = part.split('-');
+      return { start: start.trim(), end: end.trim() };
+    });
+}
+
+function serializeIntervals(intervals: Interval[]): string {
+  if (intervals.length === 0) return 'fechado';
+  return intervals
+    .map((i) => `${i.start || '00:00'}-${i.end || '00:00'}`)
+    .join(',');
+}
+
 function WorkingHoursEditor({ value, onChange }: { value: WorkingHours; onChange: (v: WorkingHours) => void }) {
-  const setDay = (key: string, val: string) => {
-    const next = { ...value };
-    if (val === 'fechado' || !val) {
-      next[key] = 'fechado';
-    } else {
-      next[key] = val;
-    }
-    onChange(next);
+  const setIntervals = (key: string, intervals: Interval[]) => {
+    onChange({ ...value, [key]: serializeIntervals(intervals) });
   };
 
   return (
-    <div className="space-y-1.5 rounded-xl border border-black/[0.08] bg-zinc-50/40 p-3">
+    <div className="space-y-2 rounded-xl border border-black/[0.08] bg-zinc-50/40 p-3">
       {DAYS.map((d) => {
-        const v = value[d.key] ?? 'fechado';
-        const isClosed = v === 'fechado' || v === '';
-        const [start, end] = isClosed ? ['', ''] : v.split('-');
+        const intervals = parseIntervals(value[d.key]);
+        const isClosed = intervals.length === 0;
         return (
-          <div key={d.key} className="flex items-center gap-3 py-1">
-            <span className="w-20 text-[13px] font-medium text-zinc-700 flex-shrink-0">{d.label}</span>
+          <div key={d.key} className="flex items-start gap-3 py-1.5">
+            <span className="w-20 text-[13px] font-medium text-zinc-700 flex-shrink-0 mt-1.5">{d.label}</span>
             <button
               type="button"
-              onClick={() => setDay(d.key, isClosed ? '08:00-18:00' : 'fechado')}
-              className={`h-6 w-10 rounded-full transition-colors relative flex-shrink-0 ${!isClosed ? 'bg-violet-500' : 'bg-zinc-300'}`}
+              onClick={() => setIntervals(d.key, isClosed ? [{ start: '08:00', end: '18:00' }] : [])}
+              className={`h-6 w-10 rounded-full transition-colors relative flex-shrink-0 mt-1.5 ${!isClosed ? 'bg-violet-500' : 'bg-zinc-300'}`}
               aria-label={isClosed ? 'Abrir' : 'Fechar'}
             >
               <span className={`absolute top-0.5 h-5 w-5 bg-white rounded-full transition-transform shadow-sm ${!isClosed ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>
-            {isClosed ? (
-              <span className="text-[12px] text-zinc-400 italic">fechado</span>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="time"
-                  value={start ?? '08:00'}
-                  onChange={(e) => setDay(d.key, `${e.target.value}-${end || '18:00'}`)}
-                  className="h-8 px-2 text-[13px] rounded-md border border-black/10 bg-white"
-                />
-                <span className="text-[12px] text-zinc-400">–</span>
-                <input
-                  type="time"
-                  value={end ?? '18:00'}
-                  onChange={(e) => setDay(d.key, `${start || '08:00'}-${e.target.value}`)}
-                  className="h-8 px-2 text-[13px] rounded-md border border-black/10 bg-white"
-                />
-              </div>
-            )}
+            <div className="flex-1 min-w-0">
+              {isClosed ? (
+                <span className="text-[12px] text-zinc-400 italic block mt-2">fechado</span>
+              ) : (
+                <div className="space-y-1.5">
+                  {intervals.map((iv, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      <input
+                        type="time"
+                        value={iv.start}
+                        onChange={(e) => {
+                          const next = [...intervals];
+                          next[idx] = { ...next[idx], start: e.target.value };
+                          setIntervals(d.key, next);
+                        }}
+                        className="h-8 px-2 text-[13px] rounded-md border border-black/10 bg-white"
+                      />
+                      <span className="text-[12px] text-zinc-400">–</span>
+                      <input
+                        type="time"
+                        value={iv.end}
+                        onChange={(e) => {
+                          const next = [...intervals];
+                          next[idx] = { ...next[idx], end: e.target.value };
+                          setIntervals(d.key, next);
+                        }}
+                        className="h-8 px-2 text-[13px] rounded-md border border-black/10 bg-white"
+                      />
+                      {intervals.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setIntervals(d.key, intervals.filter((_, i) => i !== idx))}
+                          className="h-8 w-8 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          aria-label="Remover intervalo"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setIntervals(d.key, [...intervals, { start: '14:00', end: '18:00' }])}
+                    className="inline-flex items-center gap-1 text-[12px] font-medium text-violet-700 hover:text-violet-900 transition-colors"
+                  >
+                    <Plus className="w-3 h-3" /> intervalo
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         );
       })}
+      <p className="text-[11px] text-zinc-400 px-1 pt-1">
+        Ex: 08:00–12:00 e 14:00–18:00. Adicione quantos intervalos precisar por dia.
+      </p>
     </div>
   );
 }

@@ -186,7 +186,7 @@ export default function LogosPage() {
             <p className="text-[14px] text-zinc-700 leading-relaxed">
               <strong>Variant {picked.toUpperCase()}</strong> escolhida. Me avisa no chat e eu
               substituo o logo da CDN antiga em todas as telas (landing, painel, login,
-              onboarding, configurar-senha, checkout, termos, privacidade).
+              onboarding, checkout, termos, privacidade).
             </p>
           </div>
         )}

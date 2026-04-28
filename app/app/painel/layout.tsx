@@ -21,7 +21,6 @@ import {
   ChevronRight,
   LogOut,
   Loader2,
-  KeyRound,
 } from 'lucide-react';
 import { MeContext, type MeData } from '@/lib/painel-context';
 import WelcomeTour from './components/welcome-tour';
@@ -132,14 +131,6 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
 
             <div className="flex items-center gap-3">
               {me && <TenantSwitcher />}
-              <Link
-                href="/configurar-senha"
-                className="h-9 px-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.04] rounded-md transition-colors"
-                title="Definir ou trocar senha"
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Senha</span>
-              </Link>
               <button
                 type="button"
                 onClick={handleSignOut}
