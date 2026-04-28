@@ -46,20 +46,51 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Lookup tenant (admin client, Edge-compatible) ───────────────────────
+  // Resolução: 1) cookie singulare_active_tenant (escolha do user no switcher)
+  //            2) tenant ATIVO mais recente (evita pending_payment retornar vazio)
+  //            3) qualquer tenant do user (fallback)
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false, autoRefreshToken: false } }
   );
 
-  const { data: tenants } = await admin
-    .from('tenants')
-    .select('tenant_id, clinic_name, admin_email')
-    .or(`admin_user_id.eq.${user.id},admin_email.eq.${user.email}`)
-    .order('created_at', { ascending: false })
-    .limit(1);
+  const preferredTenantId = req.cookies.get('singulare_active_tenant')?.value;
+  let tenant: { tenant_id: string; clinic_name: string; admin_email: string | null } | null = null;
 
-  const tenant = tenants?.[0];
+  if (preferredTenantId) {
+    const { data } = await admin
+      .from('tenants')
+      .select('tenant_id, clinic_name, admin_email')
+      .eq('tenant_id', preferredTenantId)
+      .or(`admin_user_id.eq.${user.id},admin_email.eq.${user.email}`)
+      .maybeSingle();
+    if (data) tenant = data;
+  }
+
+  if (!tenant) {
+    const { data } = await admin
+      .from('tenants')
+      .select('tenant_id, clinic_name, admin_email')
+      .or(`admin_user_id.eq.${user.id},admin_email.eq.${user.email}`)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) tenant = data;
+  }
+
+  if (!tenant) {
+    const { data } = await admin
+      .from('tenants')
+      .select('tenant_id, clinic_name, admin_email')
+      .or(`admin_user_id.eq.${user.id},admin_email.eq.${user.email}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) tenant = data;
+  }
+
   if (!tenant) {
     return new Response('tenant_not_found', { status: 404 });
   }

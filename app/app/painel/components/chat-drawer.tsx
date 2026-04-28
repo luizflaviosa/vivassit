@@ -47,6 +47,7 @@ export default function ChatDrawer() {
   const [streaming, setStreaming] = useState(false);
   const [recording, setRecording] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +98,25 @@ export default function ChatDrawer() {
       setTimeout(() => inputRef.current?.focus(), 200);
     }
   }, [open]);
+
+  // iOS Safari: visualViewport encolhe quando o teclado abre. Calculamos
+  // o offset pra empurrar o input acima do teclado em versões antigas
+  // (iOS < 16.4 não respeita interactive-widget=resizes-content).
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const update = () => {
+      const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKeyboardOffset(offset);
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
 
   const send = useCallback(
     async (text: string) => {
@@ -282,8 +302,9 @@ export default function ChatDrawer() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.96 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              style={{ paddingBottom: `env(safe-area-inset-bottom)` }}
               className="fixed z-50 bg-white shadow-[0_24px_64px_-16px_rgba(0,0,0,0.25)] flex flex-col
-                         inset-x-0 bottom-0 top-16 rounded-t-2xl
+                         inset-x-0 bottom-0 top-12 rounded-t-2xl max-h-[100dvh]
                          md:inset-auto md:bottom-6 md:right-6 md:top-auto md:w-[420px] md:h-[640px] md:rounded-2xl md:max-h-[80vh]"
             >
               {/* Header */}
@@ -346,13 +367,14 @@ export default function ChatDrawer() {
                 </div>
               )}
 
-              {/* Input */}
+              {/* Input — empurra acima do teclado em iOS antigo */}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   send(input);
                 }}
-                className="flex items-center gap-2 px-4 py-3 border-t border-black/[0.06] bg-zinc-50/40"
+                style={{ marginBottom: keyboardOffset > 0 ? keyboardOffset : undefined }}
+                className="flex items-center gap-2 px-4 py-3 border-t border-black/[0.06] bg-zinc-50/40 transition-[margin] duration-150"
               >
                 <button
                   type="button"
@@ -375,7 +397,11 @@ export default function ChatDrawer() {
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={recording ? 'Ouvindo…' : 'Digite ou fale…'}
                   disabled={streaming || recording}
-                  className="flex-1 min-w-0 h-11 px-4 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-full border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/[0.06] disabled:bg-zinc-50"
+                  enterKeyHint="send"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="flex-1 min-w-0 h-11 px-4 bg-white text-[16px] sm:text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-full border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900/[0.06] disabled:bg-zinc-50"
                 />
 
                 <button
