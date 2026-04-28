@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
       ASAAS_API_URL: process.env.ASAAS_API_URL ?? null,
       ASAAS_WEBHOOK_TOKEN: !!process.env.ASAAS_WEBHOOK_TOKEN,
       N8N_WEBHOOK_URL: !!process.env.N8N_WEBHOOK_URL,
+      N8N_INTERNAL_AGENT_URL: !!process.env.N8N_INTERNAL_AGENT_URL,
       N8N_TO_VERCEL_TOKEN: !!process.env.N8N_TO_VERCEL_TOKEN,
       ENCRYPTION_KEY: !!process.env.ENCRYPTION_KEY,
       ENCRYPTION_KEY_length: process.env.ENCRYPTION_KEY?.length ?? 0,
