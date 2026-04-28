@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import BackToChecklist from '../components/back-to-checklist';
 import {
   Plus, Trash2, User, Star, Mail, Phone, Loader2, X, Check, Pencil, Calendar,
   Clock, MapPin, CreditCard, Shield, Repeat,
@@ -238,6 +239,7 @@ function ProfissionaisInner() {
 
   return (
     <div className="space-y-6">
+      <BackToChecklist />
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[12px] uppercase tracking-[0.12em] font-semibold mb-2" style={{ color: ACCENT_DEEP }}>

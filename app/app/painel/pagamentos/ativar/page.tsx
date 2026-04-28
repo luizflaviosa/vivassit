@@ -9,6 +9,7 @@ import {
   Sparkles, ShieldCheck,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
+import BackToChecklist from '../../components/back-to-checklist';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -241,6 +242,7 @@ function ActivateInner() {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <BackToChecklist />
       <div>
         <p className="text-[12px] uppercase tracking-[0.12em] font-semibold mb-2" style={{ color: ACCENT_DEEP }}>
           Marketplace

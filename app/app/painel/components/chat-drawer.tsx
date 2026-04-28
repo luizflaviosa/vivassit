@@ -492,9 +492,10 @@ export default function ChatDrawer() {
                       placeholder={recording ? 'Ouvindo…' : 'Mensagem'}
                       disabled={streaming || recording}
                       autoComplete="off"
-                      autoCorrect="off"
+                      autoCorrect="on"
                       autoCapitalize="sentences"
-                      spellCheck={false}
+                      spellCheck={true}
+                      lang="pt-BR"
                       className="w-full resize-none px-4 py-2.5 bg-zinc-100/80 text-[16px] sm:text-[14px] leading-snug text-zinc-900 placeholder:text-zinc-400 rounded-3xl border-0 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50 transition-colors max-h-[120px]"
                       style={{ minHeight: 40 }}
                       {...({ enterKeyHint: 'send' } as Record<string, string>)}

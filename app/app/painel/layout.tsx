@@ -85,6 +85,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
     { href: '/painel/feedback', label: 'NPS / feedback', icon: <Star className="w-4 h-4" />, enabled: true },
     // Estrutura (baixa frequência)
     { href: '/painel/profissionais', label: 'Profissionais', icon: <Users className="w-4 h-4" />, enabled: true },
+    { href: '/painel/equipe', label: 'Equipe', icon: <UserPlus className="w-4 h-4" />, enabled: true },
     // Setup
     { href: '/painel/pagamentos/ativar', label: 'Ativar pagamentos', icon: <CreditCard className="w-4 h-4" />, enabled: true },
     { href: '/painel/visibilidade', label: 'Visibilidade', icon: <Megaphone className="w-4 h-4" />, enabled: false, hint: 'Tráfego pago e SEO' },

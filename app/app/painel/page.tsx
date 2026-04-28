@@ -20,6 +20,7 @@ import { MetricCardSkeleton, StatRowSkeleton, PageHeadingSkeleton } from '@/lib/
 import TiltCard from './components/tilt-card';
 import SetupChecklist from './components/setup-checklist';
 import AssistantCTA from './components/assistant-cta';
+import PushCard from './components/push-card';
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
@@ -186,6 +187,9 @@ function PainelInner() {
 
       {/* Setup checklist (some/aparece se faltar config) */}
       <SetupChecklist />
+
+      {/* Push notifications card */}
+      <PushCard />
 
       {/* Trial CTA */}
       {isTrialing && daysLeft !== null && daysLeft <= 7 && (

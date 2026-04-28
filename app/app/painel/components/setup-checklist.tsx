@@ -45,43 +45,36 @@ export default function SetupChecklist() {
 
   if (!data || dismissed) return null;
 
-  // Deeplinks: cada link aterrissa exatamente onde o user precisa agir.
-  // - ?action=new abre o modal de novo profissional automaticamente
-  // - #ai-prompt / #clinica usa scroll-to-anchor nas configurações
+  // Deeplinks com ?from=checklist: target page mostra link "← voltar pro painel"
+  // após salvar, pra usuário não se perder após completar uma etapa.
+  // Calendar é automático ao salvar profissional (sem item separado).
   const items: ChecklistItem[] = [
     {
       key: 'doctor',
       label: 'Cadastrar profissional',
-      desc: 'Quem atende, valor da consulta, especialidade',
-      href: '/painel/profissionais?action=new',
-      done: data.has_doctor,
-    },
-    {
-      key: 'calendar',
-      label: 'Conectar agenda Google',
-      desc: 'A IA cria uma agenda dedicada automaticamente — só precisa abrir o profissional',
-      href: '/painel/profissionais',
-      done: data.has_calendar,
+      desc: 'Nome, valor da consulta, especialidade — agenda Google é criada automaticamente',
+      href: '/painel/profissionais?action=new&from=checklist',
+      done: data.has_doctor && data.has_calendar,
     },
     {
       key: 'ai',
       label: 'Personalizar a IA',
       desc: 'Tom de voz, regras, o que oferecer aos pacientes',
-      href: '/painel/configuracoes#ai-prompt',
+      href: '/painel/configuracoes?from=checklist#ai-prompt',
       done: data.has_ai_prompt,
     },
     {
       key: 'clinic',
       label: 'Dados da clínica',
       desc: 'Nome, endereço, telefone administrativo',
-      href: '/painel/configuracoes#clinica',
+      href: '/painel/configuracoes?from=checklist#clinica',
       done: data.has_clinic_data,
     },
     {
       key: 'payment',
       label: 'Ativar pagamentos',
       desc: 'Receber via PIX, cartão ou boleto direto na sua conta',
-      href: '/painel/pagamentos/ativar',
+      href: '/painel/pagamentos/ativar?from=checklist',
       done: data.has_payment,
     },
   ];
