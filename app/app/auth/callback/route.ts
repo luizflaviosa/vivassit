@@ -74,23 +74,50 @@ export async function GET(req: NextRequest) {
     userId = data?.user?.id;
   }
 
-  // ── Linka ao tenant (idempotente) ─────────────────────────────────────────
+  // ── Linka ao tenant + aceita convites pendentes (idempotente) ────────────
   if (userEmail && userId) {
     try {
       const admin = supabaseAdmin();
-      const { data: tenants } = await admin
-        .from('tenants')
-        .select('tenant_id, admin_user_id, created_at')
-        .eq('admin_email', userEmail)
-        .order('created_at', { ascending: false })
-        .limit(1);
 
-      const tenant = tenants?.[0];
-      if (tenant && !tenant.admin_user_id) {
+      // 1. Aceita convites pendentes (tenant_members.invited_email = userEmail)
+      // Onda 2.5: resolve user_id em todo convite que ainda não foi aceito.
+      await admin
+        .from('tenant_members')
+        .update({
+          user_id: userId,
+          accepted_at: new Date().toISOString(),
+          status: 'active',
+        })
+        .eq('invited_email', userEmail)
+        .is('user_id', null);
+
+      // 2. Auto-link legacy: tenants com admin_email = userEmail mas sem admin_user_id.
+      // Cria membership owner se ainda não existe.
+      const { data: legacyTenants } = await admin
+        .from('tenants')
+        .select('tenant_id, admin_user_id')
+        .eq('admin_email', userEmail);
+
+      for (const t of legacyTenants ?? []) {
+        if (!t.admin_user_id) {
+          await admin
+            .from('tenants')
+            .update({ admin_user_id: userId, updated_at: new Date().toISOString() })
+            .eq('tenant_id', t.tenant_id);
+        }
+        // Garante membership owner (idempotente via UNIQUE constraint)
         await admin
-          .from('tenants')
-          .update({ admin_user_id: userId, updated_at: new Date().toISOString() })
-          .eq('tenant_id', tenant.tenant_id);
+          .from('tenant_members')
+          .upsert(
+            {
+              tenant_id: t.tenant_id,
+              user_id: userId,
+              role: 'owner',
+              status: 'active',
+              accepted_at: new Date().toISOString(),
+            },
+            { onConflict: 'tenant_id,user_id', ignoreDuplicates: true }
+          );
       }
     } catch (e) {
       console.error('[auth/callback] link tenant erro:', e);

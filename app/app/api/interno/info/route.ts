@@ -29,17 +29,33 @@ export async function GET(req: NextRequest) {
 
   const preferredTenantId = req.cookies.get('singulare_active_tenant')?.value;
   let tenant: { tenant_id: string; clinic_name: string; internal_agent_capabilities: string | null } | null = null;
+  type Row = { tenant: { tenant_id: string; clinic_name: string; internal_agent_capabilities: string | null } | null };
 
   if (preferredTenantId) {
     const { data } = await admin
-      .from('tenants')
-      .select('tenant_id, clinic_name, internal_agent_capabilities')
+      .from('tenant_members')
+      .select('tenant:tenants!inner(tenant_id, clinic_name, internal_agent_capabilities)')
+      .eq('user_id', user.id)
       .eq('tenant_id', preferredTenantId)
-      .or(`admin_user_id.eq.${user.id},admin_email.eq.${user.email}`)
-      .maybeSingle();
-    if (data) tenant = data;
+      .eq('status', 'active')
+      .maybeSingle<Row>();
+    if (data?.tenant) tenant = data.tenant;
   }
 
+  if (!tenant) {
+    const { data } = await admin
+      .from('tenant_members')
+      .select('tenant:tenants!inner(tenant_id, clinic_name, internal_agent_capabilities, status)')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .eq('tenant.status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle<Row>();
+    if (data?.tenant) tenant = data.tenant;
+  }
+
+  // Fallback transição
   if (!tenant) {
     const { data } = await admin
       .from('tenants')

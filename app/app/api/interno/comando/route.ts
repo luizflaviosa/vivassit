@@ -45,10 +45,10 @@ export async function POST(req: NextRequest) {
     return new Response('unauthorized', { status: 401 });
   }
 
-  // ── Lookup tenant (admin client, Edge-compatible) ───────────────────────
-  // Resolução: 1) cookie singulare_active_tenant (escolha do user no switcher)
-  //            2) tenant ATIVO mais recente (evita pending_payment retornar vazio)
-  //            3) qualquer tenant do user (fallback)
+  // ── Lookup tenant via tenant_members (Onda 2.5) ─────────────────────────
+  // Resolução: 1) cookie + membership ativa
+  //            2) qualquer membership ativa (mais recente)
+  //            3) FALLBACK transição: admin_user_id/admin_email
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -57,34 +57,39 @@ export async function POST(req: NextRequest) {
 
   const preferredTenantId = req.cookies.get('singulare_active_tenant')?.value;
   let tenant: { tenant_id: string; clinic_name: string; admin_email: string | null } | null = null;
+  type Row = { tenant: { tenant_id: string; clinic_name: string; admin_email: string | null } | null };
 
   if (preferredTenantId) {
     const { data } = await admin
-      .from('tenants')
-      .select('tenant_id, clinic_name, admin_email')
+      .from('tenant_members')
+      .select('tenant:tenants!inner(tenant_id, clinic_name, admin_email)')
+      .eq('user_id', user.id)
       .eq('tenant_id', preferredTenantId)
-      .or(`admin_user_id.eq.${user.id},admin_email.eq.${user.email}`)
-      .maybeSingle();
-    if (data) tenant = data;
+      .eq('status', 'active')
+      .maybeSingle<Row>();
+    if (data?.tenant) tenant = data.tenant;
   }
 
+  if (!tenant) {
+    const { data } = await admin
+      .from('tenant_members')
+      .select('tenant:tenants!inner(tenant_id, clinic_name, admin_email, status)')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .eq('tenant.status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle<Row>();
+    if (data?.tenant) tenant = data.tenant;
+  }
+
+  // Fallback transição (legacy admin_user_id/admin_email)
   if (!tenant) {
     const { data } = await admin
       .from('tenants')
       .select('tenant_id, clinic_name, admin_email')
       .or(`admin_user_id.eq.${user.id},admin_email.eq.${user.email}`)
       .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (data) tenant = data;
-  }
-
-  if (!tenant) {
-    const { data } = await admin
-      .from('tenants')
-      .select('tenant_id, clinic_name, admin_email')
-      .or(`admin_user_id.eq.${user.id},admin_email.eq.${user.email}`)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
