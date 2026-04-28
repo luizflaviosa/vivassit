@@ -7,6 +7,8 @@ import {
   useMotionValue,
   useSpring,
   useTransform,
+  useScroll,
+  useMotionValueEvent,
   type MotionValue,
 } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -341,6 +343,15 @@ export default function LandingPage() {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successTenantId, setSuccessTenantId] = useState('');
   const [isLogged, setIsLogged] = useState<boolean | null>(null);
+  const [showStickyCta, setShowStickyCta] = useState(false);
+
+  // Sticky CTA mobile: aparece com fade quando scroll passa do hero,
+  // some quando volta pro topo. Threshold ~70vh evita conflito visual com o hero CTA.
+  const { scrollY } = useScroll();
+  useMotionValueEvent(scrollY, 'change', (y) => {
+    const threshold = typeof window !== 'undefined' ? window.innerHeight * 0.7 : 600;
+    setShowStickyCta(y > threshold);
+  });
 
   // Detecta se usuário tem sessão ativa pra trocar "Entrar" por "Abrir minha clínica"
   useEffect(() => {
@@ -380,15 +391,28 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#FAFAF7] text-zinc-900 overflow-hidden selection:bg-zinc-900 selection:text-white pb-24 md:pb-0">
+    <div
+      className="relative min-h-screen bg-[#FAFAF7] text-zinc-900 overflow-hidden selection:bg-zinc-900 selection:text-white md:pb-0 transition-[padding] duration-300"
+      style={{ paddingBottom: showStickyCta ? 'calc(6rem + env(safe-area-inset-bottom))' : '0' }}
+    >
       <Atmosphere />
 
-      {/* Sticky bottom CTA — mobile only */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/85 backdrop-blur-xl border-t border-black/[0.07]">
-        <PrimaryButton onClick={() => handleStartTrial()} size="lg" fullWidth>
-          {isLogged ? 'Abrir minha clínica' : 'Começar grátis'}
-        </PrimaryButton>
-      </div>
+      {/* Sticky bottom CTA — mobile only, fade-aware */}
+      <AnimatePresence>
+        {showStickyCta && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/85 backdrop-blur-xl border-t border-black/[0.06] shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.08)]"
+          >
+            <PrimaryButton onClick={() => handleStartTrial()} size="lg" fullWidth>
+              {isLogged ? 'Abrir minha clínica' : 'Começar grátis'}
+            </PrimaryButton>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Success toast */}
       <AnimatePresence>
