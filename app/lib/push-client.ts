@@ -2,11 +2,38 @@
 
 const SW_PATH = '/sw-push.js';
 
-export type PushStatus = 'unsupported' | 'denied' | 'default' | 'granted-no-sub' | 'granted-subbed';
+export type PushStatus =
+  | 'unsupported'
+  | 'ios-needs-pwa'
+  | 'denied'
+  | 'default'
+  | 'granted-no-sub'
+  | 'granted-subbed';
+
+function isIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  // iPad moderno se identifica como Mac — detecta touch pra cobrir esse caso.
+  const ua = navigator.userAgent;
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  return navigator.platform === 'MacIntel' && (navigator.maxTouchPoints ?? 0) > 1;
+}
+
+function isStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    // @ts-expect-error iOS Safari extension
+    window.navigator.standalone === true
+  );
+}
 
 export async function detectPushStatus(): Promise<PushStatus> {
   if (typeof window === 'undefined') return 'unsupported';
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return 'unsupported';
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+    // iOS Safari só expõe PushManager quando o site roda como PWA instalado.
+    if (isIOS() && !isStandalone()) return 'ios-needs-pwa';
+    return 'unsupported';
+  }
   const perm = Notification.permission;
   if (perm === 'denied') return 'denied';
   if (perm === 'default') return 'default';

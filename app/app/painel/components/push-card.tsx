@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, BellOff, Check, Loader2, Send } from 'lucide-react';
+import { Bell, BellOff, Check, Loader2, Send, Share, Plus, Smartphone } from 'lucide-react';
 import { detectPushStatus, subscribePush, unsubscribePush, type PushStatus } from '@/lib/push-client';
 
 const ACCENT = '#6E56CF';
@@ -46,6 +46,49 @@ export default function PushCard() {
     setLoading(false);
   };
 
+  if (status === 'ios-needs-pwa') {
+    return (
+      <div className="rounded-2xl border border-violet-200/60 bg-gradient-to-br from-violet-50/40 via-white to-white p-5">
+        <div className="flex items-start gap-3">
+          <div
+            className="h-9 w-9 rounded-lg inline-flex items-center justify-center text-white flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+          >
+            <Smartphone className="w-4 h-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-[15px] font-semibold text-zinc-900">Instale o app pra receber notificações</h3>
+            <p className="text-[13px] text-zinc-500 mt-0.5 leading-relaxed">
+              No iPhone e iPad, o Safari só envia notificações quando o Singulare está instalado na Tela de Início.
+              É rápido — siga os passos abaixo:
+            </p>
+            <ol className="mt-3 space-y-2 text-[12.5px] text-zinc-700">
+              <li className="flex items-start gap-2">
+                <span className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 font-semibold text-[11px]">1</span>
+                <span>
+                  Toque no ícone <span className="inline-flex items-center gap-1 font-medium text-zinc-900"><Share className="w-3.5 h-3.5" />Compartilhar</span> na barra do Safari.
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 font-semibold text-[11px]">2</span>
+                <span>
+                  Role e toque em <span className="inline-flex items-center gap-1 font-medium text-zinc-900"><Plus className="w-3.5 h-3.5" />Adicionar à Tela de Início</span>.
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 font-semibold text-[11px]">3</span>
+                <span>Abra o Singulare pelo ícone que apareceu na tela inicial e ative as notificações por aqui.</span>
+              </li>
+            </ol>
+            <p className="text-[11.5px] text-zinc-400 mt-3">
+              Requer iOS/iPadOS 16.4 ou superior.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (status === 'unsupported') {
     return (
       <div className="rounded-2xl border border-black/[0.06] bg-white p-5">
@@ -56,7 +99,7 @@ export default function PushCard() {
           <div className="flex-1">
             <h3 className="text-[15px] font-semibold text-zinc-900">Notificações</h3>
             <p className="text-[13px] text-zinc-500 mt-0.5">
-              Este navegador não suporta push. Use Chrome, Edge, Safari (iOS 16.4+) ou instale o app pela tela inicial.
+              Este navegador não suporta push notifications. Abra o Singulare no Chrome, Edge, Firefox ou Safari para ativar.
             </p>
           </div>
         </div>
