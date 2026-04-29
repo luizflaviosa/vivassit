@@ -14,6 +14,9 @@ interface Payment {
   doctor_name: string;
   consultation_date: string;
   consultation_value: number | string;
+  asaas_fee_value: number | string | null;
+  asaas_net_value: number | string | null;
+  estimated_fee_value: number | string | null;
   status: string;
   payment_method: string | null;
   payment_url: string | null;
@@ -23,6 +26,8 @@ interface Payment {
 
 interface Summary {
   received: number;
+  received_net: number;
+  received_fee: number;
   pending: number;
   received_count: number;
   pending_count: number;
@@ -85,24 +90,53 @@ function CobrancasInner() {
         </p>
       </div>
 
-      {/* Summary */}
+      {/* Summary com breakdown modelo B (pass-through pro médico) */}
       {summary && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-black/[0.07] bg-white p-4 sm:p-5">
-            <div className="text-[12px] text-zinc-500 mb-1">Recebido</div>
-            <div className="text-[24px] font-medium tracking-[-0.02em] text-zinc-900 leading-none">
-              {fmtBRL(summary.received)}
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-black/[0.07] bg-white p-4 sm:p-5">
+              <div className="text-[12px] text-zinc-500 mb-1">Cobrado dos pacientes</div>
+              <div className="text-[24px] font-medium tracking-[-0.02em] text-zinc-900 leading-none">
+                {fmtBRL(summary.received)}
+              </div>
+              <div className="text-[12px] text-zinc-400 mt-1">{summary.received_count} cobranças pagas</div>
             </div>
-            <div className="text-[12px] text-zinc-400 mt-1">{summary.received_count} cobranças</div>
-          </div>
-          <div className="rounded-xl border border-black/[0.07] bg-white p-4 sm:p-5">
-            <div className="text-[12px] text-zinc-500 mb-1">Pendente</div>
-            <div className="text-[24px] font-medium tracking-[-0.02em] text-zinc-900 leading-none">
-              {fmtBRL(summary.pending)}
+            <div className="rounded-xl border border-black/[0.07] bg-white p-4 sm:p-5">
+              <div className="text-[12px] text-zinc-500 mb-1">Taxa Asaas</div>
+              <div className="text-[24px] font-medium tracking-[-0.02em] text-zinc-700 leading-none">
+                {fmtBRL(summary.received_fee)}
+              </div>
+              <div className="text-[12px] text-zinc-400 mt-1">processamento de pagamento</div>
             </div>
-            <div className="text-[12px] text-zinc-400 mt-1">{summary.pending_count} aguardando</div>
+            <div
+              className="rounded-xl p-4 sm:p-5 text-white"
+              style={{ background: `linear-gradient(135deg, #6E56CF, ${ACCENT_DEEP})` }}
+            >
+              <div className="text-[12px] text-violet-100 mb-1">Você recebe</div>
+              <div className="text-[24px] font-medium tracking-[-0.02em] leading-none">
+                {fmtBRL(summary.received_net)}
+              </div>
+              <div className="text-[12px] text-violet-200 mt-1">cai direto na sua conta</div>
+            </div>
           </div>
-        </div>
+          {summary.received > 0 && (
+            <p className="text-[11.5px] text-zinc-400 leading-relaxed -mt-1">
+              A taxa do Asaas é cobrada por transação (PIX R$ 0,99 · cartão crédito 1,99% + R$ 0,49 à vista
+              no preço promocional vigente). Sem markup do Singulare — o que você vê é o que recebe.
+            </p>
+          )}
+          {summary.pending > 0 && (
+            <div className="rounded-xl border border-amber-200/70 bg-amber-50/40 px-4 py-3 flex items-baseline justify-between">
+              <span className="text-[13px] font-medium text-amber-900">
+                Aguardando pagamento
+              </span>
+              <span className="text-[15px] font-semibold text-amber-900">
+                {fmtBRL(summary.pending)}{' '}
+                <span className="text-[12px] font-normal text-amber-700">· {summary.pending_count} cobranças</span>
+              </span>
+            </div>
+          )}
+        </>
       )}
 
       {/* Filter */}
@@ -155,7 +189,19 @@ function CobrancasInner() {
                   </div>
                   <div className="sm:col-span-2 text-[13px] text-zinc-700 truncate hidden sm:block">{p.doctor_name || '—'}</div>
                   <div className="sm:col-span-2 text-[13px] text-zinc-600 hidden sm:block">{p.consultation_date || fmtDate(p.created_at)}</div>
-                  <div className="sm:col-span-2 text-[14px] font-semibold text-zinc-900">{fmtBRL(p.consultation_value)}</div>
+                  <div className="sm:col-span-2">
+                    <div className="text-[14px] font-semibold text-zinc-900">{fmtBRL(p.consultation_value)}</div>
+                    {(p.status === 'approved' || p.status === 'paid') && p.asaas_net_value !== null && p.asaas_net_value !== undefined && (
+                      <div className="text-[11px] text-emerald-700 mt-0.5">
+                        recebe {fmtBRL(p.asaas_net_value)}
+                      </div>
+                    )}
+                    {p.status === 'pending' && p.estimated_fee_value !== null && p.estimated_fee_value !== undefined && (
+                      <div className="text-[11px] text-zinc-400 mt-0.5">
+                        ~{fmtBRL(Number(p.consultation_value) - Number(p.estimated_fee_value))} líquido
+                      </div>
+                    )}
+                  </div>
                   <div className="sm:col-span-2">
                     <span
                       className="inline-flex items-center text-[11px] uppercase tracking-[0.06em] font-semibold px-2 py-1 rounded"

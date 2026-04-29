@@ -108,11 +108,20 @@ export async function POST(req: NextRequest) {
         PAYMENT_DELETED: 'cancelled',
       };
       const newStatus = tpStatusMap[event] ?? 'pending';
+
+      // Modelo B (pass-through): captura net_value real do Asaas quando paid.
+      // Asaas webhook traz `value` (gross) e `netValue` (após fee) no payload.
+      const grossVal = typeof payment?.value === 'number' ? (payment.value as number) : null;
+      const netVal = typeof payment?.netValue === 'number' ? (payment.netValue as number) : null;
+      const feeVal = grossVal !== null && netVal !== null ? round2(grossVal - netVal) : null;
+
       await supabase
         .from('tenant_payments')
         .update({
           status: newStatus,
           approved_at: newStatus === 'approved' ? new Date().toISOString() : null,
+          asaas_net_value: newStatus === 'approved' ? netVal : null,
+          asaas_fee_value: newStatus === 'approved' ? feeVal : null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', tp.id);
@@ -191,4 +200,8 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   // Endpoint de saude / verificacao manual
   return NextResponse.json({ ok: true, webhook: 'asaas', version: '1.0' });
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }

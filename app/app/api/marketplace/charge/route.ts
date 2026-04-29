@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { decryptString } from '@/lib/crypto';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { estimateFee, type PaymentMethod } from '@/lib/asaas-fees';
 
 // Endpoint chamado pelo N8N (agente IA) quando precisa cobrar um paciente
 // usando a SUBCONTA Asaas da clinica (nao a conta master Vivassit).
@@ -271,6 +272,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Modelo B (pass-through): estima fee Asaas pra UI antecipada.
+  // Valor REAL do fee vem no webhook quando paid → tenant_payments.asaas_fee_value.
+  const feeEstimate = estimateFee(body.consultation_value, (body.method ?? 'UNDEFINED') as PaymentMethod);
+
   // Persiste em tenant_payments
   await supabase.from('tenant_payments').insert({
     tenant_id: body.tenant_id,
@@ -283,6 +288,7 @@ export async function POST(req: NextRequest) {
     doctor_name: body.doctor_name ?? '',
     consultation_date: body.consultation_date ?? '',
     consultation_value: body.consultation_value,
+    estimated_fee_value: feeEstimate.fee,
     conversation_id: body.conversation_id,
     status: 'pending',
     payment_method: body.method ?? 'UNDEFINED',
@@ -301,6 +307,12 @@ export async function POST(req: NextRequest) {
       external_reference: externalRef,
     },
     pix,
+    fee_breakdown: {
+      gross: feeEstimate.gross,
+      estimated_fee: feeEstimate.fee,
+      estimated_net: feeEstimate.net,
+      is_promo_pricing: feeEstimate.isPromo,
+    },
     // URL pronta pra mandar via WhatsApp:
     customer_message: pix?.qrCodePayload
       ? `*PIX copia e cola*\n\`\`\`${pix.qrCodePayload}\`\`\`\nOu pague pelo link: ${payment.invoiceUrl}`
