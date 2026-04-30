@@ -67,6 +67,27 @@ Todos lookups novos do Memory bate exato com o backfill — sem rows órfãos.
 | `n8n_fila_mensagens` | ✅ | ✅ | 4 | 6 |
 | `tenants`, `tenant_members`, `tenant_doctors`, `tenant_api_keys` | ✅ | ✅ | 13 total | — |
 
+## Hotfix pós-deploy (12:38 UTC)
+
+Após o PUT inicial, mensagens WhatsApp pararam de receber resposta. Investigação revelou **3 bugs pré-existentes** que ficaram expostos por upgrade de versão do n8n core (executions com erro desde 04:41 UTC, **antes** do meu PUT):
+
+1. **Query SQL `Buscar Config Tenant`** faltava vírgula entre `tenant_id` e `chatwoot_url` → SQL interpretava como `SELECT tenant_id AS chatwoot_url, ...` e o output nunca tinha `tenant_id`. Funcionou silencioso por meses porque o consumidor recuperava de outras fontes.
+2. **Nó `Info`** continha assignment `tenant_id = $('Buscar Config Tenant').item.json.tenant_id`, mas `Info` roda **antes** de `Buscar Config Tenant` no flow. n8n antigo retornava `undefined` silencioso; n8n novo lança `pairedItemNoConnection`.
+3. **Memory nodes** referenciavam `$('Info').first().json.tenant_id` que sempre vinha vazio (cf. ponto 2).
+
+### Fixes (mesmo PUT)
+
+- `Buscar Config Tenant`: query corrigida com vírgula → `tenant_id, chatwoot_url, ...`
+- `Info`: assignment `tenant_id` removida (16 → 15 assignments)
+- `Memory` e `Postgres Chat Memory1`: trocaram referência de `$('Info').first().json.tenant_id` → `$('Buscar Config Tenant').item.json.tenant_id`
+- `Postgres Chat Memory` (Assistente confirmação) já usava `Buscar Config Tenant1`, não foi tocado
+
+Backup pré-flow-fix em `.n8n-backups/master-secretaria-ATIVA-pre-flow-fix-20260430-093757.json`.
+
+### Validação
+
+3 execuções success consecutivas (142698-142700) às 12:44 UTC. `n8n_historico_mensagens` recebeu 2 rows com `session_id='singulare_+5511...'` (formato novo) e resposta da IA disparada via Chatwoot.
+
 ## Pendências fora desta sessão
 
 - ⚪ Smoke test ponta-a-ponta com mensagem real no WhatsApp (qualquer dia o user ativa)

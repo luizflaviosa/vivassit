@@ -15,6 +15,9 @@ const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
 
+// Bypass de OTP pra demos ao vivo (precisa ser igual ao backend)
+const DEMO_EMAIL = 'demo@singulare.org';
+
 function LoginInner() {
   const searchParams = useSearchParams();
   const next = searchParams?.get('next') ?? '/painel';
@@ -73,6 +76,18 @@ function LoginInner() {
     setSubmitting(true);
     setError(null);
     try {
+      // Bypass demo: pula OTP, faz login server-side direto
+      if (target === DEMO_EMAIL) {
+        const res = await fetch('/api/auth/demo-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: target }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error ?? 'Falha no login demo');
+        window.location.href = json?.redirect ?? next;
+        return;
+      }
       await sendOtp(target);
       setEmail(target);
       setCode('');
