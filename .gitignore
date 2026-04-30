@@ -34,3 +34,5 @@ yarn-error.log*
 # editor
 .vscode/
 .idea/
+.n8n-backups/
+master-secretaria-*.json
