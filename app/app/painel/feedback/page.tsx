@@ -82,14 +82,27 @@ function FeedbackInner() {
         </p>
       </div>
 
-      {/* Summary */}
+      {/* Summary com cor positiva no NPS + barra de distribuição */}
       {summary && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <SummaryCard label="NPS" value={summary.nps !== null ? String(summary.nps) : '—'} sub="-100 a +100" />
-          <SummaryCard label="Score médio" value={summary.avg_score !== null ? summary.avg_score.toFixed(1) : '—'} sub="0 a 10" />
-          <SummaryCard label="Respostas" value={`${summary.total_responded}/${summary.total_sent}`} sub="Taxa de resposta" />
-          <SummaryCard label="Promotores" value={`${summary.promoters}`} sub={`${summary.detractors} detratores`} />
-        </div>
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <NPSCard nps={summary.nps} />
+            <SummaryCard label="Score médio" value={summary.avg_score !== null ? summary.avg_score.toFixed(1) : '—'} sub="de 0 a 10" />
+            <SummaryCard label="Respostas" value={`${summary.total_responded}/${summary.total_sent}`} sub={
+              summary.total_sent > 0
+                ? `${Math.round((summary.total_responded / summary.total_sent) * 100)}% taxa`
+                : 'Aguardando envio'
+            } />
+            <SummaryCard label="Promotores" value={`${summary.promoters}`} sub={`${summary.passives} neutros · ${summary.detractors} detratores`} />
+          </div>
+          {summary.total_responded > 0 && (
+            <DistributionBar
+              promoters={summary.promoters}
+              passives={summary.passives}
+              detractors={summary.detractors}
+            />
+          )}
+        </>
       )}
 
       {loading ? (
@@ -140,6 +153,78 @@ function SummaryCard({ label, value, sub }: { label: string; value: string; sub?
       <div className="text-[24px] font-medium tracking-[-0.02em] text-zinc-900 leading-none">{value}</div>
       <div className="text-[12px] text-zinc-500 mt-1.5">{label}</div>
       {sub && <div className="text-[11px] text-zinc-400 mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+// Card de NPS com cor por faixa: ≥50 verde · 0-49 violeta · <0 âmbar · <-50 vermelho
+function NPSCard({ nps }: { nps: number | null }) {
+  if (nps === null) {
+    return <SummaryCard label="NPS" value="—" sub="aguardando primeiras respostas" />;
+  }
+  const tier =
+    nps >= 75 ? { bg: '#ECFDF5', border: '#A7F3D0', fg: '#047857', label: 'excelente' } :
+    nps >= 50 ? { bg: '#ECFDF5', border: '#A7F3D0', fg: '#059669', label: 'ótimo' } :
+    nps >= 0  ? { bg: '#F5F3FF', border: '#DDD6FE', fg: '#5746AF', label: 'razoável' } :
+    nps >= -50 ? { bg: '#FFFBEB', border: '#FDE68A', fg: '#B45309', label: 'precisa atenção' } :
+                 { bg: '#FEF2F2', border: '#FECACA', fg: '#B91C1C', label: 'crítico' };
+
+  return (
+    <div
+      className="rounded-xl p-4 sm:p-5 border"
+      style={{ background: tier.bg, borderColor: tier.border }}
+    >
+      <div className="flex items-baseline gap-2">
+        <span className="text-[28px] font-semibold tracking-[-0.025em] leading-none" style={{ color: tier.fg }}>
+          {nps > 0 ? `+${nps}` : nps}
+        </span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: tier.fg }}>
+          {tier.label}
+        </span>
+      </div>
+      <div className="text-[12px] mt-1.5" style={{ color: tier.fg, opacity: 0.85 }}>
+        NPS — Net Promoter Score
+      </div>
+      <div className="text-[11px] mt-0.5" style={{ color: tier.fg, opacity: 0.6 }}>
+        escala −100 a +100
+      </div>
+    </div>
+  );
+}
+
+// Barra de distribuição promoters/passives/detractors
+function DistributionBar({ promoters, passives, detractors }: { promoters: number; passives: number; detractors: number }) {
+  const total = promoters + passives + detractors;
+  if (total === 0) return null;
+  const p = (promoters / total) * 100;
+  const n = (passives / total) * 100;
+  const d = (detractors / total) * 100;
+  return (
+    <div className="rounded-xl border border-black/[0.07] bg-white p-4 sm:p-5">
+      <div className="flex items-baseline justify-between mb-3">
+        <span className="text-[12px] uppercase tracking-[0.08em] font-semibold text-zinc-700">Distribuição</span>
+        <span className="text-[11px] text-zinc-400">{total} respostas</span>
+      </div>
+      <div className="h-2.5 rounded-full overflow-hidden flex bg-zinc-100">
+        {p > 0 && <div className="h-full" style={{ width: `${p}%`, background: '#10B981' }} />}
+        {n > 0 && <div className="h-full" style={{ width: `${n}%`, background: '#A78BFA' }} />}
+        {d > 0 && <div className="h-full" style={{ width: `${d}%`, background: '#F87171' }} />}
+      </div>
+      <div className="flex items-center justify-between mt-3 text-[12px]">
+        <Legend color="#10B981" label="Promotores (9-10)" count={promoters} pct={Math.round(p)} />
+        <Legend color="#A78BFA" label="Neutros (7-8)" count={passives} pct={Math.round(n)} />
+        <Legend color="#F87171" label="Detratores (0-6)" count={detractors} pct={Math.round(d)} />
+      </div>
+    </div>
+  );
+}
+
+function Legend({ color, label, count, pct }: { color: string; label: string; count: number; pct: number }) {
+  return (
+    <div className="flex items-center gap-1.5 min-w-0">
+      <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: color }} />
+      <span className="text-zinc-700 truncate">{label}</span>
+      <span className="text-zinc-400 hidden sm:inline">· {count} ({pct}%)</span>
     </div>
   );
 }
