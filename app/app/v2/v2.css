@@ -1,0 +1,192 @@
+/* Singulare V2 — Apple-style design tokens (escopo .v2-root) */
+
+.v2-root {
+  --v2-bg: #fafaf7;          /* warm off-white da marca */
+  --v2-bg-elev: #f5f5f0;
+  --v2-bg-card: #ffffff;
+  --v2-fg: #18181b;          /* zinc-900 */
+  --v2-fg-muted: #71717a;    /* zinc-500 */
+  --v2-fg-subtle: #a1a1aa;
+  --v2-divider: rgba(0, 0, 0, 0.07);
+  --v2-accent: #6e56cf;
+  --v2-accent-deep: #5746af;
+  --v2-accent-soft: #f5f3ff;
+
+  --v2-bg-dark: #0a0a0a;
+  --v2-bg-dark-elev: #1d1d1f;
+  --v2-fg-dark: #f5f5f7;
+  --v2-fg-dark-muted: #a1a1a6;
+
+  --v2-text-hero: clamp(2.75rem, 1.5rem + 5.5vw, 5rem);
+  --v2-text-display: clamp(2rem, 1.2rem + 4vw, 3.5rem);
+  --v2-text-h2: clamp(1.75rem, 1rem + 3vw, 2.75rem);
+  --v2-text-h3: clamp(1.125rem, 0.95rem + 0.8vw, 1.375rem);
+  --v2-text-lead: clamp(1.0625rem, 1rem + 0.4vw, 1.25rem);
+  --v2-text-eyebrow: 0.75rem;
+
+  --v2-container-max: 1200px;
+  --v2-container-px: clamp(1rem, 0.5rem + 2vw, 2.5rem);
+  --v2-section-py: clamp(4rem, 2rem + 8vw, 7rem);
+
+  --v2-radius-card: 1.25rem;
+  --v2-radius-pill: 9999px;
+
+  --v2-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --v2-ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+
+  background: var(--v2-bg);
+  color: var(--v2-fg);
+  font-family: 'Inter', system-ui, -apple-system, 'SF Pro Display', sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.011em;
+  overflow-x: hidden;
+}
+
+.v2-root *,
+.v2-root *::before,
+.v2-root *::after {
+  box-sizing: border-box;
+}
+
+.v2-container {
+  max-width: var(--v2-container-max);
+  margin-inline: auto;
+  padding-inline: var(--v2-container-px);
+}
+
+.v2-section {
+  padding-block: var(--v2-section-py);
+}
+
+/* Italic serif para ênfase — match com landing atual */
+.v2-italic {
+  font-family: 'Times New Roman', 'Georgia', serif;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--v2-fg-muted);
+  letter-spacing: -0.02em;
+}
+
+.v2-eyebrow {
+  font-size: var(--v2-text-eyebrow);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--v2-accent-deep);
+}
+
+.v2-h1 {
+  font-size: var(--v2-text-hero);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 0.98;
+  margin: 0;
+}
+
+.v2-display {
+  font-size: var(--v2-text-display);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin: 0;
+}
+
+.v2-h2 {
+  font-size: var(--v2-text-h2);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+  margin: 0;
+}
+
+.v2-h3 {
+  font-size: var(--v2-text-h3);
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.v2-lead {
+  font-size: var(--v2-text-lead);
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--v2-fg-muted);
+  margin: 0;
+}
+
+.v2-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.625rem;
+  background: linear-gradient(180deg, #6e56cf, #5746af);
+  color: #fff;
+  border: none;
+  border-radius: 0.75rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 200ms var(--v2-ease-inout), transform 200ms var(--v2-ease-inout);
+  text-decoration: none;
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.18) inset, 0 8px 24px -8px rgba(110, 86, 207, 0.6);
+}
+
+.v2-btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+.v2-btn-primary:active {
+  transform: scale(0.98);
+}
+
+.v2-btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--v2-fg);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: gap 200ms var(--v2-ease-inout);
+}
+
+.v2-btn-link:hover {
+  gap: 0.625rem;
+}
+
+.v2-dark {
+  background: var(--v2-bg-dark);
+  color: var(--v2-fg-dark);
+}
+
+.v2-dark .v2-lead {
+  color: var(--v2-fg-dark-muted);
+}
+
+.v2-dark .v2-eyebrow {
+  color: #b39dff;
+}
+
+.v2-dark .v2-italic {
+  color: rgba(245, 245, 247, 0.6);
+}
+
+/* Hairline divisor sutil */
+.v2-hairline {
+  height: 1px;
+  width: 100%;
+  background: var(--v2-divider);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-root *,
+  .v2-root *::before,
+  .v2-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
