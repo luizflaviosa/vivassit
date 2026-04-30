@@ -11,7 +11,10 @@ import { supabaseAdmin } from '@/lib/supabase';
 //   3. verifyOtp com o token → cria sessão real
 //   4. Seta cookies session via @supabase/ssr → middleware reconhece login
 
-export const DEMO_EMAIL = 'demo@singulare.org';
+// Constante interna — se mudar, atualiza também app/login/page.tsx (DEMO_EMAIL).
+// Não pode ser `export` porque Next.js App Router só aceita exports específicos
+// em route.ts (GET, POST, dynamic, runtime, etc).
+const DEMO_EMAIL = 'demo@singulare.org';
 
 export async function POST(req: NextRequest) {
   let body: { email?: string };
