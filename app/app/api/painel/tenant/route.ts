@@ -98,5 +98,19 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 
+  // Se mexeu em campos que entram no rendered_prompt (address/phone/email/payment_info),
+  // dispara rebuild — o trigger nativo só dispara em mudanças em tenant_doctors.
+  const promptRelevantFields = ['address', 'phone', 'real_phone', 'email', 'payment_info'];
+  const touchedPrompt = promptRelevantFields.some((f) => f in allowed);
+  if (touchedPrompt) {
+    const { error: rebuildErr } = await supabase.rpc('fn_rebuild_tenant_prompt', {
+      p_tenant_id: auth.ctx.tenant.tenant_id,
+    });
+    if (rebuildErr) {
+      // Não falha a request — log e segue (o prompt fica desatualizado até próxima alteração em doctors)
+      console.warn('[painel/tenant PATCH] fn_rebuild_tenant_prompt falhou:', rebuildErr);
+    }
+  }
+
   return NextResponse.json({ success: true });
 }

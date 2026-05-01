@@ -17,17 +17,54 @@ interface MessageRow {
     text?: string;
   };
   created_at: string;
+  patient_phone?: string | null;
+  patient_name?: string | null;
 }
 
 function extractText(m: MessageRow['message']): string {
   if (!m) return '';
-  return m.content ?? m.data?.content ?? m.text ?? '';
+  const raw = m.content ?? m.data?.content ?? m.text ?? '';
+  if (!raw) return '';
+  return cleanContent(String(raw));
 }
+
+// Limpa msg humana que vem JSON-encoded do webhook (extrai só `entrada`)
+// + tira markdown que não renderiza visualmente em texto puro.
+function cleanContent(raw: string): string {
+  let text = raw.trim();
+  // Tenta parsear JSON {entrada, telefone, id_conversa, ...} comum em mensagens humanas
+  if (text.startsWith('{') && text.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(text);
+      if (typeof parsed?.entrada === 'string') text = parsed.entrada;
+      else if (typeof parsed?.message === 'string') text = parsed.message;
+    } catch {
+      // não era JSON, segue
+    }
+  }
+  // Strip markdown comum: **bold**, *italic*, `code`, [text](url) → text, headers ###
+  text = text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/(?<![*\w])\*(?!\s)([^*\n]+?)\*(?![*\w])/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .trim();
+  return text;
+}
+
 function extractRole(m: MessageRow['message']): 'human' | 'ai' | 'system' {
   const t = (m?.type ?? '').toLowerCase();
   if (t.includes('human') || t === 'user') return 'human';
   if (t.includes('ai') || t === 'assistant') return 'ai';
   return 'system';
+}
+
+function sessionLabel(sid: string, m: MessageRow): string {
+  if (m.patient_name && m.patient_phone) return `${m.patient_name} · ${m.patient_phone}`;
+  if (m.patient_phone) return m.patient_phone;
+  // Fallback pra sessions sem phone (tipo legacy)
+  return sid;
 }
 
 function MensagensInner() {
@@ -140,7 +177,9 @@ function MensagensInner() {
               );
             })}
           <p className="text-[11px] text-zinc-400 text-center pt-2">
-            Sessão {selectedSession.slice(0, 12)}…
+            {messages[0]?.patient_name && messages[0]?.patient_phone
+              ? `${messages[0].patient_name} · ${messages[0].patient_phone}`
+              : messages[0]?.patient_phone ?? `Sessão ${selectedSession.slice(0, 12)}…`}
           </p>
         </div>
       ) : (
@@ -149,6 +188,7 @@ function MensagensInner() {
           {sessions.map((sid) => {
             const sessionMsgs = messages.filter((m) => m.session_id === sid);
             const last = sessionMsgs[0];
+            const label = sessionLabel(sid, last);
             return (
               <button
                 key={sid}
@@ -162,7 +202,7 @@ function MensagensInner() {
                   <MessageCircle className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-semibold text-zinc-900 truncate">{sid}</p>
+                  <p className="text-[14px] font-semibold text-zinc-900 truncate">{label}</p>
                   <p className="text-[12px] text-zinc-500 truncate mt-0.5">{extractText(last.message)}</p>
                 </div>
                 <span className="text-[11px] text-zinc-400 flex-shrink-0">
