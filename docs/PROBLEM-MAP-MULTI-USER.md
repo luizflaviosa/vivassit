@@ -265,11 +265,13 @@ Identificada no A2. Se a 1ª clínica multi-user onboardar e usar Master Secret�
 - [ ] Manter fallback `OR tenant_id = ?` (não regride)
 - [ ] Testar via `execute_workflow` MCP com payload de cada source (web + telegram)
 
-**PR 5 — RLS proper (~1h, high risk se errar)**
-- [ ] Habilitar RLS em `tenants`, `tenant_doctors`, `tenant_api_keys`
-- [ ] Criar policies baseadas em `EXISTS … FROM tenant_members WHERE user_id = auth.uid()`
-- [ ] Service_role continua bypassando (já é o padrão)
-- [ ] Testar todas as rotas do painel + N8N (que usa service_role)
+**PR 5 — RLS proper (~1h, high risk se errar)** ✅ APLICADO 2026-04-29
+- [x] Habilitar RLS em `tenants`, `tenant_doctors`, `tenant_api_keys` (já estava ON)
+- [x] Criar policies baseadas em `EXISTS … FROM tenant_members WHERE user_id = auth.uid()` — helpers `is_tenant_admin(t)` + `is_tenant_owner(t)` adicionados
+- [x] Service_role continua bypassando (verificado: count(tenants)=5 via service_role)
+- [x] `tenant_api_keys` mantém zero policies (sensível, só service_role) — documentado em COMMENT da tabela
+- Migration: `pr5_rls_proper_tenants_doctors_api_keys` · Plano: `docs/superpowers/plans/2026-04-28-onda-2.5-pr5-rls-proper.md`
+- Policies adicionadas: `tenants_owner_update`, `tenant_doctors_admin_insert/update/delete`, `tenant_doctors_self_update`, `tenant_members_owner_insert/update/delete`, `tenant_members_self_update/delete`
 
 **PR 6 — Cleanup (depois de N dias estável)**
 - [ ] Remover fallback `admin_user_id` dos endpoints

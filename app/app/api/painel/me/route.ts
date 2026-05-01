@@ -28,14 +28,18 @@ export async function GET() {
     plan_type: string;
     subscription_status: string;
     admin_email: string;
+    chatwoot_url: string | null;
+    chatwoot_account_id: string | number | null;
   };
   let tenant: T | null = null;
+
+  const TENANT_FIELDS = 'tenant_id, clinic_name, plan_type, subscription_status, admin_email, chatwoot_url, chatwoot_account_id';
 
   // 1. Cookie de tenant ativo (verifica autorização)
   if (preferredTenantId) {
     const { data } = await admin
       .from('tenants')
-      .select('tenant_id, clinic_name, plan_type, subscription_status, admin_email')
+      .select(TENANT_FIELDS)
       .eq('tenant_id', preferredTenantId)
       .or(`admin_user_id.eq.${user.id}${user.email ? `,admin_email.eq.${user.email}` : ''}`)
       .limit(1);
@@ -46,7 +50,7 @@ export async function GET() {
   if (!tenant) {
     const { data } = await admin
       .from('tenants')
-      .select('tenant_id, clinic_name, plan_type, subscription_status, admin_email')
+      .select(TENANT_FIELDS)
       .eq('admin_user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1);
@@ -57,7 +61,7 @@ export async function GET() {
   if (!tenant && user.email) {
     const { data: byEmailList } = await admin
       .from('tenants')
-      .select('tenant_id, clinic_name, plan_type, subscription_status, admin_email')
+      .select(TENANT_FIELDS)
       .eq('admin_email', user.email)
       .order('created_at', { ascending: false })
       .limit(1);

@@ -8,6 +8,8 @@ export interface MeData {
   plan_type: string;
   subscription_status: string;
   admin_email: string;
+  chatwoot_url?: string | null;
+  chatwoot_account_id?: string | number | null;
 }
 
 export const MeContext = createContext<MeData | null>(null);
