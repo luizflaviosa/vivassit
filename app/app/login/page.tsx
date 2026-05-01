@@ -15,8 +15,9 @@ const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
 
-// Bypass de OTP pra demos ao vivo (precisa ser igual ao backend)
-const DEMO_EMAIL = 'demo@singulare.org';
+// Bypass de OTP pra contas pré-aprovadas (precisa estar igual ao backend
+// — ver app/api/auth/demo-login/route.ts BYPASS_USERS).
+const BYPASS_EMAILS = new Set(['demo@singulare.org', 'paulafranzon@yahoo.com.br']);
 
 function LoginInner() {
   const searchParams = useSearchParams();
@@ -76,15 +77,15 @@ function LoginInner() {
     setSubmitting(true);
     setError(null);
     try {
-      // Bypass demo: pula OTP, faz login server-side direto
-      if (target === DEMO_EMAIL) {
+      // Bypass: pula OTP, faz login server-side direto pra emails pré-aprovados
+      if (BYPASS_EMAILS.has(target)) {
         const res = await fetch('/api/auth/demo-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: target }),
         });
         const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(json?.error ?? 'Falha no login demo');
+        if (!res.ok) throw new Error(json?.error ?? 'Falha no login direto');
         window.location.href = json?.redirect ?? next;
         return;
       }
