@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 import {
   Calendar,
@@ -63,6 +64,7 @@ interface SetupIssue {
   message: string;
   share_with?: string;
   doctor?: { id: string; name: string; calendar_id?: string };
+  calendar_id?: string;
 }
 
 // react-big-calendar event shape — we keep the original API event under `raw`
@@ -179,6 +181,7 @@ function AgendaInner() {
           message: json.message,
           share_with: json.share_with,
           doctor: json.doctor,
+          calendar_id: json.calendar_id ?? json.doctor?.calendar_id,
         });
       } else if (json.error === 'no_doctor') {
         setSetupIssue({ type: 'no_doctor', message: json.message });
@@ -431,8 +434,28 @@ function AgendaInner() {
               </p>
 
               {setupIssue.type === 'no_calendar_access' && setupIssue.share_with && (
-                <div className="rounded-lg bg-white border border-amber-200 p-3 my-3 font-mono text-[12.5px] text-zinc-800 break-all select-all">
-                  {setupIssue.share_with}
+                <div className="space-y-3 my-3">
+                  <div className="rounded-lg bg-white border border-amber-200 p-3 font-mono text-[12.5px] text-zinc-800 break-all flex items-center justify-between gap-3">
+                    <span className="select-all flex-1 min-w-0">{setupIssue.share_with}</span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(setupIssue.share_with!);
+                          toast.success('Email copiado pra área de transferência');
+                        } catch {
+                          toast.error('Não consegui copiar — selecione manualmente');
+                        }
+                      }}
+                      className="shrink-0 h-7 px-2.5 rounded-md text-[11.5px] font-semibold border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 transition-colors"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                  <div className="text-[12.5px] text-zinc-600 leading-relaxed">
+                    <strong className="text-zinc-800">3 cliques no Google:</strong>{' '}
+                    abre o calendar → "Compartilhar com pessoas e grupos específicos" → cola este email com permissão "Ver todos os detalhes do evento".
+                  </div>
                 </div>
               )}
 
@@ -448,8 +471,37 @@ function AgendaInner() {
                     Cadastrar profissional
                   </Link>
                 )}
-                {(setupIssue.type === 'no_calendar' ||
-                  setupIssue.type === 'no_calendar_access') && (
+                {setupIssue.type === 'no_calendar_access' && setupIssue.calendar_id && (
+                  <a
+                    href={`https://calendar.google.com/calendar/u/0/r/settings/calendar/${btoa(setupIssue.calendar_id).replace(/=/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 h-9 px-4 rounded-lg text-white text-[13px] font-semibold transition-all hover:brightness-110"
+                    style={{
+                      background: `linear-gradient(180deg, ${ACCENT}, ${ACCENT_DEEP})`,
+                    }}
+                  >
+                    Abrir Google Calendar
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+                {setupIssue.type === 'no_calendar_access' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toast.loading('Verificando acesso…', { id: 'verify-cal' });
+                      fetchEvents().then(() => {
+                        toast.dismiss('verify-cal');
+                        if (!setupIssue) toast.success('Acesso concedido — agenda carregada!');
+                      });
+                    }}
+                    className="h-9 px-4 rounded-lg border border-zinc-300 text-zinc-900 text-[13px] font-semibold inline-flex items-center gap-1.5 hover:border-zinc-900 transition-all"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Já compartilhei — verificar
+                  </button>
+                )}
+                {setupIssue.type === 'no_calendar' && (
                   <Link
                     href="/painel/profissionais"
                     className="h-9 px-4 rounded-lg border border-zinc-300 text-zinc-900 text-[13px] font-semibold inline-flex items-center hover:border-zinc-900 transition-all"

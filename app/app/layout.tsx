@@ -102,7 +102,7 @@ export default function RootLayout({
       <body className={`${inter.className} antialiased`}>
         <main>{children}</main>
         <Toaster
-          position="top-center"
+          position="top-right"
           richColors
           closeButton
           toastOptions={{ duration: 6000 }}

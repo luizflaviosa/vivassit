@@ -78,6 +78,7 @@ export async function GET(req: NextRequest) {
         requires_setup: true,
         message: result.error,
         share_with: saEmail,
+        calendar_id: doctor.calendar_id,
         doctor: { id: doctor.id, name: doctor.doctor_name, calendar_id: doctor.calendar_id },
       }, { status: 200 });
     }

@@ -25,6 +25,20 @@ import PushCard from './components/push-card';
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
 
+// Extrai nome de saudação preservando título profissional (Dr./Dra.) + 1º nome.
+// Ex.: "Dra. Paula Franzon" → "Dra. Paula"; "Henrique Salles" → "Henrique"
+function greetingName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
+  const titleRe = /^(dr|dra|sr|sra|prof|profa)\.?$/i;
+  const isTitle = titleRe.test(parts[0]);
+  if (isTitle && parts.length > 1) {
+    const title = parts[0].endsWith('.') ? parts[0] : `${parts[0]}.`;
+    return `${title} ${parts[1]}`;
+  }
+  return parts[0];
+}
+
 interface Tenant {
   tenant_id: string;
   clinic_name: string;
@@ -167,7 +181,7 @@ function PainelInner() {
           Visão geral
         </p>
         <h1 className="text-[28px] sm:text-[32px] leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900">
-          Olá{tenant?.doctor_name ? `, ${tenant.doctor_name.split(' ')[0]}` : ''}.
+          Olá{tenant?.doctor_name ? `, ${greetingName(tenant.doctor_name)}` : ''}.
         </h1>
         {tenant && (
           <p className="text-[14px] text-zinc-500 mt-1.5">
