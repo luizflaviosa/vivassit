@@ -20,7 +20,6 @@ import {
   Building2,
   Settings,
   Shield,
-  Star,
   Phone,
   Clock,
   Heart,
@@ -43,7 +42,6 @@ import {
   ValueBlock,
   QualificationOption,
   WizardStep,
-  PLAN_TYPES,
   PROFESSIONAL_TYPES,
   COUNCIL_BY_PROFESSIONAL,
   SPECIALTIES_BY_PROFESSIONAL,
@@ -84,11 +82,40 @@ function serializeDayIntervals(intervals: DayInterval[]): string {
 // Constants
 // ──────────────────────────────────────────────────────────────────────────────
 
-const PLAN_DETAILS: Record<string, { label: string; desc: string; highlight?: boolean }> = {
-  basic:        { label: 'Básico',       desc: 'Para início de carreira' },
-  professional: { label: 'Profissional', desc: 'Mais escolhido pelos médicos', highlight: true },
-  premium:      { label: 'Premium',      desc: 'Recursos avançados de gestão' },
-  enterprise:   { label: 'Corporativo',  desc: 'Para grandes volumes' },
+const PLAN_DETAILS: Record<string, {
+  label: string;
+  price: string;
+  desc: string;
+  features: string[];
+  highlight?: boolean;
+}> = {
+  professional: {
+    label: 'Profissional',
+    price: 'R$ 197',
+    desc: 'Para quem trabalha de forma independente.',
+    features: [
+      '1 profissional',
+      'Agendamento via WhatsApp 24h',
+      'Cobranças: Pix, Cartão e Boleto',
+      'NF solicitada ao contador',
+      'Documentos e exames via WhatsApp',
+      'NPS e feedback',
+    ],
+  },
+  enterprise: {
+    label: 'Enterprise',
+    price: 'R$ 397',
+    desc: 'Para equipes de até 5 profissionais.',
+    features: [
+      'Tudo do Profissional',
+      'Até 5 profissionais',
+      'CRM de atendimento humano',
+      'Multi-canal: WhatsApp + e-mail',
+      'Relatórios por profissional',
+      'Suporte prioritário',
+    ],
+    highlight: true,
+  },
 };
 
 const ESTABLISHMENT_ICONS: Record<string, React.ReactNode> = {
@@ -104,29 +131,29 @@ const VALUE_BLOCKS: ValueBlock[] = [
     icon: 'clock',
     title: 'Mais tempo para o que importa',
     description:
-      'Agendamento inteligente e lembretes automáticos. Você foca no paciente, a Singulare cuida da burocracia.',
+      'Agendamento inteligente, lembretes, NF ao contador e documentos organizados — tudo automático.',
   },
   {
     icon: 'heart',
-    title: 'Uma ponte direta com o paciente',
+    title: 'Respostas 24h, com o seu jeito',
     description:
-      'Comunicação fluida via WhatsApp e histórico 100% digital com cada detalhe centralizado.',
+      'Seus pacientes são atendidos via WhatsApp com a sua voz. Ninguém percebe que é uma IA.',
   },
   {
     icon: 'trending-up',
     title: 'Sua prática, mais lucrativa',
     description:
-      'Reduza faltas em até 60% e receba pagamentos seguros, com relatórios que mostram o crescimento.',
+      'Cobranças automáticas por Pix, Cartão e Boleto. NPS que mostra o seu crescimento real.',
   },
 ];
 
 const INITIAL_QUALIFICATIONS: QualificationOption[] = [
-  { id: 'telemedicine', label: 'Atendimento online', selected: false },
   { id: 'agenda', label: 'Gestão de Agenda', selected: true },
-  { id: 'billing', label: 'Cobrança via WhatsApp', selected: false },
+  { id: 'billing', label: 'Cobrança: Pix, Cartão e Boleto', selected: true },
+  { id: 'nf', label: 'NF automática ao contador', selected: false },
+  { id: 'documents', label: 'Recebimento de documentos e exames', selected: false },
   { id: 'patients', label: 'Cadastro de Pacientes', selected: true },
   { id: 'reports', label: 'Relatórios e indicadores', selected: false },
-  { id: 'integration', label: 'Integração com Convênios', selected: true },
 ];
 
 const WIZARD_STEPS: WizardStep[] = [
@@ -674,10 +701,10 @@ function OnboardingPageInner() {
     }
   });
 
-  // Pre-seleciona plano vindo da URL (?plan=basic|professional|premium|enterprise)
+  // Pre-seleciona plano vindo da URL (?plan=professional|enterprise)
   useEffect(() => {
     const planFromUrl = searchParams?.get('plan');
-    if (planFromUrl && ['basic', 'professional', 'premium', 'enterprise'].includes(planFromUrl)) {
+    if (planFromUrl && ['professional', 'enterprise'].includes(planFromUrl)) {
       setFormData(prev => ({ ...prev, plan_type: planFromUrl }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -965,7 +992,12 @@ function OnboardingPageInner() {
                     <button
                       key={key}
                       type="button"
-                      onClick={() => handleInputChange('establishment_type', key)}
+                      onClick={() => {
+                        handleInputChange('establishment_type', key);
+                        // Auto-seleciona plano baseado no tipo de estabelecimento
+                        const autoPlan = key === 'private_practice' ? 'professional' : 'enterprise';
+                        handleInputChange('plan_type', autoPlan);
+                      }}
                       className={`group relative w-full p-4 sm:p-3.5 rounded-lg text-left transition-all min-h-[88px] ${
                         selected ? 'bg-white border border-transparent ring-1' : 'bg-white border border-black/[0.08] hover:border-black/20'
                       }`}
@@ -1313,7 +1345,7 @@ function OnboardingPageInner() {
                 </div>
                 <div>
                   <div className="text-[14px] font-semibold text-zinc-900">Solicitar Nota Fiscal automaticamente</div>
-                  <div className="text-[12px] text-zinc-500">Cobrança paga gera pedido enviado pro contador</div>
+                  <div className="text-[12px] text-zinc-500">Solicita NF ao contador e acompanha envio ao paciente</div>
                 </div>
               </button>
               {formData.auto_emit_nf && (
@@ -1494,90 +1526,148 @@ function OnboardingPageInner() {
         );
       }
 
-      // ── Step 4: Confirmação ────────────────────────────────────────────────
+      // ── Step 4: Plano + Confirmação ─────────────────────────────────────────
       case 4: {
         const profType = (formData.professional_type as ProfessionalTypeKey) || 'medico';
         const council = COUNCIL_BY_PROFESSIONAL[profType];
         const acceptedMethods = (formData.payment_methods ?? []) as string[];
         const insuranceList = (formData.insurance_list ?? []) as string[];
         return (
-          <div className="space-y-3">
-            <ReviewBlock
-              icon={<User className="w-3.5 h-3.5" strokeWidth={1.75} />}
-              title="Profissional"
-              rows={[
-                ['Tipo', PROFESSIONAL_TYPES[profType]],
-                ['Nome', formData.doctor_name],
-                [council.label, formData.doctor_crm],
-                ['Especialidade', formData.speciality],
-              ]}
-            />
-            <ReviewBlock
-              icon={<Building2 className="w-3.5 h-3.5" strokeWidth={1.75} />}
-              title="Clínica"
-              rows={[
-                ['Nome', formData.clinic_name],
-                ['Email', formData.admin_email],
-                ['Telefone', normalizePhoneToE164(formData.real_phone)],
-              ]}
-            />
-            <ReviewBlock
-              icon={<Settings className="w-3.5 h-3.5" strokeWidth={1.75} />}
-              title="Preferências"
-              rows={[
-                ['Consulta', `${formData.consultation_duration} min`],
-                [
-                  'Tipo',
-                  ESTABLISHMENT_SIZES[formData.establishment_type as EstablishmentSizeKey]?.label
-                    ?? formData.establishment_type,
-                ],
-                ['Plano', PLAN_TYPES[formData.plan_type as keyof typeof PLAN_TYPES], true],
-              ]}
-            />
-            {(formData.consultation_value || acceptedMethods.length > 0) && (
-              <ReviewBlock
-                icon={<CreditCard className="w-3.5 h-3.5" strokeWidth={1.75} />}
-                title="Cobrança"
-                rows={[
-                  ...(formData.consultation_value ? [['Valor', `R$ ${formData.consultation_value}`] as [string, string]] : []),
-                  ...(acceptedMethods.length ? [['Métodos', acceptedMethods.join(', ').toUpperCase()] as [string, string]] : []),
-                  ...(formData.charge_timing ? [['Quando', formData.charge_timing === 'before' ? `${formData.partial_charge_pct}% antes` : formData.charge_timing === 'after' ? 'Após consulta' : 'Paciente escolhe'] as [string, string]] : []),
-                  ...(formData.accepts_insurance ? [['Convênios', insuranceList.length ? insuranceList.join(', ') : 'Sim'] as [string, string]] : []),
-                  ...(formData.auto_emit_nf ? [['NF auto', formData.accountant_email || 'Sim'] as [string, string]] : []),
-                ]}
-              />
-            )}
-            {formData.assistant_prompt && formData.assistant_prompt.length > 0 && (
-              <div className="rounded-xl border border-black/[0.07] bg-white p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-6 w-6 rounded-md flex items-center justify-center" style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}>
-                    <Sparkles className="w-3.5 h-3.5" strokeWidth={1.75} />
-                  </div>
-                  <h3 className="text-[12px] uppercase tracking-[0.08em] font-semibold text-zinc-500">Sua IA</h3>
-                </div>
-                <p className="text-[13px] text-zinc-700 leading-relaxed line-clamp-3">{formData.assistant_prompt}</p>
+          <div className="space-y-6">
+            {/* ── Plan picker ─────────────────────────────────────────── */}
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.08em] text-zinc-400 font-medium mb-3">
+                Escolha seu plano
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(Object.entries(PLAN_DETAILS) as [string, typeof PLAN_DETAILS[keyof typeof PLAN_DETAILS]][]).map(([key, plan]) => {
+                  const selected = formData.plan_type === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleInputChange('plan_type', key)}
+                      className={`relative text-left rounded-xl p-5 transition-all ${
+                        selected
+                          ? 'bg-white border-2'
+                          : 'bg-white border border-black/[0.08] hover:border-black/20'
+                      }`}
+                      style={selected ? { borderColor: ACCENT } : undefined}
+                    >
+                      {plan.highlight && (
+                        <span
+                          className="absolute -top-2.5 left-4 text-[10px] font-bold uppercase tracking-[0.06em] px-2.5 py-0.5 rounded-full text-white"
+                          style={{ background: ACCENT }}
+                        >
+                          Mais escolhido
+                        </span>
+                      )}
+                      <div className="flex items-baseline justify-between mb-1">
+                        <span className={`text-[14px] font-semibold ${selected ? '' : 'text-zinc-700'}`}
+                              style={selected ? { color: ACCENT_DEEP } : undefined}>
+                          {plan.label}
+                        </span>
+                        <span className="text-[18px] font-bold text-zinc-900">{plan.price}<span className="text-[12px] font-normal text-zinc-400">/mês</span></span>
+                      </div>
+                      <p className="text-[12px] text-zinc-500 mb-3">{plan.desc}</p>
+                      <ul className="space-y-1.5">
+                        {plan.features.map(f => (
+                          <li key={f} className="flex items-center gap-2 text-[12px] text-zinc-600">
+                            <div
+                              className="h-4 w-4 rounded-full flex items-center justify-center flex-shrink-0"
+                              style={{ background: ACCENT_SOFT }}
+                            >
+                              <Check className="w-2.5 h-2.5" strokeWidth={3} style={{ color: ACCENT_DEEP }} />
+                            </div>
+                            {f}
+                          </li>
+                        ))}
+                      </ul>
+                      {/* Selection indicator */}
+                      <div className="absolute top-4 right-4">
+                        <div
+                          className={`h-5 w-5 rounded-full flex items-center justify-center transition-colors ${
+                            selected ? '' : 'border-2 border-zinc-200'
+                          }`}
+                          style={selected ? { background: ACCENT } : undefined}
+                        >
+                          {selected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            )}
-            <div className="rounded-xl border border-black/[0.07] bg-white p-4">
-              <div className="flex items-center gap-2 mb-2.5">
-                <div className="h-6 w-6 rounded-md flex items-center justify-center" style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}>
-                  <Star className="w-3.5 h-3.5" strokeWidth={1.75} />
-                </div>
-                <h3 className="text-[12px] uppercase tracking-[0.08em] font-semibold text-zinc-500">Funcionalidades</h3>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {qualifications.filter(q => q.selected).map(q => (
-                  <span key={q.id} className="text-[12px] font-medium px-2 py-1 rounded-md border border-black/[0.07] bg-zinc-50 text-zinc-700 inline-flex items-center gap-1">
-                    <Check className="w-3 h-3 text-emerald-600" strokeWidth={3} />
-                    {q.label}
-                  </span>
-                ))}
-              </div>
+              <p className="text-[12px] text-zinc-400 mt-3 text-center">
+                Precisa de mais?{' '}
+                <a
+                  href="https://wa.me/5511999999999?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20o%20plano%20Sob%20Medida"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-zinc-700 transition-colors"
+                  style={{ color: ACCENT_DEEP }}
+                >
+                  Conheça o plano Sob Medida →
+                </a>
+              </p>
             </div>
 
-            <p className="text-[12px] text-zinc-500 text-center pt-3 leading-relaxed">
-              Ao finalizar, sua conta será criada e nossas integrações serão ativadas
-              automaticamente.
+            <Hairline />
+
+            {/* ── Review blocks ────────────────────────────────────────── */}
+            <div className="space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.08em] text-zinc-400 font-medium">
+                Resumo
+              </p>
+              <ReviewBlock
+                icon={<User className="w-3.5 h-3.5" strokeWidth={1.75} />}
+                title="Profissional"
+                rows={[
+                  ['Tipo', PROFESSIONAL_TYPES[profType]],
+                  ['Nome', formData.doctor_name],
+                  [council.label, formData.doctor_crm],
+                  ['Especialidade', formData.speciality],
+                ]}
+              />
+              <ReviewBlock
+                icon={<Building2 className="w-3.5 h-3.5" strokeWidth={1.75} />}
+                title="Clínica"
+                rows={[
+                  ['Nome', formData.clinic_name],
+                  ['Email', formData.admin_email],
+                  ['Telefone', normalizePhoneToE164(formData.real_phone)],
+                ]}
+              />
+              <ReviewBlock
+                icon={<Settings className="w-3.5 h-3.5" strokeWidth={1.75} />}
+                title="Preferências"
+                rows={[
+                  ['Consulta', `${formData.consultation_duration} min`],
+                  [
+                    'Tipo',
+                    ESTABLISHMENT_SIZES[formData.establishment_type as EstablishmentSizeKey]?.label
+                      ?? formData.establishment_type,
+                  ],
+                  ['Plano', PLAN_DETAILS[formData.plan_type]?.label ?? formData.plan_type, true],
+                ]}
+              />
+              {(formData.consultation_value || acceptedMethods.length > 0) && (
+                <ReviewBlock
+                  icon={<CreditCard className="w-3.5 h-3.5" strokeWidth={1.75} />}
+                  title="Cobrança"
+                  rows={[
+                    ...(formData.consultation_value ? [['Valor', `R$ ${formData.consultation_value}`] as [string, string]] : []),
+                    ...(acceptedMethods.length ? [['Métodos', acceptedMethods.join(', ').toUpperCase()] as [string, string]] : []),
+                    ...(formData.charge_timing ? [['Quando', formData.charge_timing === 'before' ? `${formData.partial_charge_pct}% antes` : formData.charge_timing === 'after' ? 'Após consulta' : 'Paciente escolhe'] as [string, string]] : []),
+                    ...(formData.accepts_insurance ? [['Convênios', insuranceList.length ? insuranceList.join(', ') : 'Sim'] as [string, string]] : []),
+                    ...(formData.auto_emit_nf ? [['NF auto', formData.accountant_email || 'Sim'] as [string, string]] : []),
+                  ]}
+                />
+              )}
+            </div>
+
+            <p className="text-[12px] text-zinc-500 text-center pt-1 leading-relaxed">
+              7 dias grátis · Ao finalizar, sua conta será criada e as integrações ativadas automaticamente.
             </p>
           </div>
         );
@@ -1698,9 +1788,8 @@ function OnboardingPageInner() {
               </>
             ) : (
               <>
-                Tudo certo.{' '}
-                <span className="font-serif italic font-normal text-zinc-700">Confirme</span>{' '}
-                e finalize.
+                Escolha seu plano{' '}
+                <span className="font-serif italic font-normal text-zinc-700">e finalize.</span>
               </>
             )}
           </h1>
@@ -1925,10 +2014,9 @@ function OnboardingPageInner() {
             Dados criptografados
           </span>
           <span className="h-1 w-1 rounded-full bg-zinc-300" />
-          <span className="inline-flex items-center gap-1.5">
-            <Star className="w-3 h-3 fill-current text-amber-400" />
-            5.000+ profissionais
-          </span>
+          <span>7 dias grátis</span>
+          <span className="h-1 w-1 rounded-full bg-zinc-300" />
+          <span>Cancele quando quiser</span>
           <span className="hidden sm:inline-block h-1 w-1 rounded-full bg-zinc-300" />
           <span className="hidden sm:inline">~5 min</span>
         </div>

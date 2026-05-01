@@ -79,14 +79,18 @@ export const ESTABLISHMENT_TYPES = {
 } as const;
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Planos SaaS Vivassit
+// Planos SaaS Singulare
 // ──────────────────────────────────────────────────────────────────────────────
 
 export const PLAN_TYPES = {
-  basic: 'Starter',
-  professional: 'Professional',
-  premium: 'Premium',
+  professional: 'Profissional',
   enterprise: 'Enterprise',
+} as const;
+
+// Planos legados mantidos para retrocompatibilidade com orders antigos
+export const PLAN_TYPES_LEGACY = {
+  basic: 'Starter',
+  premium: 'Premium',
   enterprise_plus: 'Clínica +5 profissionais',
 } as const;
 
