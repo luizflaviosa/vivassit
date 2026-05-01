@@ -27,6 +27,9 @@ function ensureVapid() {
 export type NotificationType =
   | 'new_patient'
   | 'appointment_booked'
+  | 'appointment_confirmed'
+  | 'appointment_reschedule_request'
+  | 'appointment_cancel_request'
   | 'appointment_cancel'
   | 'payment_confirmed'
   | 'payment_overdue'

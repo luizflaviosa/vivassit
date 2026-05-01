@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Singulare — Para quem cuida de pessoas.</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --s-900:  #0a0a0a;
+  --s-800:  #18181b;
+  --s-700:  #5746af;
+  --s-600:  #6e56cf;
+  --s-500:  #7c6fd4;
+  --s-400:  #9b8dec;
+  --s-300:  #b8acf6;
+  --s-200:  #d8d0fc;
+  --s-100:  #f5f3ff;
+  --warm:   #fafaf7;
+  --white:  #ffffff;
+  --text:   #18181b;
+  --muted:  #71717a;
+  --hint:   #a1a1aa;
+  --border: rgba(0,0,0,0.07);
+  --ease:   cubic-bezier(0.16,1,0.3,1);
+}
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 70px;        /* fix: anchor links escondidos atrás do nav fixed */
+  -webkit-text-size-adjust: 100%;  /* fix: Safari iOS auto-zoom em landscape */
+  text-size-adjust: 100%;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Helvetica Neue", sans-serif;
+  background: var(--white); color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden; letter-spacing: -0.011em;
+}
+em.serif {
+  font-family: "Times New Roman","Georgia",serif;
+  font-style: italic; font-weight: 400;
+  color: var(--muted); letter-spacing: -0.02em;
+}
+
+/* ─── REVEAL ─── */
+.reveal { opacity:0; transform:translateY(22px); transition:opacity .85s var(--ease), transform .85s var(--ease); }
+.reveal.vis { opacity:1; transform:translateY(0); }
+.rd1{transition-delay:.12s} .rd2{transition-delay:.22s} .rd3{transition-delay:.34s}
+
+/* ─── NAV ─── */
+nav {
+  position:fixed; top:0; left:0; right:0; z-index:200;
+  height:54px; display:flex; align-items:center; justify-content:space-between;
+  /* fix iOS: respeitar safe-area do notch em landscape */
+  padding-left: max(52px, env(safe-area-inset-left));
+  padding-right: max(52px, env(safe-area-inset-right));
+  background:rgba(250,250,247,.9);
+  /* fix iOS: prefix WebKit pra blur funcionar em Safari iOS */
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:1px solid rgba(0,0,0,.06);
+}
+.nav-brand { display:flex; align-items:center; gap:10px; text-decoration:none; }
+/* Logo mark — S letterform + clock accent */
+.nav-logo-mark {
+  width:32px; height:32px;
+  background:linear-gradient(150deg, var(--s-600), var(--s-700));
+  border-radius:9px;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 12px rgba(110,86,207,.32);
+  flex-shrink:0;
+}
+.nav-logo-mark svg { width:22px; height:18px; }
+.nav-logo-text { font-size:18px; font-weight:700; letter-spacing:-.5px; color:var(--s-800); }
+.nav-logo-dot  { width:5px; height:5px; border-radius:50%; background:var(--s-600); margin-bottom:1px; }
+.nav-links { display:flex; gap:28px; }
+.nav-links a { font-size:13px; color:var(--muted); text-decoration:none; transition:color .2s; }
+.nav-links a:hover { color:var(--s-700); }
+.nav-right { display:flex; align-items:center; gap:16px; }
+.nav-enter {
+  font-size:13px; color:var(--muted); text-decoration:none;
+  transition:color .2s; font-weight:500;
+}
+.nav-enter:hover { color:var(--s-700); }
+.nav-divider { width:1px; height:16px; background:var(--border); }
+.nav-cta {
+  background:linear-gradient(180deg, var(--s-600), var(--s-700));
+  color:#fff; padding:11px 22px; border-radius:12px;
+  font-size:13px; font-weight:600; text-decoration:none;
+  box-shadow:0 4px 12px rgba(110,86,207,.35);
+  transition:filter .2s;
+  min-height:44px; display:inline-flex; align-items:center; /* tap target HIG */
+}
+.nav-cta:hover { filter:brightness(1.1); }
+
+/* ─── HERO ─── */
+.hero {
+  min-height:100vh;          /* fallback */
+  min-height:100svh;         /* fix iOS Safari: ignora barra de URL retraída */
+  display:grid; grid-template-columns:1fr 1fr; align-items:center;
+  gap:60px; padding:130px 80px 80px;
+  background:var(--warm);
+  position:relative; overflow:hidden;
+}
+.hero::before {
+  content:''; position:absolute; top:-5%; right:-5%;
+  width:650px; height:650px; border-radius:50%;
+  background:radial-gradient(circle,rgba(110,86,207,.14),transparent 65%);
+  filter:blur(50px); pointer-events:none;
+  animation:atmFloat 9s ease-in-out infinite alternate;
+}
+.hero::after {
+  content:''; position:absolute; bottom:0; left:5%;
+  width:420px; height:420px; border-radius:50%;
+  background:radial-gradient(circle,rgba(244,114,182,.07),transparent 65%);
+  filter:blur(40px); pointer-events:none;
+  animation:atmFloat 7s ease-in-out 1s infinite alternate;
+}
+@keyframes atmFloat { from{transform:scale(1)} to{transform:scale(1.1)} }
+@keyframes fadeUp   { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+/* Feature ticker */
+.hero-ticker {
+  display:inline-flex; align-items:center; gap:8px;
+  overflow:hidden; height:20px;
+  animation:fadeUp .6s var(--ease) both;
+  margin-bottom:8px;
+}
+.ticker-label { font-size:12px; color:var(--hint); white-space:nowrap; }
+.ticker-items { display:flex; flex-direction:column; animation:tickerScroll 8s linear infinite; }
+.ticker-item  { font-size:12px; font-weight:600; color:var(--s-600); white-space:nowrap; height:20px; display:flex; align-items:center; gap:4px; }
+@keyframes tickerScroll { 0%{transform:translateY(0)} 100%{transform:translateY(-100%)} }
+
+.hero-eyebrow {
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--s-100); color:var(--s-600);
+  font-size:12px; font-weight:500; letter-spacing:.06em; text-transform:uppercase;
+  padding:5px 14px; border-radius:980px; margin-bottom:28px;
+  animation:fadeUp .7s var(--ease) .05s both;
+}
+.hero-eyebrow span { width:6px; height:6px; background:var(--s-400); border-radius:50%; animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.5)} }
+
+.hero-headline {
+  font-size:clamp(38px,5vw,72px);
+  font-weight:600; letter-spacing:-.038em; line-height:1.03;
+  color:var(--s-900); margin-bottom:24px;
+  animation:fadeUp .9s var(--ease) .1s both;
+}
+.hero-sub {
+  font-size:19px; color:var(--muted); line-height:1.65;
+  margin-bottom:40px; max-width:44ch;
+  animation:fadeUp .9s var(--ease) .22s both;
+}
+.hero-actions { display:flex; gap:16px; align-items:center; flex-wrap:wrap; animation:fadeUp .9s var(--ease) .34s both; }
+.btn-primary {
+  background:linear-gradient(180deg, var(--s-600), var(--s-700));
+  color:#fff; padding:15px 32px; border-radius:12px;
+  font-size:16px; font-weight:600; text-decoration:none;
+  box-shadow:0 8px 24px rgba(110,86,207,.4);
+  transition:filter .2s, transform .15s; display:inline-block;
+}
+.btn-primary:hover { filter:brightness(1.1); }
+.btn-primary:active { transform:scale(.97); }
+.btn-ghost { color:var(--s-600); font-size:16px; text-decoration:none; display:inline-flex; align-items:center; gap:5px; transition:gap .2s var(--ease); }
+.btn-ghost:hover { gap:8px; }
+.hero-trust {
+  margin-top:24px; font-size:13px; color:var(--hint);
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  animation:fadeUp .8s var(--ease) .48s both;
+}
+.hero-trust .chk { color:var(--s-400); }
+
+/* ─── PHONE MOCKUP ─── */
+.hero-visual { display:flex; justify-content:center; align-items:center; position:relative; animation:phoneIn 1.2s var(--ease) .4s both; }
+@keyframes phoneIn { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
+.phone-wrap { position:relative; z-index:2; filter:drop-shadow(0 40px 80px rgba(110,86,207,.2)); }
+.phone-wrap::before {
+  content:''; position:absolute; inset:-20% -30%;
+  background:radial-gradient(50% 50%,rgba(110,86,207,.26),transparent 70%);
+  filter:blur(32px); z-index:-1; pointer-events:none;
+  animation:glowPulse 4s ease-in-out infinite alternate;
+}
+@keyframes glowPulse { from{opacity:.7} to{opacity:1.1;transform:scale(1.05)} }
+.phone {
+  width:264px; height:530px;
+  background:linear-gradient(180deg,#2a2a2c,#1d1d1f);
+  border-radius:46px; padding:10px;
+  border:1px solid rgba(255,255,255,.06);
+  position:relative;
+}
+.phone-btn  { position:absolute; right:-3px; top:100px; width:3px; height:34px; background:#2a2a30; border-radius:0 3px 3px 0; }
+.phone-btn2 { position:absolute; left:-3px;  top:90px;  width:3px; height:28px; background:#2a2a30; border-radius:3px 0 0 3px; }
+.phone-btn3 { position:absolute; left:-3px;  top:126px; width:3px; height:28px; background:#2a2a30; border-radius:3px 0 0 3px; }
+.phone-notch { width:96px; height:26px; background:#1d1d1f; border-radius:0 0 18px 18px; position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:10; }
+.phone-screen { background:#ECE5DD; border-radius:38px; height:100%; overflow:hidden; display:flex; flex-direction:column; }
+.wa-sb { background:#128c7e; height:28px; flex-shrink:0; display:flex; align-items:flex-end; padding:0 14px 4px; justify-content:space-between; }
+.wa-sb-time { font-size:9px; font-weight:600; color:#fff; }
+.wa-sb-ic   { font-size:8px; color:rgba(255,255,255,.85); }
+.wa-hdr { background:#075e54; padding:8px 12px 10px; display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.wa-back { color:rgba(255,255,255,.8); font-size:18px; }
+.wa-av {
+  width:36px; height:36px; border-radius:50%;
+  background:linear-gradient(135deg, var(--s-600), var(--s-700));
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; color:#fff; font-weight:700; flex-shrink:0;
+}
+.wa-info { flex:1; }
+.wa-nm  { font-size:13px; font-weight:600; color:#fff; }
+.wa-sub { font-size:10px; color:rgba(255,255,255,.65); display:flex; align-items:center; gap:4px; }
+.wa-live { width:6px; height:6px; background:#25d366; border-radius:50%; box-shadow:0 0 6px #25d366; }
+.wa-body { flex:1; background:#ECE5DD; padding:10px 8px; display:flex; flex-direction:column; gap:5px; overflow-y:auto; scroll-behavior:smooth; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+.wa-body::-webkit-scrollbar { display:none; }
+.wa-bubble-wrap { display:flex; }
+.wa-bubble-wrap.out { justify-content:flex-end; }
+.wa-bubble { max-width:80%; padding:7px 10px 5px; border-radius:10px; font-size:10.5px; line-height:1.45; white-space:pre-line; animation:bubbleIn .28s ease both; }
+@keyframes bubbleIn { from{opacity:0;transform:scale(.92) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
+.wa-bubble.in  { background:#fff; border-radius:0 10px 10px 10px; color:#1a1a1a; }
+.wa-bubble.out { background:#d9fdd3; border-radius:10px 10px 0 10px; color:#1a1a1a; }
+.wa-bubble.hi  { background:linear-gradient(135deg,#d9fdd3,#c2f5a0); border-left:2px solid var(--s-600); }
+.wa-meta { font-size:8.5px; color:#7a7a7a; text-align:right; margin-top:2px; }
+.ticks { color:#53bdeb; }
+.wa-typing-wrap { display:flex; }
+.wa-typing-wrap.out { justify-content:flex-end; }
+.wa-typing { background:#d9fdd3; padding:9px 12px; border-radius:10px 10px 0 10px; display:flex; gap:4px; align-items:center; }
+.wa-typing.in-t { background:#fff; border-radius:0 10px 10px 10px; }
+.wa-dot { width:6px; height:6px; border-radius:50%; background:var(--s-600); animation:dotBounce 1.1s ease-in-out infinite; }
+.wa-dot:nth-child(2){animation-delay:.15s} .wa-dot:nth-child(3){animation-delay:.3s}
+@keyframes dotBounce { 0%,100%{transform:translateY(0);opacity:.4} 50%{transform:translateY(-4px);opacity:1} }
+.wa-footer { background:#f0f2f1; padding:6px 8px; flex-shrink:0; display:flex; align-items:center; gap:6px; }
+.wa-input-bar { flex:1; background:#fff; border-radius:22px; padding:6px 12px; font-size:10px; color:#aaa; }
+.wa-send { width:30px; height:30px; background:#00a884; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+.wa-send svg { width:14px; height:14px; fill:#fff; }
+/* Powered badge */
+.powered-badge {
+  position:absolute; bottom:-14px; left:50%; transform:translateX(-50%);
+  background:var(--white); border:1px solid var(--border);
+  border-radius:980px; padding:4px 12px;
+  font-size:10px; color:var(--hint); white-space:nowrap;
+  display:flex; align-items:center; gap:5px;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+.powered-badge strong { color:var(--s-600); font-weight:600; }
+/* Float badges */
+.fbadge { position:absolute; background:var(--white); border-radius:14px; padding:10px 14px; box-shadow:0 8px 28px rgba(110,86,207,.14); display:flex; align-items:center; gap:9px; font-size:11.5px; font-weight:500; color:var(--text); z-index:5; }
+.fbadge.f1 { top:60px;   left:-64px;  animation:fb 3.2s ease-in-out infinite alternate; }
+.fbadge.f2 { bottom:80px; left:-72px; animation:fb 3.2s ease-in-out .9s infinite alternate; }
+.fbadge.f3 { top:120px;  right:-68px; animation:fb 3.2s ease-in-out 1.6s infinite alternate; }
+@keyframes fb { from{transform:translateY(0)} to{transform:translateY(-8px)} }
+.ficon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.fi-green{background:#e6faf3} .fi-blue{background:var(--s-100)} .fi-amber{background:#fff4e0}
+
+/* ─── PROOF BAR ─── */
+.proof-bar { background:var(--white); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:28px 60px; display:flex; align-items:center; justify-content:center; gap:64px; flex-wrap:wrap; }
+.proof-item { text-align:center; }
+.proof-num  { font-size:30px; font-weight:700; letter-spacing:-.03em; color:var(--s-800); }
+.proof-label { font-size:13px; color:var(--hint); margin-top:3px; }
+
+/* ─── SECTIONS BASE ─── */
+.sec { padding:120px 60px; }
+.sec-inner { max-width:1040px; margin:0 auto; }
+.ey { font-size:12px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--s-600); margin-bottom:18px; display:block; }
+.sh { font-size:clamp(32px,4.5vw,58px); font-weight:600; letter-spacing:-.03em; line-height:1.1; color:var(--s-900); margin-bottom:18px; }
+.sp { font-size:18px; color:var(--muted); line-height:1.65; max-width:52ch; }
+.center { text-align:center; }
+.center .sp { margin:0 auto; }
+
+/* ─── PAIN ─── */
+.pain-sec { background:var(--s-900); padding:120px 60px; }
+.pain-sec .ey { color:var(--s-300); }
+.pain-sec .sh { color:#fff; }
+.pain-sec .sp { color:rgba(255,255,255,.45); margin:0 auto 72px; }
+.pain-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:1px; border-radius:20px; overflow:hidden; background:rgba(255,255,255,.05); max-width:1040px; margin:0 auto; }
+.pain-card { background:rgba(255,255,255,.02); padding:40px 30px; transition:background .2s; }
+.pain-card:hover { background:rgba(255,255,255,.05); }
+.pain-icon  { font-size:22px; margin-bottom:18px; display:block; opacity:.5; }
+.pain-title { font-size:17px; font-weight:600; color:rgba(255,255,255,.9); margin-bottom:10px; }
+.pain-body  { font-size:14px; color:rgba(255,255,255,.38); line-height:1.65; }
+
+/* ─── INTRO ─── */
+.intro-sec  { background:var(--warm); padding:100px 60px; }
+.intro-inner { max-width:680px; margin:0 auto; text-align:center; }
+
+/* ─── DASHBOARD ─── */
+.dash-sec { background:#0a0a0a; padding:80px 60px 0; overflow:hidden; }
+.dash-copy { text-align:center; margin-bottom:64px; }
+.dash-copy .ey { color:var(--s-300); }
+.dash-copy .sh { color:#fff; }
+.dash-copy .sp { color:rgba(255,255,255,.4); margin:0 auto; }
+.app-frame { max-width:880px; margin:0 auto; background:#1a1f1e; border-radius:14px 14px 0 0; padding:10px; box-shadow:0 -24px 60px rgba(110,86,207,.15); }
+.app-titlebar { background:#232928; border-radius:8px 8px 0 0; padding:10px 14px; display:flex; align-items:center; gap:10px; }
+.app-dots { display:flex; gap:6px; }
+.d{width:11px;height:11px;border-radius:50%} .d1{background:#ff5f57} .d2{background:#febc2e} .d3{background:#28c840}
+.app-urlbar { flex:1; background:#1a1f1e; border-radius:6px; padding:4px 10px; font-size:11px; color:rgba(255,255,255,.35); display:flex; align-items:center; justify-content:center; gap:6px; }
+.ssl { color:var(--s-400); font-size:10px; }
+.app-body  { background:#f4f6f5; border-radius:0 0 6px 6px; overflow:hidden; }
+.app-shell { display:grid; grid-template-columns:220px 1fr 240px; height:400px; }
+.app-nav   { background:#fff; border-right:1px solid rgba(0,0,0,.07); display:flex; flex-direction:column; }
+.app-nav-brand { padding:16px 16px 12px; border-bottom:1px solid rgba(0,0,0,.06); display:flex; align-items:center; gap:8px; }
+.nav-mark  { width:26px; height:26px; background:linear-gradient(180deg,var(--s-600),var(--s-700)); border-radius:6px; display:flex; align-items:center; justify-content:center; }
+.nav-mark svg { width:18px; height:14px; fill:none; stroke:#fff; stroke-width:2.6; }
+.nav-brand-name { font-size:13px; font-weight:600; color:var(--s-800); }
+.tenant-tag { margin:10px 12px; background:var(--s-100); border-radius:8px; padding:7px 10px; font-size:11px; color:var(--s-600); display:flex; align-items:center; gap:6px; }
+.tenant-dot { width:7px; height:7px; background:var(--s-400); border-radius:50%; animation:pulse 2s infinite; }
+.nav-section { padding:12px 0; flex:1; }
+.nav-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--hint); padding:0 16px; margin-bottom:6px; }
+.nav-item { display:flex; align-items:center; gap:9px; padding:8px 16px; font-size:13px; color:var(--muted); cursor:pointer; }
+.nav-item.active { background:var(--s-100); color:var(--s-700); font-weight:500; border-right:2px solid var(--s-600); }
+.nav-ic { width:16px; height:16px; opacity:.6; flex-shrink:0; }
+.nav-item.active .nav-ic { opacity:1; }
+.app-main { overflow:hidden; }
+.app-main-head { background:#fff; border-bottom:1px solid rgba(0,0,0,.06); padding:12px 20px; display:flex; align-items:center; justify-content:space-between; }
+.main-title { font-size:15px; font-weight:600; color:var(--s-900); }
+.main-date  { font-size:12px; color:var(--hint); }
+.kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:rgba(0,0,0,.05); }
+.kpi { background:#fff; padding:14px 16px; }
+.kpi-val { font-size:22px; font-weight:700; letter-spacing:-.02em; color:var(--s-800); }
+.kpi-val.green{color:#1a7f50} .kpi-val.amber{color:#c45900}
+.kpi-label { font-size:10px; color:var(--hint); margin-top:2px; }
+.cal-wrap { padding:14px 16px; }
+.cal-days-hdr { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; margin-bottom:6px; }
+.cal-d { font-size:10px; font-weight:500; color:var(--hint); text-align:center; }
+.cal-d.today { color:var(--s-600); font-weight:700; }
+.cal-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:3px; }
+.cs { border-radius:7px; padding:5px; font-size:9.5px; font-weight:500; text-align:left; line-height:1.3; }
+.cs-b{background:var(--s-100);color:var(--s-700)} .cs-t{background:#e0faf5;color:#0f6b58}
+.cs-w{background:#fff4e0;color:#925200} .cs-n{background:#f4f6f5;color:transparent}
+.app-activity { border-left:1px solid rgba(0,0,0,.06); padding:14px; display:flex; flex-direction:column; gap:8px; overflow:hidden; }
+.act-hdr { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--hint); margin-bottom:2px; }
+.act-item { background:#f7f9f8; border-radius:9px; padding:9px 10px; border-left:3px solid rgba(0,0,0,.08); }
+.act-item.g{border-left-color:#22c55e} .act-item.b{border-left-color:var(--s-600)} .act-item.a{border-left-color:#ff9f0a}
+.act-name { font-size:11.5px; font-weight:600; color:var(--s-900); margin-bottom:2px; }
+.act-sub  { font-size:10px; color:var(--hint); }
+.act-time { font-size:9px; color:var(--hint); margin-top:4px; }
+
+/* ─── XP ROWS ─── */
+.xps-sec { background:var(--white); padding:120px 60px; }
+.xp-row { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:0; border-radius:24px; overflow:hidden; margin-bottom:16px; min-height:400px; }
+.xp-row:nth-child(even) .xp-copy{order:2} .xp-row:nth-child(even) .xp-vis{order:1}
+.xp-copy { padding:64px 60px; background:var(--warm); }
+.xp-num  { font-size:11px; font-weight:500; color:var(--s-500); letter-spacing:.08em; text-transform:uppercase; margin-bottom:20px; }
+.xp-title { font-size:clamp(22px,2.8vw,36px); font-weight:600; letter-spacing:-.025em; line-height:1.15; color:var(--s-900); margin-bottom:18px; }
+.xp-text  { font-size:16px; color:var(--muted); line-height:1.75; }
+.xp-vis   { background:var(--s-100); display:flex; align-items:center; justify-content:center; padding:48px; min-height:400px; }
+
+/* Mini agenda */
+.mini-agenda  { width:240px; background:#fff; border-radius:16px; box-shadow:0 12px 36px rgba(110,86,207,.14); overflow:hidden; }
+.mini-head    { background:linear-gradient(135deg,var(--s-600),var(--s-700)); padding:12px 14px; display:flex; align-items:center; gap:8px; }
+.mini-logo    { width:24px; height:24px; background:rgba(255,255,255,.2); border-radius:6px; display:flex; align-items:center; justify-content:center; }
+.mini-logo svg { width:16px; height:13px; fill:none; stroke:#fff; stroke-width:2.6; }
+.mini-clinic  { font-size:11px; font-weight:600; color:#fff; }
+.mini-tenant  { font-size:9px; color:rgba(255,255,255,.55); }
+.mini-content { padding:12px; }
+.mini-slots   { display:flex; flex-direction:column; gap:4px; }
+.ms { display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:8px; font-size:11px; }
+.ms.conf{background:var(--s-100)} .ms.pend{background:#fff4e0} .ms.open{background:#f4f6f5;border:1.5px dashed rgba(0,0,0,.12)}
+.ms-time { font-size:10px; font-weight:600; color:var(--hint); width:28px; flex-shrink:0; }
+.ms-name { font-weight:500; color:var(--s-800); font-size:11px; }
+.ms-tag  { margin-left:auto; font-size:9px; font-weight:500; padding:2px 6px; border-radius:4px; }
+.ms.conf .ms-tag{background:var(--s-200);color:var(--s-700)} .ms.pend .ms-tag{background:#ffd9a0;color:#7a3e00} .ms.open .ms-tag{color:var(--hint)}
+
+/* Mini notif */
+.mini-notif-panel { width:240px; display:flex; flex-direction:column; gap:10px; }
+.notif-card { background:#fff; border-radius:14px; padding:12px 14px; box-shadow:0 4px 16px rgba(110,86,207,.08); display:flex; align-items:flex-start; gap:10px; }
+.notif-card.new { border:1.5px solid var(--s-300); }
+.notif-ico { width:34px; height:34px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; }
+.ni-g{background:#e6faf3} .ni-a{background:#fff4e0} .ni-b{background:var(--s-100)}
+.notif-title { font-size:12px; font-weight:600; color:var(--s-900); margin-bottom:3px; }
+.notif-sub   { font-size:11px; color:var(--hint); line-height:1.4; }
+.notif-chip  { display:inline-block; margin-top:6px; background:var(--s-100); color:var(--s-600); font-size:9px; font-weight:600; padding:2px 7px; border-radius:4px; }
+
+/* Focus card */
+.focus-card   { width:230px; background:var(--s-900); border-radius:20px; padding:32px 28px; text-align:center; box-shadow:0 20px 50px rgba(110,86,207,.25); }
+.focus-ring   { width:78px; height:78px; border-radius:50%; border:3px solid rgba(255,255,255,.08); display:flex; align-items:center; justify-content:center; margin:0 auto 20px; position:relative; }
+.focus-ring::before { content:''; position:absolute; inset:-3px; border-radius:50%; border:3px solid transparent; border-top-color:var(--s-400); animation:spin 3s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.focus-emoji  { font-size:30px; }
+.focus-status { font-size:12px; font-weight:600; color:rgba(255,255,255,.9); margin-bottom:6px; }
+.focus-name   { font-size:11px; color:rgba(255,255,255,.4); margin-bottom:20px; }
+.focus-panel  { background:rgba(110,86,207,.12); border-radius:12px; padding:12px; text-align:left; }
+.fp-label { font-size:10px; font-weight:600; color:var(--s-400); margin-bottom:6px; }
+.fp-item  { font-size:10px; color:rgba(255,255,255,.4); margin-bottom:3px; display:flex; gap:6px; }
+.fp-item::before { content:'·'; color:var(--s-400); }
+
+/* ─── NPS MINI ─── */
+.mini-nps {
+  width:260px; background:#fff; border-radius:20px;
+  box-shadow:0 12px 40px rgba(110,86,207,.12); overflow:hidden;
+}
+.nps-hdr {
+  background:linear-gradient(135deg,var(--s-600),var(--s-700));
+  padding:16px; display:flex; align-items:center; justify-content:space-between;
+}
+.nps-title { font-size:11px; font-weight:600; color:#fff; }
+.nps-auto  { font-size:9px; color:rgba(255,255,255,.6); }
+.nps-score-row { display:flex; align-items:center; gap:14px; padding:16px; border-bottom:1px solid rgba(0,0,0,.06); }
+.nps-circle {
+  width:52px; height:52px; border-radius:50%;
+  border:3px solid var(--s-600);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.nps-val  { font-size:18px; font-weight:700; color:var(--s-700); line-height:1; }
+.nps-of   { font-size:8px; color:var(--hint); }
+.nps-meta { flex:1; }
+.nps-tag  { display:inline-block; background:#e6faf3; color:#1a7f50; font-size:9px; font-weight:700; padding:2px 8px; border-radius:4px; margin-bottom:5px; }
+.nps-desc { font-size:10px; color:var(--hint); line-height:1.4; }
+.nps-reviews { padding:10px 14px; display:flex; flex-direction:column; gap:7px; }
+.nps-review { background:var(--s-100); border-radius:10px; padding:8px 10px; }
+.nps-stars  { font-size:9px; color:var(--s-400); letter-spacing:1px; margin-bottom:3px; }
+.nps-quote  { font-size:10px; color:var(--s-800); line-height:1.4; font-style:italic; }
+.nps-foot   { padding:8px 14px; background:var(--s-100); }
+.nps-chip   { font-size:9px; font-weight:600; color:var(--s-600); display:flex; align-items:center; gap:4px; }
+
+/* ─── PAYMENT MINI ─── */
+.mini-payment {
+  width:260px; background:#fff; border-radius:20px;
+  box-shadow:0 12px 40px rgba(34,197,94,.1); overflow:hidden;
+}
+.pay-hdr {
+  background:linear-gradient(135deg,#1a7f50,#15643f);
+  padding:14px 16px; display:flex; align-items:center; justify-content:space-between;
+}
+.pay-title { font-size:11px; font-weight:600; color:#fff; }
+.pay-total { font-size:16px; font-weight:700; color:#fff; }
+.pay-sub   { font-size:8px; color:rgba(255,255,255,.6); }
+.pay-items { padding:8px; display:flex; flex-direction:column; gap:4px; }
+.pay-item  { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; background:#f9fafb; }
+.pay-ico   { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+.pay-ico.g{background:#dcfce7} .pay-ico.b{background:var(--s-100)} .pay-ico.a{background:#fff7ed}
+.pay-info  { flex:1; }
+.pay-name  { font-size:11px; font-weight:600; color:var(--s-900); }
+.pay-detail { font-size:9px; color:var(--hint); margin-top:1px; }
+.pay-val   { font-size:11px; font-weight:700; color:#1a7f50; }
+.pay-val.neutral { color:var(--hint); }
+.pay-foot  { padding:10px 14px; background:#f0fdf4; border-top:1px solid rgba(22,163,74,.1); display:flex; justify-content:space-between; align-items:center; }
+.pay-foot-label { font-size:9px; font-weight:600; color:#1a7f50; }
+.pay-foot-val   { font-size:11px; font-weight:700; color:#1a7f50; }
+
+/* ─── COLOR THEMES ─── */
+.themes-sec { padding:120px 60px; background:var(--s-100); transition:background .6s var(--ease); }
+.themes-inner { max-width:900px; margin:0 auto; text-align:center; }
+.theme-btns { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:2.5rem 0 3rem; }
+.theme-btn {
+  display:flex; align-items:center; gap:8px; padding:10px 20px;
+  border-radius:980px; border:1.5px solid rgba(0,0,0,.1);
+  background:#fff; font-size:14px; font-weight:500; cursor:pointer;
+  color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.05);
+  transition:all .3s var(--ease);
+}
+.theme-btn.active { border-color:transparent; color:#fff; box-shadow:0 4px 14px rgba(0,0,0,.2); }
+.theme-btn-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.theme-preview {
+  max-width:380px; margin:0 auto; background:#fff; border-radius:20px;
+  padding:24px; box-shadow:0 24px 64px rgba(0,0,0,.08);
+  border:1px solid rgba(0,0,0,.05); transition:all .4s var(--ease);
+}
+.tp-hdr { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+.tp-av  { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px; flex-shrink:0; transition:background .4s; }
+.tp-name { font-size:13px; font-weight:600; }
+.tp-sub  { font-size:11px; color:var(--hint); }
+.tp-msg  { padding:10px 13px; border-radius:12px; border-top-left-radius:2px; font-size:13px; color:var(--text); background:#dcf8c6; margin-bottom:14px; border-left:3px solid; transition:border-color .4s; }
+.tp-metrics { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; }
+.tp-m  { border-radius:10px; padding:10px 12px; border:1px solid; transition:all .4s; }
+.tp-ml { font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--hint); margin-bottom:4px; }
+.tp-mv { font-size:17px; font-weight:600; letter-spacing:-.02em; transition:color .4s; }
+.tp-btn { width:100%; padding:10px; border-radius:10px; border:none; color:#fff; font-size:13px; font-weight:600; cursor:pointer; transition:background .4s,box-shadow .4s; }
+.theme-spec { margin-top:2.5rem; }
+.ts-target { font-size:.75rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; transition:color .4s; margin-bottom:.5rem; }
+.ts-desc   { font-size:clamp(1.6rem,1rem+2.5vw,2.5rem); font-weight:600; letter-spacing:-.025em; line-height:1.1; }
+
+/* ─── PRICING ─── */
+.pricing-sec { background:var(--warm); padding:120px 60px; }
+.plans { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; max-width:980px; margin:0 auto; }
+.plan { background:var(--white); border-radius:22px; padding:40px 32px; border:1.5px solid var(--border); position:relative; transition:box-shadow .2s; }
+.plan:hover { box-shadow:0 12px 40px rgba(110,86,207,.08); }
+.plan.hi { background:var(--s-900); border-color:var(--s-900); transform:scale(1.03); }
+.plan-tag { position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:var(--s-600); color:#fff; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:4px 16px; border-radius:980px; white-space:nowrap; }
+.plan-name { font-size:14px; font-weight:500; color:var(--hint); margin-bottom:8px; }
+.plan.hi .plan-name { color:rgba(255,255,255,.4); }
+.plan-price { font-size:50px; font-weight:700; letter-spacing:-.03em; color:var(--s-900); margin-bottom:4px; display:flex; align-items:flex-start; gap:4px; }
+.plan.hi .plan-price { color:#fff; }
+.plan-price sup { font-size:22px; margin-top:12px; font-weight:500; }
+.plan-price sub { font-size:16px; font-weight:400; color:var(--hint); align-self:flex-end; margin-bottom:6px; }
+.plan.hi .plan-price sub { color:rgba(255,255,255,.35); }
+.plan-desc { font-size:14px; color:var(--muted); line-height:1.55; margin-bottom:32px; }
+.plan.hi .plan-desc { color:rgba(255,255,255,.4); }
+.plan-features { list-style:none; display:flex; flex-direction:column; gap:11px; margin-bottom:36px; }
+.plan-features li { display:flex; align-items:flex-start; gap:10px; font-size:14px; color:var(--muted); line-height:1.4; }
+.plan.hi .plan-features li { color:rgba(255,255,255,.75); }
+.ck { width:18px; height:18px; border-radius:50%; background:var(--s-100); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.ck::after { content:'✓'; font-size:10px; color:var(--s-600); font-weight:700; }
+.plan.hi .ck { background:rgba(110,86,207,.2); }
+.plan.hi .ck::after { color:var(--s-300); }
+.plan-btn { display:block; text-align:center; padding:14px; border-radius:12px; font-size:15px; font-weight:500; text-decoration:none; transition:all .2s; background:var(--s-100); color:var(--s-700); }
+.plan-btn:hover { background:var(--s-200); }
+.plan.hi .plan-btn { background:var(--white); color:var(--s-800); }
+.plan.hi .plan-btn:hover { background:var(--s-200); color:var(--s-700); }
+.plan-note { text-align:center; font-size:12px; color:var(--hint); margin-top:10px; }
+.plan.hi .plan-note { color:rgba(255,255,255,.2); }
+
+/* ─── TESTIMONIALS ─── */
+.testi-sec  { background:var(--white); padding:120px 60px; }
+.testi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; max-width:980px; margin:0 auto; }
+.testi-card  { background:var(--warm); border-radius:22px; padding:36px; }
+.stars       { font-size:14px; letter-spacing:2px; color:var(--s-400); margin-bottom:16px; }
+.testi-quote { font-size:16px; color:var(--s-900); line-height:1.72; margin-bottom:28px; font-style:italic; }
+.testi-author { display:flex; align-items:center; gap:12px; }
+.t-av  { width:42px; height:42px; border-radius:50%; background:var(--s-100); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:var(--s-600); flex-shrink:0; }
+.t-name { font-size:14px; font-weight:600; color:var(--s-800); }
+.t-role { font-size:13px; color:var(--hint); margin-top:2px; }
+
+/* ─── CTA ─── */
+.cta-sec { background:var(--s-900); padding:160px 60px; text-align:center; position:relative; overflow:hidden; }
+.cta-glow { position:absolute; top:-20%; left:50%; transform:translateX(-50%); width:700px; height:700px; border-radius:50%; background:radial-gradient(circle,rgba(110,86,207,.2),transparent 60%); filter:blur(60px); pointer-events:none; }
+.cta-sec .ey { color:var(--s-300); position:relative; }
+.cta-sec .sh { color:#fff; position:relative; }
+.cta-sec .sp { color:rgba(255,255,255,.4); margin:0 auto 52px; position:relative; }
+.btn-cta {
+  display:inline-block;
+  background:linear-gradient(180deg,var(--s-600),var(--s-700));
+  color:#fff; padding:18px 48px; border-radius:12px;
+  font-size:17px; font-weight:600; text-decoration:none;
+  box-shadow:0 8px 24px rgba(110,86,207,.5);
+  transition:filter .2s; position:relative;
+}
+.btn-cta:hover { filter:brightness(1.1); }
+.cta-note { margin-top:20px; font-size:13px; color:rgba(255,255,255,.22); position:relative; }
+
+/* ─── FOOTER ─── */
+footer { background:var(--s-900); border-top:1px solid rgba(255,255,255,.06); padding:40px 60px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; }
+.f-brand { display:flex; align-items:center; gap:8px; }
+.f-mark  { width:26px; height:26px; background:rgba(255,255,255,.08); border-radius:6px; display:flex; align-items:center; justify-content:center; }
+.f-mark svg { width:18px; height:14px; fill:none; stroke:rgba(255,255,255,.5); stroke-width:2.6; }
+.f-name  { font-size:15px; font-weight:600; color:rgba(255,255,255,.55); }
+.f-links { display:flex; gap:24px; }
+.f-links a { font-size:13px; color:rgba(255,255,255,.28); text-decoration:none; transition:color .2s; }
+.f-links a:hover { color:rgba(255,255,255,.6); }
+.f-copy  { font-size:13px; color:rgba(255,255,255,.2); }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width:960px) {
+  nav {
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+  }
+  .nav-links,.nav-divider,.nav-enter { display:none; }
+  .hero { grid-template-columns:1fr; padding:110px 24px 60px; }
+  .hero-sub { max-width:none; }
+  .hero-visual { margin-top:60px; overflow:hidden; }  /* fix: glow não estoura viewport */
+  .fbadge { display:none; }
+  .proof-bar { padding:24px; gap:32px; }
+  .sec,.pain-sec,.intro-sec { padding:80px 24px; }
+  .dash-sec { padding:60px 24px 0; }
+  .app-shell { grid-template-columns:1fr; }
+  .app-nav,.app-activity { display:none; }
+  .xps-sec { padding:80px 24px; }
+  .xp-row { grid-template-columns:1fr; }
+  .xp-row:nth-child(even) .xp-copy,
+  .xp-row:nth-child(even) .xp-vis { order:unset; }
+  .xp-copy { padding:40px 28px; }
+  .xp-vis  { min-height:220px; padding:32px; }
+  .themes-sec,.pricing-sec,.testi-sec { padding:80px 24px; }
+  .plans { grid-template-columns:1fr; }
+  .plan.hi { transform:none; }
+  .cta-sec {
+    padding-top:100px; padding-bottom:max(100px, calc(60px + env(safe-area-inset-bottom)));
+    padding-left:24px; padding-right:24px;
+  }
+  footer {
+    padding:32px 24px max(32px, calc(16px + env(safe-area-inset-bottom)));
+    flex-direction:column; align-items:flex-start;
+  }
+  .theme-btn { min-height:44px; }  /* tap target HIG */
+}
+
+/* iPhone SE / mini — 375-480px: tipografia e spacing menores */
+@media (max-width:480px) {
+  .sec,.pain-sec,.intro-sec,.xps-sec,.themes-sec,.pricing-sec,.testi-sec { padding:64px 20px; }
+  .hero { padding:96px 20px 48px; }
+  .hero-headline { font-size:34px; }
+  .hero-sub { font-size:17px; }
+  .proof-bar { padding:20px 16px; gap:24px; }
+  .proof-num { font-size:24px; }
+  .xp-copy { padding:32px 22px; }
+  .testi-card { padding:28px 24px; }
+  .plan { padding:32px 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-brand">
+    <!-- Logo oficial: 3 quadrados sobrepostos (de /logos/singulare-a.svg) -->
+    <div class="nav-logo-mark">
+      <svg viewBox="0 0 120 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="6" y="6" width="60" height="60" stroke="white" stroke-width="2.6" fill="none"/>
+        <rect x="42" y="42" width="48" height="48" stroke="white" stroke-width="2.6" fill="none"/>
+        <rect x="74" y="22" width="40" height="40" stroke="white" stroke-width="2.6" fill="none"/>
+      </svg>
+    </div>
+    <span class="nav-logo-text">Singulare</span>
+  </a>
+  <div class="nav-links">
+    <a href="#como">Como funciona</a>
+    <a href="#mais">Funcionalidades</a>
+    <a href="#temas">Temas</a>
+    <a href="#planos">Planos</a>
+    <a href="#depoimentos">Depoimentos</a>
+  </div>
+  <div class="nav-right">
+    <a href="/login" class="nav-enter">Entrar →</a>
+    <div class="nav-divider"></div>
+    <a href="/onboarding" class="nav-cta" id="nav-cta-btn">Começar grátis</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-copy">
+    <div class="hero-eyebrow"><span></span> Agente de IA para clínicas</div>
+    <h1 class="hero-headline">
+      Cada paciente<br>traz uma história.<br>
+      <em class="serif">Esteja inteiro<br>para ouvi-la.</em>
+    </h1>
+    <p class="hero-sub">
+      A Singulare cuida da sua clínica — agenda, confirmações, pagamentos,
+      NPS e atendimento 24h — para que você tenha presença total
+      para quem realmente importa.
+    </p>
+    <div class="hero-actions">
+      <a href="/onboarding" class="btn-primary" id="hero-cta-btn">Começar grátis →</a>
+      <a href="#como" class="btn-ghost">Ver como funciona</a>
+    </div>
+    <div class="hero-trust">
+      <span class="chk">✓</span> 14 dias grátis &nbsp;·&nbsp;
+      <span class="chk">✓</span> Sem cartão &nbsp;·&nbsp;
+      <span class="chk">✓</span> Em funcionamento em dias
+    </div>
+  </div>
+
+  <div class="hero-visual">
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="phone-btn"></div>
+        <div class="phone-btn2"></div>
+        <div class="phone-btn3"></div>
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <div class="wa-sb">
+            <span class="wa-sb-time">09:41</span>
+            <span class="wa-sb-ic">▲ ● ■</span>
+          </div>
+          <div class="wa-hdr">
+            <span class="wa-back">‹</span>
+            <div class="wa-av">S</div>
+            <div class="wa-info">
+              <div class="wa-nm">Singulare</div>
+              <div class="wa-sub"><span class="wa-live"></span> respondendo agora</div>
+            </div>
+          </div>
+          <div class="wa-body" id="wa-body"></div>
+          <div class="wa-footer">
+            <div class="wa-input-bar">Mensagem</div>
+            <div class="wa-send"><svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg></div>
+          </div>
+        </div>
+      </div>
+      <div class="powered-badge">Desenvolvido pela <strong>Singulare</strong>&nbsp;·&nbsp;demo@singulare.org</div>
+    </div>
+    <div class="fbadge f1"><div class="ficon fi-green">✅</div> Agendamento confirmado</div>
+    <div class="fbadge f2"><div class="ficon fi-amber">💳</div> Pix confirmado · R$280</div>
+    <div class="fbadge f3"><div class="ficon fi-blue">⭐</div> NPS 4,9 · esta semana</div>
+  </div>
+</section>
+
+<!-- PROOF BAR -->
+<div class="proof-bar">
+  <div class="proof-item"><div class="proof-num">+5.247</div><div class="proof-label">profissionais ativos</div></div>
+  <div class="proof-item"><div class="proof-num">24h</div><div class="proof-label">sempre disponível</div></div>
+  <div class="proof-item"><div class="proof-num">−62%</div><div class="proof-label">de faltas registradas</div></div>
+  <div class="proof-item"><div class="proof-num">4,9★</div><div class="proof-label">NPS médio das clínicas</div></div>
+</div>
+
+<!-- PAIN -->
+<section class="pain-sec">
+  <div style="max-width:1040px;margin:0 auto;text-align:center" class="reveal">
+    <span class="ey">O dia a dia</span>
+    <h2 class="sh">O dia de quem cuida<br><em class="serif">nunca é simples.</em></h2>
+    <p class="sp" style="max-width:50ch;margin:0 auto 72px">
+      Entre uma consulta e outra, chegam mensagens, faltas, cobranças pendentes.
+      Sua atenção — o bem mais precioso que você tem — vai se fragmentando.
+    </p>
+  </div>
+  <div class="pain-grid">
+    <div class="pain-card reveal">
+      <span class="pain-icon">💬</span>
+      <div class="pain-title">A mensagem sem resposta</div>
+      <p class="pain-body">O paciente mandou às 21h. Ninguém viu. Na manhã seguinte, ele havia ligado para outra clínica.</p>
+    </div>
+    <div class="pain-card reveal rd1">
+      <span class="pain-icon">📅</span>
+      <div class="pain-title">A falta que não foi evitada</div>
+      <p class="pain-body">O lembrete não saiu a tempo. A cadeira ficou vazia. Você perdeu mais do que um horário.</p>
+    </div>
+    <div class="pain-card reveal rd2">
+      <span class="pain-icon">🧠</span>
+      <div class="pain-title">A consulta que não foi só consulta</div>
+      <p class="pain-body">Você ainda estava pensando no e-mail quando o paciente começou a falar. E você sentiu isso.</p>
+    </div>
+    <div class="pain-card reveal rd3">
+      <span class="pain-icon">😓</span>
+      <div class="pain-title">O fim do dia que pesa</div>
+      <p class="pain-body">Exausto, mas não pelo tanto que cuidou. Pelo tanto que gerenciou. Essa não era a ideia.</p>
+    </div>
+  </div>
+</section>
+
+<!-- INTRO -->
+<section class="intro-sec">
+  <div class="intro-inner">
+    <span class="ey center reveal">A Singulare</span>
+    <h2 class="sh center reveal rd1">Foi criada para guardar<br><em class="serif">a sua atenção.</em></h2>
+    <p class="sp center reveal rd2">
+      Para que cada consulta seja a única do dia.<br>
+      Para que cada paciente sinta que é o único da semana.
+    </p>
+  </div>
+</section>
+
+<!-- DASHBOARD -->
+<section class="dash-sec" id="como">
+  <div class="dash-copy reveal">
+    <span class="ey">Visão em tempo real</span>
+    <h2 class="sh">Tudo que acontece na sua clínica,<br><em class="serif" style="color:rgba(245,245,247,.4)">ao vivo.</em></h2>
+    <p class="sp">Enquanto você atende, a Singulare organiza, confirma e reporta. Cada clínica com seu próprio espaço — <strong style="color:rgba(255,255,255,.55)">demo@singulare.org</strong></p>
+  </div>
+  <div class="app-frame reveal">
+    <div class="app-titlebar">
+      <div class="app-dots"><div class="d d1"></div><div class="d d2"></div><div class="d d3"></div></div>
+      <div class="app-urlbar"><span class="ssl">🔒</span> app.singulare.org/demo</div>
+    </div>
+    <div class="app-body">
+      <div class="app-shell">
+        <div class="app-nav">
+          <div class="app-nav-brand">
+            <div class="nav-mark"><svg viewBox="0 0 120 96"><rect x="6" y="6" width="60" height="60" fill="none"/><rect x="42" y="42" width="48" height="48" fill="none"/><rect x="74" y="22" width="40" height="40" fill="none"/></svg></div>
+            <span class="nav-brand-name">Singulare</span>
+          </div>
+          <div class="tenant-tag"><div class="tenant-dot"></div> Clínica Demo</div>
+          <div class="nav-section">
+            <div class="nav-label">Painel</div>
+            <div class="nav-item active">
+              <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Agenda
+            </div>
+            <div class="nav-item"><svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 3H2a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h3l3 2 3-2h3a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1z"/></svg>Mensagens</div>
+            <div class="nav-item"><svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.31 2.69-6 6-6s6 2.69 6 6"/></svg>Pacientes</div>
+            <div class="nav-item"><svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12 L5 8 L8 10 L11 5 L14 7"/></svg>Relatórios</div>
+          </div>
+          <div class="nav-section">
+            <div class="nav-label">Equipe</div>
+            <div class="nav-item"><div style="width:7px;height:7px;border-radius:50%;background:#22c55e;flex-shrink:0;animation:pulse 2s infinite"></div> Dra. Ana · online</div>
+            <div class="nav-item"><div style="width:7px;height:7px;border-radius:50%;background:#ff9f0a;flex-shrink:0"></div> Dr. Pedro · ausente</div>
+          </div>
+        </div>
+        <div class="app-main">
+          <div class="app-main-head"><div class="main-title">Agenda — Janeiro 2025</div><div class="main-date">Semana de 13 a 17</div></div>
+          <div class="kpi-row">
+            <div class="kpi"><div class="kpi-val">14</div><div class="kpi-label">Hoje</div></div>
+            <div class="kpi"><div class="kpi-val green">13</div><div class="kpi-label">Confirmados</div></div>
+            <div class="kpi"><div class="kpi-val amber">1</div><div class="kpi-label">Pendentes</div></div>
+            <div class="kpi"><div class="kpi-val">4,9★</div><div class="kpi-label">NPS semana</div></div>
+          </div>
+          <div class="cal-wrap">
+            <div class="cal-days-hdr"><div class="cal-d">SEG 13</div><div class="cal-d">TER 14</div><div class="cal-d today">QUA 15</div><div class="cal-d">QUI 16</div><div class="cal-d">SEX 17</div></div>
+            <div class="cal-grid">
+              <div class="cs cs-b">08h · M. Júlia</div><div class="cs cs-b">08h · P. Costa</div><div class="cs cs-b">08h · C. Lima</div><div class="cs cs-t">08h · aberto</div><div class="cs cs-b">08h · T. Dias</div>
+              <div class="cs cs-t">09h · aberto</div><div class="cs cs-b">09h · R. Alves</div><div class="cs cs-b">09h · L. Mota</div><div class="cs cs-b">09h · A. Reis ✓</div><div class="cs cs-t">09h · aberto</div>
+              <div class="cs cs-b">10h · F. Souza</div><div class="cs cs-t">10h · aberto</div><div class="cs cs-b">10h · B. Nunes</div><div class="cs cs-b">10h · C. Nova ✓</div><div class="cs cs-b">10h · D. Vieira</div>
+              <div class="cs cs-n">—</div><div class="cs cs-w">11h · K.P. ⚠</div><div class="cs cs-t">11h · aberto</div><div class="cs cs-t">11h · aberto</div><div class="cs cs-b">11h · N. Gomes</div>
+            </div>
+          </div>
+        </div>
+        <div class="app-activity">
+          <div class="act-hdr">Atividade agora</div>
+          <div class="act-item g"><div class="act-name">C. Oliveira</div><div class="act-sub">Agendou via WhatsApp</div><div class="act-time">há 3 min</div></div>
+          <div class="act-item b"><div class="act-name">T. Mendes</div><div class="act-sub">Confirmou consulta de qua</div><div class="act-time">há 11 min</div></div>
+          <div class="act-item a"><div class="act-name">Lembrete automático</div><div class="act-sub">Enviado para 8 pacientes</div><div class="act-time">há 22 min</div></div>
+          <div class="act-item g"><div class="act-name">R. Santos</div><div class="act-sub">Pix R$280 confirmado</div><div class="act-time">há 35 min</div></div>
+          <div class="act-item b"><div class="act-name">Semana atual</div><div class="act-sub">NPS 4,9 · 91% ocupação</div><div class="act-time">atualizado agora</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- XP ROWS -->
+<section class="xps-sec" id="mais">
+  <div style="max-width:980px;margin:0 auto 80px;text-align:center" class="reveal">
+    <span class="ey">O que muda</span>
+    <h2 class="sh">Cinco momentos que você<br><em class="serif">vai sentir no primeiro dia.</em></h2>
+  </div>
+
+  <!-- XP 1 — Agenda -->
+  <div class="xp-row reveal">
+    <div class="xp-copy">
+      <div class="xp-num">01 — Agenda</div>
+      <h3 class="xp-title">Sua agenda se cuida <em class="serif">sozinha.</em></h3>
+      <p class="xp-text">Pacientes agendam pelo WhatsApp a qualquer hora. A Singulare confirma, organiza e lembra — com o seu jeito, a sua linguagem. Você só vê a semana cheia e os pacientes chegando no horário.</p>
+    </div>
+    <div class="xp-vis">
+      <div class="mini-agenda">
+        <div class="mini-head">
+          <div class="mini-logo"><svg viewBox="0 0 120 96"><rect x="6" y="6" width="60" height="60"/><rect x="42" y="42" width="48" height="48"/><rect x="74" y="22" width="40" height="40"/></svg></div>
+          <div><div class="mini-clinic">Clínica Demo</div><div class="mini-tenant">Singulare · demo@singulare.org</div></div>
+        </div>
+        <div class="mini-content">
+          <div style="font-size:11px;font-weight:600;color:var(--hint);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">Quinta, 16 jan</div>
+          <div class="mini-slots">
+            <div class="ms conf"><div class="ms-time">09h</div><div class="ms-name">M. Carvalho</div><div class="ms-tag">confirmado</div></div>
+            <div class="ms conf"><div class="ms-time">10h</div><div class="ms-name">A. Mariana ✓</div><div class="ms-tag">confirmado</div></div>
+            <div class="ms pend"><div class="ms-time">11h</div><div class="ms-name">F. Lima</div><div class="ms-tag">aguardando</div></div>
+            <div class="ms open"><div class="ms-time">14h</div><div class="ms-name" style="color:var(--hint);font-weight:400">disponível</div><div class="ms-tag">+</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- XP 2 — Presença -->
+  <div class="xp-row reveal">
+    <div class="xp-copy">
+      <div class="xp-num">02 — Presença</div>
+      <h3 class="xp-title">Às 22h de sexta, seu paciente <em class="serif">ainda merece cuidado.</em></h3>
+      <p class="xp-text">A Singulare estava lá — com atenção, com a sua voz. Na manhã seguinte, o paciente se sentiu cuidado. Você não foi interrompido. Ninguém ficou sem resposta.</p>
+    </div>
+    <div class="xp-vis" style="background:#fdf4ff">
+      <div class="mini-notif-panel">
+        <div class="notif-card new">
+          <div class="notif-ico ni-g">💬</div>
+          <div><div class="notif-title">Dúvida respondida</div><div class="notif-sub">M. Campos — pós-consulta · 22:14</div><div class="notif-chip">Respondido pela Singulare</div></div>
+        </div>
+        <div class="notif-card">
+          <div class="notif-ico ni-a">📅</div>
+          <div><div class="notif-title">Reagendamento</div><div class="notif-sub">F. Lima · nova data confirmada · 23:02</div></div>
+        </div>
+        <div class="notif-card">
+          <div class="notif-ico ni-b">✅</div>
+          <div><div class="notif-title">Lembretes enviados</div><div class="notif-sub">8 pacientes para sábado — todos confirmados</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- XP 3 — Foco -->
+  <div class="xp-row reveal">
+    <div class="xp-copy">
+      <div class="xp-num">03 — Foco</div>
+      <h3 class="xp-title">Quando a porta fecha, <em class="serif">só existem dois.</em></h3>
+      <p class="xp-text">Você e o seu paciente. Nada mais divide sua atenção. Nenhuma preocupação com o que ficou lá fora. A Singulare cuida de tudo — para que você esteja completamente aqui.</p>
+    </div>
+    <div class="xp-vis">
+      <div class="focus-card">
+        <div class="focus-ring"><div class="focus-emoji">🩺</div></div>
+        <div class="focus-status">Em consulta</div>
+        <div class="focus-name">Dra. Ana · 10h00 – 11h00</div>
+        <div class="focus-panel">
+          <div class="fp-label">Singulare ativa</div>
+          <div class="fp-item">3 mensagens respondidas</div>
+          <div class="fp-item">1 agendamento realizado</div>
+          <div class="fp-item">2 lembretes enviados</div>
+          <div class="fp-item">0 interrupções</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- XP 4 — NPS -->
+  <div class="xp-row reveal">
+    <div class="xp-copy">
+      <div class="xp-num">04 — Reputação</div>
+      <h3 class="xp-title">Saiba o que seu paciente <em class="serif">realmente pensa de você.</em></h3>
+      <p class="xp-text">Após cada consulta, a Singulare coleta feedback com delicadeza — sem formulários invasivos, sem constrangimentos. Você recebe um NPS em tempo real e aprende, sessão após sessão, o que faz a diferença.</p>
+    </div>
+    <div class="xp-vis" style="background:#fafaf7">
+      <div class="mini-nps">
+        <div class="nps-hdr">
+          <div><div class="nps-title">Satisfação dos pacientes</div><div class="nps-auto">Coletado automaticamente</div></div>
+          <div style="font-size:18px">📊</div>
+        </div>
+        <div class="nps-score-row">
+          <div class="nps-circle">
+            <div class="nps-val">87</div>
+            <div class="nps-of">/ 100</div>
+          </div>
+          <div class="nps-meta">
+            <div class="nps-tag">Excelente</div>
+            <div class="nps-desc">NPS mensal · acima de 96% das clínicas</div>
+          </div>
+        </div>
+        <div class="nps-reviews">
+          <div class="nps-review">
+            <div class="nps-stars">★★★★★</div>
+            <div class="nps-quote">"Fui atendida rapidamente, mesmo tarde da noite."</div>
+          </div>
+          <div class="nps-review">
+            <div class="nps-stars">★★★★★</div>
+            <div class="nps-quote">"O lembrete 24h antes foi muito atencioso."</div>
+          </div>
+        </div>
+        <div class="nps-foot">
+          <div class="nps-chip">⚡ Singulare coletou 38 respostas este mês</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- XP 5 — Pagamentos -->
+  <div class="xp-row reveal">
+    <div class="xp-copy">
+      <div class="xp-num">05 — Financeiro</div>
+      <h3 class="xp-title">Pagamentos e reembolsos <em class="serif">acontecem sozinhos.</em></h3>
+      <p class="xp-text">Pix gerado automaticamente após cada confirmação. Cobranças enviadas sem que você precise se lembrar. Pedidos de reembolso tratados com cuidado. Sua clínica financeiramente organizada — você só vê o saldo crescer.</p>
+    </div>
+    <div class="xp-vis" style="background:#f0fdf4">
+      <div class="mini-payment">
+        <div class="pay-hdr">
+          <div><div class="pay-title">Financeiro automatizado</div><div class="pay-sub">esta semana</div></div>
+          <div><div class="pay-total">R$ 4.200</div><div class="pay-sub" style="text-align:right">recebidos</div></div>
+        </div>
+        <div class="pay-items">
+          <div class="pay-item">
+            <div class="pay-ico g">✅</div>
+            <div class="pay-info"><div class="pay-name">M. Costa</div><div class="pay-detail">Pix · confirmado</div></div>
+            <div class="pay-val">R$280</div>
+          </div>
+          <div class="pay-item">
+            <div class="pay-ico b">🔄</div>
+            <div class="pay-info"><div class="pay-name">F. Lima</div><div class="pay-detail">Reembolso · processado</div></div>
+            <div class="pay-val neutral">−R$150</div>
+          </div>
+          <div class="pay-item">
+            <div class="pay-ico g">✅</div>
+            <div class="pay-info"><div class="pay-name">A. Souza</div><div class="pay-detail">Pix · confirmado</div></div>
+            <div class="pay-val">R$350</div>
+          </div>
+          <div class="pay-item">
+            <div class="pay-ico a">⏳</div>
+            <div class="pay-info"><div class="pay-name">P. Mendes</div><div class="pay-detail">Pix gerado · aguardando</div></div>
+            <div class="pay-val neutral">R$320</div>
+          </div>
+        </div>
+        <div class="pay-foot">
+          <div class="pay-foot-label">⚡ 0 cobranças manuais</div>
+          <div class="pay-foot-val">R$ 4.200</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COLOR THEMES -->
+<section class="themes-sec" id="temas">
+  <div class="themes-inner">
+    <span class="ey reveal">Identidade da sua clínica</span>
+    <h2 class="sh reveal rd1">Quatro temas. Uma marca.<br><em class="serif" id="theme-italic">A sua.</em></h2>
+    <p class="sp center reveal rd2" style="max-width:52ch;margin:0 auto">
+      O Singulare se adapta à identidade da sua especialidade. Escolha o tema e veja como fica o painel e as mensagens.
+    </p>
+    <div class="theme-btns" id="theme-btns"></div>
+    <div class="theme-preview reveal" id="theme-preview">
+      <div class="tp-hdr">
+        <div class="tp-av" id="tp-av">S</div>
+        <div><div class="tp-name">Clínica Singulare</div><div class="tp-sub">online · respondendo agora</div></div>
+      </div>
+      <div class="tp-msg" id="tp-msg">Confirmado ✓ Consulta agendada para quinta, 16/01 às 15h</div>
+      <div class="tp-metrics">
+        <div class="tp-m" id="tp-m1"><div class="tp-ml">Receita</div><div class="tp-mv" id="tp-v1">R$ 2.240</div></div>
+        <div class="tp-m" style="background:#fafaf7;border-color:rgba(0,0,0,.07)"><div class="tp-ml">Hoje</div><div class="tp-mv" style="color:#18181b">8 consultas</div></div>
+      </div>
+      <button class="tp-btn" id="tp-btn">Confirmar consulta</button>
+    </div>
+    <div class="theme-spec reveal rd1" id="theme-spec">
+      <div class="ts-target" id="ts-target">Psicologia &amp; Terapia</div>
+      <h3 class="ts-desc" id="ts-desc">Calmo, acolhedor, <em class="serif">profundo.</em></h3>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing-sec" id="planos">
+  <div style="text-align:center;margin-bottom:64px" class="reveal">
+    <span class="ey">Planos</span>
+    <h2 class="sh">Encontre o ritmo<br><em class="serif">da sua clínica.</em></h2>
+    <p class="sp" style="margin:0 auto">Simples, transparente, sem letra miúda. Em funcionamento em dias, não semanas.</p>
+  </div>
+  <div class="plans">
+    <div class="plan reveal">
+      <div class="plan-name">Profissional</div>
+      <div class="plan-price"><sup>R$</sup>197<sub>/mês</sub></div>
+      <div class="plan-desc">Para quem trabalha com dedicação total a cada paciente, de forma independente.</div>
+      <ul class="plan-features">
+        <li><div class="ck"></div>Agendamento via WhatsApp</li>
+        <li><div class="ck"></div>Lembretes automáticos</li>
+        <li><div class="ck"></div>Respostas 24h</li>
+        <li><div class="ck"></div>Pagamentos e Pix automáticos</li>
+        <li><div class="ck"></div>NPS e feedback dos pacientes</li>
+        <li><div class="ck"></div>1 profissional</li>
+      </ul>
+      <a href="/onboarding" class="plan-btn plan-cta-btn" data-href="/onboarding">Começar grátis →</a>
+      <div class="plan-note">14 dias grátis · Sem cartão de crédito</div>
+    </div>
+
+    <div class="plan hi reveal rd1">
+      <div class="plan-tag">Mais escolhido</div>
+      <div class="plan-name">Clínica</div>
+      <div class="plan-price"><sup>R$</sup>397<sub>/mês</sub></div>
+      <div class="plan-desc">Para equipes de até 5 profissionais que querem crescer sem perder a qualidade do cuidado.</div>
+      <ul class="plan-features">
+        <li><div class="ck"></div>Tudo do plano Profissional</li>
+        <li><div class="ck"></div>Até 5 profissionais</li>
+        <li><div class="ck"></div>Multi-canal: WhatsApp + e-mail</li>
+        <li><div class="ck"></div>Sequências de retorno e follow-up</li>
+        <li><div class="ck"></div>Relatórios avançados por profissional</li>
+        <li><div class="ck"></div>Suporte prioritário</li>
+      </ul>
+      <a href="/onboarding" class="plan-btn plan-cta-btn" data-href="/onboarding">Começar grátis →</a>
+      <div class="plan-note">14 dias grátis · Sem cartão de crédito</div>
+    </div>
+
+    <div class="plan reveal rd2">
+      <div class="plan-name">Na medida</div>
+      <div class="plan-price" style="font-size:36px;align-items:center">Sob consulta</div>
+      <div class="plan-desc">Para redes e clínicas com múltiplas unidades ou necessidades específicas de integração.</div>
+      <ul class="plan-features">
+        <li><div class="ck"></div>Tudo do plano Clínica</li>
+        <li><div class="ck"></div>Profissionais ilimitados</li>
+        <li><div class="ck"></div>Múltiplas unidades</li>
+        <li><div class="ck"></div>Integrações personalizadas</li>
+        <li><div class="ck"></div>Gerente de conta dedicado</li>
+        <li><div class="ck"></div>SLA garantido por contrato</li>
+      </ul>
+      <a href="https://wa.me/[SEU_NUMERO]" class="plan-btn">Falar com a equipe →</a>
+      <div class="plan-note">Proposta personalizada · Sem compromisso</div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testi-sec" id="depoimentos">
+  <div style="text-align:center;margin-bottom:64px" class="reveal">
+    <span class="ey">Depoimentos</span>
+    <h2 class="sh">O que muda para quem<br><em class="serif">já usa a Singulare.</em></h2>
+  </div>
+  <div class="testi-grid">
+    <div class="testi-card reveal">
+      <div class="stars">★★★★★</div>
+      <p class="testi-quote">"Passei anos saindo das consultas já pensando nas ligações que precisava fazer. Hoje entro no consultório e sei que o resto está em boas mãos. A diferença na minha presença foi imediata."</p>
+      <div class="testi-author"><div class="t-av">DR</div><div><div class="t-name">Dra. [Nome] — Fisioterapia</div><div class="t-role">Consultório · São Paulo</div></div></div>
+    </div>
+    <div class="testi-card reveal rd1">
+      <div class="stars">★★★★★</div>
+      <p class="testi-quote">"Um paciente me disse que nunca tinha se sentido tão bem atendido — e foi justamente numa mensagem que eu nem vi na hora, respondida às 22h pela Singulare. Isso diz tudo."</p>
+      <div class="testi-author"><div class="t-av">PS</div><div><div class="t-name">Dr. [Nome] — Psicologia</div><div class="t-role">Clínica · Rio de Janeiro</div></div></div>
+    </div>
+    <div class="testi-card reveal rd2">
+      <div class="stars">★★★★★</div>
+      <p class="testi-quote">"Tinha medo de parecer impessoal. Mas a Singulare aprendeu o nosso jeito de falar e os pacientes nem percebem. Só percebem que são bem atendidos — sempre."</p>
+      <div class="testi-author"><div class="t-av">ND</div><div><div class="t-name">Dra. [Nome] — Nutrição</div><div class="t-role">Clínica · Belo Horizonte</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-sec" id="cta">
+  <div class="cta-glow" aria-hidden></div>
+  <span class="ey reveal">Próximo passo</span>
+  <h2 class="sh reveal rd1">Sua próxima semana<br><em class="serif" style="color:rgba(245,245,247,.45)">pode ser diferente.</em></h2>
+  <p class="sp reveal rd2">Sem pressão, sem jargão técnico. Comece hoje e veja a diferença em dias.</p>
+  <a href="/onboarding" class="btn-cta reveal rd3" id="footer-cta-btn" data-href="/onboarding">Começar grátis →</a>
+  <p class="cta-note">14 dias grátis · Sem configuração técnica · Cancele quando quiser</p>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="f-brand">
+    <div class="f-mark"><svg viewBox="0 0 120 96"><rect x="6" y="6" width="60" height="60"/><rect x="42" y="42" width="48" height="48"/><rect x="74" y="22" width="40" height="40"/></svg></div>
+    <span class="f-name">Singulare</span>
+  </div>
+  <div class="f-links">
+    <a href="/privacidade">Privacidade</a>
+    <a href="/termos">Termos de uso</a>
+    <a href="mailto:contato@singulare.org">Contato</a>
+    <a href="/login">Entrar</a>
+  </div>
+  <div class="f-copy">© 2026 Singulare. Todos os direitos reservados.</div>
+</footer>
+
+<script>
+/* ═══════════════════════════════════
+   WHATSAPP ANIMATION
+═══════════════════════════════════ */
+const MSGS = [
+  { side:'in',  text:'Oi! Queria marcar consulta com a Dra. Paula 🙂' },
+  { side:'out', text:'Olá! Claro, vou ajudar. Pode me passar nome completo e data de nascimento?' },
+  { side:'in',  text:'Mariana Costa, 14/05/1992' },
+  { side:'out', text:'Perfeito Mariana! Tenho quinta às 15h ou sexta às 14h. Qual prefere?' },
+  { side:'in',  text:'Quinta às 15h 👍' },
+  { side:'out', text:'Confirmado ✓\nQuinta, 02/05 às 15h00\nR$ 280,00 — Pix gerado, link no próximo aviso.', hi:true },
+];
+const WA = document.getElementById('wa-body');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function makeTyping(side) {
+  const wrap = document.createElement('div');
+  wrap.className = 'wa-typing-wrap' + (side === 'out' ? ' out' : '');
+  const d = document.createElement('div');
+  d.className = 'wa-typing' + (side === 'in' ? ' in-t' : '');
+  d.innerHTML = '<div class="wa-dot"></div><div class="wa-dot"></div><div class="wa-dot"></div>';
+  wrap.appendChild(d); return wrap;
+}
+function makeBubble(msg) {
+  const wrap = document.createElement('div');
+  wrap.className = 'wa-bubble-wrap' + (msg.side === 'out' ? ' out' : '');
+  const b = document.createElement('div');
+  b.className = 'wa-bubble ' + msg.side + (msg.hi ? ' hi' : '');
+  b.style.whiteSpace = 'pre-line';
+  b.textContent = msg.text;
+  const meta = document.createElement('div');
+  meta.className = 'wa-meta';
+  const t = new Date();
+  meta.innerHTML = t.getHours() + ':' + String(t.getMinutes()).padStart(2,'0') +
+    (msg.side === 'out' ? ' <span class="ticks">✓✓</span>' : '');
+  b.appendChild(meta); wrap.appendChild(b); return wrap;
+}
+async function runChat() {
+  WA.innerHTML = ''; await sleep(600);
+  for (const msg of MSGS) {
+    const typing = makeTyping(msg.side);
+    WA.appendChild(typing); WA.scrollTop = WA.scrollHeight;
+    await sleep(1100); typing.remove();
+    WA.appendChild(makeBubble(msg)); WA.scrollTop = WA.scrollHeight;
+    await sleep(900);
+  }
+  await sleep(3500); runChat();
+}
+runChat();
+
+/* ═══════════════════════════════════
+   COLOR THEMES + PAYLOAD
+═══════════════════════════════════ */
+const THEMES = [
+  { name:'violeta',  label:'Violeta',  color:'#6E56CF', bg:'#f5f3ff', target:'Psicologia & Terapia',       desc:'Calmo, acolhedor, profundo.' },
+  { name:'carbono',  label:'Carbono',  color:'#1d1d1f', bg:'#e5e5e7', target:'Clínicas Especializadas',    desc:'Preciso, refinado, confiável.' },
+  { name:'coral',    label:'Coral',    color:'#ff6b6b', bg:'#fff0ed', target:'Nutrição & Wellness',         desc:'Vibrante, acolhedor, fresco.' },
+  { name:'floresta', label:'Floresta', color:'#3a8a5e', bg:'#ecfdf5', target:'Fisio & Terapias Integrativas', desc:'Natural, equilibrado, vital.' },
+];
+
+let activeTema = 'violeta';
+const SEC      = document.querySelector('.themes-sec');
+const BTNS_EL  = document.getElementById('theme-btns');
+const tpAv     = document.getElementById('tp-av');
+const tpMsg    = document.getElementById('tp-msg');
+const tpM1     = document.getElementById('tp-m1');
+const tpV1     = document.getElementById('tp-v1');
+const tpBtn    = document.getElementById('tp-btn');
+const tsTarget = document.getElementById('ts-target');
+const tsDesc   = document.getElementById('ts-desc');
+
+THEMES.forEach((t, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'theme-btn' + (i === 0 ? ' active' : '');
+  btn.innerHTML = `<span class="theme-btn-dot" style="background:${t.color}"></span>${t.label}`;
+  btn.onclick = () => applyTheme(i);
+  BTNS_EL.appendChild(btn);
+});
+
+function updateCTALinks() {
+  // Injeta o tema como query param em todos os links CTA automáticos
+  document.querySelectorAll('[data-href]').forEach(el => {
+    const base = el.getAttribute('data-href');
+    el.href = base + (base.includes('?') ? '&' : '?') + 'tema=' + activeTema;
+  });
+  // Nav CTA
+  const navCta = document.getElementById('nav-cta-btn');
+  if (navCta) navCta.href = '/onboarding?tema=' + activeTema;
+}
+
+function applyTheme(i) {
+  const t = THEMES[i];
+  activeTema = t.name;
+  SEC.style.background = t.bg;
+  document.querySelectorAll('.theme-btn').forEach((b, j) => {
+    b.classList.toggle('active', j === i);
+    b.style.background = j === i ? t.color : '#fff';
+    b.style.color      = j === i ? '#fff'  : '#18181b';
+  });
+  tpAv.style.background      = `linear-gradient(135deg,${t.color},${t.color}cc)`;
+  tpMsg.style.borderLeftColor = t.color;
+  tpM1.style.background      = t.color + '18';
+  tpM1.style.borderColor     = t.color + '30';
+  tpV1.style.color            = t.color;
+  tpBtn.style.background      = t.color;
+  tpBtn.style.boxShadow       = `0 4px 12px ${t.color}40`;
+  tsTarget.style.color        = t.color;
+  tsTarget.textContent        = t.target;
+  // Serializa desc: última palavra em serif italic
+  const parts = t.desc.replace(/\.$/, '').split(/,\s*/);
+  const last  = parts.pop();
+  tsDesc.innerHTML = (parts.length ? parts.join(', ') + ', ' : '') +
+    `<em class="serif">${last}.</em>`;
+  updateCTALinks();
+}
+applyTheme(0);
+
+/* ═══════════════════════════════════
+   SCROLL REVEAL
+═══════════════════════════════════ */
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('vis'); io.unobserve(e.target); }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
