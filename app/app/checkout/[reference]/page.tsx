@@ -19,6 +19,9 @@ interface OrderRow {
     doctor_name?: string;
     admin_email?: string;
     real_phone?: string;
+    plan_amount?: number;
+    addon_amount?: number;
+    addon_human_support?: boolean;
   } | null;
 }
 
@@ -52,6 +55,17 @@ export default async function CheckoutPage({ params }: PageProps) {
       planType={order.plan_type}
       clinicName={order.clinic_name}
       amount={Number(order.amount)}
+      planAmount={
+        order.clinic_data?.plan_amount != null
+          ? Number(order.clinic_data.plan_amount)
+          : undefined
+      }
+      addonAmount={
+        order.clinic_data?.addon_amount != null
+          ? Number(order.clinic_data.addon_amount)
+          : 0
+      }
+      addonHumanSupport={!!order.clinic_data?.addon_human_support}
       trialEndsAt={order.trial_ends_at}
       paymentStatus={order.payment_status}
       defaultPayer={payer}

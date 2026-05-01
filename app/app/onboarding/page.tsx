@@ -206,10 +206,12 @@ const INITIAL_DATA: OnboardingData = {
   // Atendimento (preenchidos depois quando ativados)
   consultation_value: '',
   payment_methods: [],
-  charge_timing: 'optional',
+  charge_timing: 'after',
   partial_charge_pct: 100,
   accepts_insurance: false,
   insurance_list: [],
+  insurance_other: '',
+  address: '',
   followup_window_days: 30,
   working_hours: {},
   auto_emit_nf: false,
@@ -852,13 +854,18 @@ function OnboardingPageInner() {
 
       if (response.ok && result.success) {
         try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
-        // Redireciona pro checkout se temos external_reference
+        // Sob Medida: SEM checkout — mostra success "equipe vai contatar"
+        if (result.data?.is_sob_medida || result.data?.next_step === 'awaiting_proposal') {
+          setSuccessData(result.data as SuccessData);
+          return;
+        }
+        // Demais planos: redireciona pro checkout
         const ref = result.data?.external_reference as string | undefined;
         if (ref) {
           window.location.href = `/checkout/${encodeURIComponent(ref)}`;
           return;
         }
-        // Fallback (sem ref): mostra success screen tradicional
+        // Fallback (sem ref): success screen tradicional
         setSuccessData(result.data as SuccessData);
       } else {
         const msg = result.message || 'Erro desconhecido. Tente novamente.';
@@ -1063,6 +1070,20 @@ function OnboardingPageInner() {
                 </p>
               )}
             </Field>
+
+            <Field
+              label="Endereço da clínica"
+              hint="Aparece no agente IA quando paciente perguntar onde fica. Pode editar depois."
+            >
+              <input
+                type="text"
+                value={(formData.address ?? '') as string}
+                onChange={e => handleInputChange('address', e.target.value)}
+                placeholder="Rua, número, bairro, cidade — UF"
+                autoComplete="street-address"
+                className={inputClasses(false)}
+              />
+            </Field>
           </div>
         );
 
@@ -1233,9 +1254,8 @@ function OnboardingPageInner() {
             <Field label="Quando cobrar">
               <div className="grid grid-cols-1 gap-2">
                 {[
-                  { id: 'before',   label: 'Antes da consulta', desc: 'Cobrança automática via WhatsApp' },
-                  { id: 'after',    label: 'Após a consulta',   desc: 'Você ou o paciente confirma' },
-                  { id: 'optional', label: 'Paciente escolhe',  desc: 'Mais flexível' },
+                  { id: 'before', label: 'Antes da consulta', desc: 'Cobrança automática via WhatsApp' },
+                  { id: 'after',  label: 'Após a consulta',   desc: 'Você ou o paciente confirma' },
                 ].map(opt => {
                   const selected = formData.charge_timing === opt.id;
                   return (
@@ -1310,23 +1330,37 @@ function OnboardingPageInner() {
               </button>
 
               {formData.accepts_insurance && (
-                <div className="mt-3 grid grid-cols-2 gap-1.5">
-                  {COMMON_INSURANCES.map(name => {
-                    const selected = insuranceList.includes(name);
-                    return (
-                      <button
-                        key={name}
-                        type="button"
-                        onClick={() => toggleInsurance(name)}
-                        className={`px-3 py-2 rounded-md text-left text-[13px] font-medium transition-all ${
-                          selected ? 'bg-zinc-900 text-white' : 'bg-white border border-black/[0.08] text-zinc-700 hover:border-black/20'
-                        }`}
-                      >
-                        {name}
-                      </button>
-                    );
-                  })}
-                </div>
+                <>
+                  <div className="mt-3 grid grid-cols-2 gap-1.5">
+                    {COMMON_INSURANCES.map(name => {
+                      const selected = insuranceList.includes(name);
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => toggleInsurance(name)}
+                          className={`px-3 py-2 rounded-md text-left text-[13px] font-medium transition-all ${
+                            selected ? 'bg-zinc-900 text-white' : 'bg-white border border-black/[0.08] text-zinc-700 hover:border-black/20'
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3">
+                    <input
+                      type="text"
+                      value={(formData.insurance_other ?? '') as string}
+                      onChange={e => handleInputChange('insurance_other', e.target.value)}
+                      placeholder="Outros planos (separe por vírgula)"
+                      className={inputClasses(false)}
+                    />
+                    <p className="text-[11px] text-zinc-400 mt-1.5">
+                      Ex: Cassi, Plan-Saúde, Mediservice…
+                    </p>
+                  </div>
+                </>
               )}
             </div>
 
@@ -1677,11 +1711,17 @@ function OnboardingPageInner() {
                     Quando a IA detecta que o paciente precisa de atendimento humano, nossa equipe assume a conversa no nome da sua clínica.
                     Você não contrata, não treina, não gerencia ninguém.
                   </p>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-[11px] text-zinc-400">A partir de</span>
-                    <span className="text-[16px] font-bold text-zinc-900">R$ 297</span>
-                    <span className="text-[11px] text-zinc-400">/mês · adicional ao plano</span>
-                  </div>
+                  {isSobMedida ? (
+                    <div className="text-[11px] text-zinc-400">
+                      Valor incluído na proposta sob medida.
+                    </div>
+                  ) : (
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-[11px] text-zinc-400">A partir de</span>
+                      <span className="text-[16px] font-bold text-zinc-900">R$ 297</span>
+                      <span className="text-[11px] text-zinc-400">/mês · adicional ao plano</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </button>
@@ -1733,7 +1773,7 @@ function OnboardingPageInner() {
                   rows={[
                     ...(formData.consultation_value ? [['Valor', `R$ ${formData.consultation_value}`] as [string, string]] : []),
                     ...(acceptedMethods.length ? [['Métodos', acceptedMethods.join(', ').toUpperCase()] as [string, string]] : []),
-                    ...(formData.charge_timing ? [['Quando', formData.charge_timing === 'before' ? `${formData.partial_charge_pct}% antes` : formData.charge_timing === 'after' ? 'Após consulta' : 'Paciente escolhe'] as [string, string]] : []),
+                    ...(formData.charge_timing ? [['Quando', formData.charge_timing === 'before' ? `${formData.partial_charge_pct}% antes` : 'Após consulta'] as [string, string]] : []),
                     ...(formData.accepts_insurance ? [['Convênios', insuranceList.length ? insuranceList.join(', ') : 'Sim'] as [string, string]] : []),
                     ...(formData.auto_emit_nf ? [['NF auto', formData.accountant_email || 'Sim'] as [string, string]] : []),
                   ]}

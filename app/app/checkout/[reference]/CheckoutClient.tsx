@@ -11,6 +11,7 @@ import {
   Lock,
   Loader2,
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -29,6 +30,9 @@ interface Props {
   planType: string;
   clinicName: string;
   amount: number;
+  planAmount?: number; // valor do plano isolado (sem addon)
+  addonAmount?: number; // valor do add-on Singulare Atendimento (0 se não comprado)
+  addonHumanSupport?: boolean;
   trialEndsAt: string | null;
   paymentStatus: string;
   defaultPayer: {
@@ -96,6 +100,9 @@ export default function CheckoutClient({
   planType,
   clinicName,
   amount,
+  planAmount,
+  addonAmount = 0,
+  addonHumanSupport = false,
   trialEndsAt,
   paymentStatus,
   defaultPayer,
@@ -302,12 +309,34 @@ export default function CheckoutClient({
           transition={{ delay: 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           className="mt-6 rounded-2xl border border-black/[0.07] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_18px_40px_-16px_rgba(0,0,0,0.10)] overflow-hidden"
         >
-          {/* Resumo de valor */}
-          <div className="px-6 sm:px-7 py-5 border-b border-black/[0.06] flex items-baseline justify-between">
-            <span className="text-[13px] text-zinc-500 font-medium">Total mensal</span>
-            <span className="text-[28px] font-medium tracking-[-0.02em] text-zinc-900 leading-none">
-              {formatBRL(amount)}
-            </span>
+          {/* Resumo de valor — breakdown se há add-on */}
+          <div className="px-6 sm:px-7 py-5 border-b border-black/[0.06]">
+            {addonHumanSupport && addonAmount > 0 && planAmount ? (
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between text-[13px] text-zinc-600">
+                  <span>{planLabel}</span>
+                  <span className="font-medium tabular-nums">{formatBRL(planAmount)}</span>
+                </div>
+                <div className="flex items-baseline justify-between text-[13px] text-zinc-600">
+                  <span>Singulare Atendimento <span className="text-zinc-400">(add-on)</span></span>
+                  <span className="font-medium tabular-nums">{formatBRL(addonAmount)}</span>
+                </div>
+                <div className="h-px bg-black/[0.07] my-2" />
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[13px] text-zinc-500 font-medium">Total mensal</span>
+                  <span className="text-[28px] font-medium tracking-[-0.02em] text-zinc-900 leading-none tabular-nums">
+                    {formatBRL(amount)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-baseline justify-between">
+                <span className="text-[13px] text-zinc-500 font-medium">Total mensal</span>
+                <span className="text-[28px] font-medium tracking-[-0.02em] text-zinc-900 leading-none tabular-nums">
+                  {formatBRL(amount)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Banner explicativo: assinatura mensal so via cartao */}
@@ -385,8 +414,11 @@ export default function CheckoutClient({
           </div>
 
           {/* CTA principal — desktop */}
-          <div className="hidden md:block px-7 pb-7 pt-2">
-            <SubmitButton onClick={handleSubmit} submitting={submitting} method={method} amount={amount} />
+          <div className="hidden md:flex px-7 pb-7 pt-2 items-center gap-3">
+            <BackButton onClick={() => router.back()} />
+            <div className="flex-1">
+              <SubmitButton onClick={handleSubmit} submitting={submitting} method={method} amount={amount} />
+            </div>
           </div>
         </motion.div>
 
@@ -406,7 +438,12 @@ export default function CheckoutClient({
 
       {/* Sticky bottom CTA mobile */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 backdrop-blur-xl border-t border-black/[0.07]">
-        <SubmitButton onClick={handleSubmit} submitting={submitting} method={method} amount={amount} fullWidth />
+        <div className="flex items-stretch gap-2">
+          <BackButton onClick={() => router.back()} />
+          <div className="flex-1">
+            <SubmitButton onClick={handleSubmit} submitting={submitting} method={method} amount={amount} fullWidth />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -477,6 +514,20 @@ function Input({
       autoComplete={autoComplete}
       className="w-full h-12 px-3.5 bg-white text-[16px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
     />
+  );
+}
+
+function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-black/[0.12] bg-white text-zinc-700 hover:text-zinc-900 hover:border-black/[0.25] transition-all h-14 px-4 text-[14px] font-semibold"
+      aria-label="Voltar"
+    >
+      <ArrowLeft className="w-4 h-4" strokeWidth={2} />
+      <span className="hidden sm:inline">Voltar</span>
+    </button>
   );
 }
 

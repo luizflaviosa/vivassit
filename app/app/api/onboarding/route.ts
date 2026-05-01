@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { supabaseAdmin, SAAS_PLAN_AMOUNTS, TRIAL_DAYS } from '@/lib/supabase';
+import { supabaseAdmin, SAAS_PLAN_AMOUNTS, ADDON_HUMAN_SUPPORT_PRICE, TRIAL_DAYS } from '@/lib/supabase';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 const E164_REGEX = /^\+\d{10,15}$/;
@@ -78,6 +78,11 @@ export async function POST(request: NextRequest) {
     const tenantId = generateTenantId(body.clinic_name);
     const planType = body?.plan_type ?? 'professional';
     const planAmount = SAAS_PLAN_AMOUNTS[planType] ?? SAAS_PLAN_AMOUNTS.professional;
+    const isSobMedida = planType === 'sob_medida' || body?.establishment_type === 'large_clinic';
+    const addonHumanSupport: boolean = !!body?.addon_human_support;
+    // Sob Medida: addon entra na proposta (sem preço fixo). Outros planos: soma R$ 297.
+    const addonAmount = addonHumanSupport && !isSobMedida ? ADDON_HUMAN_SUPPORT_PRICE : 0;
+    const totalAmount = planAmount + addonAmount;
     const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const consultationDuration = parseInt(body?.consultation_duration ?? '30', 10) || 30;
     const externalReference = `vvst-${tenantId}-${Date.now()}`;
@@ -88,7 +93,13 @@ export async function POST(request: NextRequest) {
     const chatwootType: 'shared' | 'dedicated' =
       establishmentType === 'private_practice' ? 'shared' : 'dedicated';
     const acceptsInsurance: boolean = !!body?.accepts_insurance;
-    const insuranceList: string[] = Array.isArray(body?.insurance_list) ? body.insurance_list : [];
+    const insuranceListBase: string[] = Array.isArray(body?.insurance_list) ? body.insurance_list : [];
+    // Mescla "outros planos" texto livre (separados por vírgula) na lista final
+    const insuranceOther: string = String(body?.insurance_other ?? '').trim();
+    const insuranceOtherList = insuranceOther
+      ? insuranceOther.split(/[,;]/).map((s) => s.trim()).filter(Boolean)
+      : [];
+    const insuranceList: string[] = [...insuranceListBase, ...insuranceOtherList];
     const paymentMethodsArr: string[] = Array.isArray(body?.payment_methods) ? body.payment_methods : [];
     const consultationValue: number | null = body?.consultation_value
       ? parseFloat(String(body.consultation_value).replace(',', '.'))
@@ -108,6 +119,7 @@ export async function POST(request: NextRequest) {
       phone: normalizedPhone,
       real_phone: normalizedPhone,
       admin_email: body.admin_email,
+      address: body?.address ?? null,
       doctor_name: body.doctor_name,
       doctor_crm: body.doctor_crm,
       speciality: body.speciality,
@@ -115,23 +127,30 @@ export async function POST(request: NextRequest) {
       establishment_type: establishmentType,
       chatwoot_type: chatwootType,
       plan_type: planType,
-      status: 'pending_payment',
+      status: isSobMedida ? 'proposal_pending' : 'pending_payment',
       subscription_status: 'trialing',
       trial_ends_at: trialEndsAt,
       assistant_prompt: assistantPrompt || null,
       payment_info: {
         qualifications,
         source: 'vivassit-frontend',
-        version: '4.1',
+        version: '4.2',
         professional_type: professionalType,
         accepts_insurance: acceptsInsurance,
         insurance_list: insuranceList,
         accepted_payment_methods: paymentMethodsArr,
-        charge_timing: body?.charge_timing ?? 'optional',
+        charge_timing: body?.charge_timing ?? 'after',
         partial_charge_pct: body?.partial_charge_pct ?? 100,
         followup_window_days: followupWindowDays,
         auto_emit_nf: !!body?.auto_emit_nf,
         accountant_email: body?.accountant_email ?? null,
+        addon_human_support: addonHumanSupport,
+        is_sob_medida: isSobMedida,
+        sob_medida_data: isSobMedida ? {
+          num_profissionais: body?.sob_medida_num_profissionais ?? null,
+          num_unidades: body?.sob_medida_num_unidades ?? null,
+          necessidades: body?.sob_medida_necessidades ?? null,
+        } : null,
         lgpd_accepted: lgpdAccepted,
         lgpd_accepted_at: lgpdAccepted ? new Date().toISOString() : null,
         lgpd_accepted_ip:
@@ -285,11 +304,13 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Persistencia: saas_orders (assinatura SaaS Vivassit, pendente) ────────
+    // Sob Medida não vai pra checkout — fica salvo como 'proposal_pending'
+    // pra equipe comercial avaliar e enviar proposta manualmente.
     const orderRow = {
       external_reference: externalReference,
       clinic_name: body.clinic_name,
       plan_type: planType,
-      amount: planAmount,
+      amount: totalAmount, // plano + addon (se aplicável)
       clinic_data: {
         doctor_name: body.doctor_name,
         doctor_crm: body.doctor_crm,
@@ -297,10 +318,19 @@ export async function POST(request: NextRequest) {
         admin_email: body.admin_email,
         real_phone: normalizedPhone,
         establishment_type: body?.establishment_type ?? 'small_clinic',
+        // Breakdown do total + flags
+        plan_amount: planAmount,
+        addon_human_support: addonHumanSupport,
+        addon_amount: addonAmount,
+        is_sob_medida: isSobMedida,
+        sob_medida_num_profissionais: body?.sob_medida_num_profissionais ?? null,
+        sob_medida_num_unidades: body?.sob_medida_num_unidades ?? null,
+        sob_medida_necessidades: body?.sob_medida_necessidades ?? null,
+        address: body?.address ?? null,
         consultation_duration: consultationDuration,
         qualifications,
       },
-      payment_status: 'pending',
+      payment_status: isSobMedida ? 'proposal_pending' : 'pending',
       tenant_id: tenantId,
       provider: 'asaas',
       trial_ends_at: trialEndsAt,
@@ -320,10 +350,12 @@ export async function POST(request: NextRequest) {
     const orderId = orderData?.id ?? null;
 
     // ── N8N webhook (provisionamento da clinica) ──────────────────────────────
+    // Sob Medida: NÃO dispara provisionamento — fica como lead pra equipe.
     const payload = {
       real_phone: normalizedPhone,
       clinic_name: body.clinic_name,
       admin_email: body.admin_email,
+      address: body?.address ?? null,
       doctor_name: body.doctor_name,
       doctor_crm: body.doctor_crm,
       speciality: body.speciality,
@@ -338,6 +370,8 @@ export async function POST(request: NextRequest) {
       payment_methods: paymentMethodsString,
       accepts_insurance: acceptsInsurance,
       insurance_list: insuranceList,
+      addon_human_support: addonHumanSupport,
+      is_sob_medida: isSobMedida,
       followup_window_days: followupWindowDays,
       working_hours: workingHours,
       assistant_prompt: assistantPrompt,
@@ -373,7 +407,8 @@ export async function POST(request: NextRequest) {
 
     let n8nSummary: Record<string, unknown> | null = null;
     const webhookUrl = process.env.N8N_WEBHOOK_URL;
-    if (webhookUrl) {
+    // Sob Medida: pula provisionamento. Tenant fica salvo (lead) e equipe processa manual.
+    if (webhookUrl && !isSobMedida) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30_000);
       try {
@@ -451,7 +486,9 @@ export async function POST(request: NextRequest) {
     // ── Resposta ──────────────────────────────────────────────────────────────
     return NextResponse.json({
       success: true,
-      message: 'Cadastro realizado! Confirme seu pagamento para ativar a conta.',
+      message: isSobMedida
+        ? 'Recebemos seus dados! Nossa equipe entrará em contato em até 1 dia útil para apresentar a proposta sob medida.'
+        : 'Cadastro realizado! Confirme seu pagamento para ativar a conta.',
       data: {
         tenant_id: tenantId,
         order_id: orderId,
@@ -460,11 +497,16 @@ export async function POST(request: NextRequest) {
         doctor_name: payload.doctor_name,
         admin_email: payload.admin_email,
         plan_type: planType,
-        amount: planAmount,
+        amount: totalAmount,
+        plan_amount: planAmount,
+        addon_amount: addonAmount,
+        addon_human_support: addonHumanSupport,
+        is_sob_medida: isSobMedida,
         trial_ends_at: trialEndsAt,
         subscription_status: 'trialing',
-        next_step: 'checkout',
-        checkout_url: orderId ? `/checkout/${orderId}` : null,
+        next_step: isSobMedida ? 'awaiting_proposal' : 'checkout',
+        // Sob Medida: SEM checkout_url. UI mostra tela de "obrigado, equipe vai contatar"
+        checkout_url: !isSobMedida && orderId ? `/checkout/${externalReference}` : null,
         magic_link_url: magicLinkUrl,
         // Dados de provisionamento N8N (se disponiveis)
         calendar_link: n8nSummary?.calendar_access_link ?? null,

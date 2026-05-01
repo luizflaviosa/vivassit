@@ -32,5 +32,11 @@ export const SAAS_PLAN_AMOUNTS: Record<string, number> = {
   sob_medida: 0, // proposta personalizada — preço definido manualmente
 };
 
+// Add-on Singulare Atendimento (atendimento humano sob demanda).
+// Soma R$ 297 ao total mensal em planos normais.
+// Em sob_medida: cobrança via avaliação caso a caso → preço NÃO somado, vai
+// junto na proposta personalizada da equipe comercial.
+export const ADDON_HUMAN_SUPPORT_PRICE = 297;
+
 // Trial padrao (em dias)
 export const TRIAL_DAYS = 7;

@@ -182,6 +182,7 @@ export interface OnboardingData {
   clinic_name: string;
   admin_email: string;
   real_phone: string;
+  address?: string;
 
   // atendimento (obrigatorio se 1 prof, opcional se clinica)
   consultation_value?: string;
@@ -191,6 +192,7 @@ export interface OnboardingData {
   partial_charge_pct?: number; // 30, 50 ou 100
   accepts_insurance?: boolean;
   insurance_list?: string[];
+  insurance_other?: string; // texto livre pra planos não listados nos chips
   followup_window_days?: number;
   working_hours?: Record<string, string>;
   auto_emit_nf?: boolean;
