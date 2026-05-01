@@ -202,6 +202,14 @@ export interface OnboardingData {
   // multi-prof (clinica)
   additional_doctors?: DoctorEntry[];
 
+  // Add-on: Singulare Atendimento (atendimento humano pela equipe Singulare)
+  addon_human_support?: boolean;
+
+  // Sob Medida (large_clinic): infos para proposta
+  sob_medida_num_profissionais?: string;
+  sob_medida_num_unidades?: string;
+  sob_medida_necessidades?: string;
+
   // LGPD
   lgpd_accepted?: boolean;
   lgpd_accepted_at?: string;

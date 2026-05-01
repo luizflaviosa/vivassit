@@ -20,13 +20,16 @@ export function supabaseAdmin(): SupabaseClient {
   return cached;
 }
 
-// Tabela de precos do plano SaaS Vivassit
+// Tabela de precos do plano SaaS Singulare
+// Planos ativos: professional (197), enterprise (397), sob_medida (proposta)
+// Legados mantidos para orders antigos: basic, premium, enterprise_plus
 export const SAAS_PLAN_AMOUNTS: Record<string, number> = {
   basic: 97,
   professional: 197,
   premium: 297,
   enterprise: 397,
   enterprise_plus: 597,
+  sob_medida: 0, // proposta personalizada — preço definido manualmente
 };
 
 // Trial padrao (em dias)

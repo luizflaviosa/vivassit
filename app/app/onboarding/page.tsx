@@ -995,7 +995,9 @@ function OnboardingPageInner() {
                       onClick={() => {
                         handleInputChange('establishment_type', key);
                         // Auto-seleciona plano baseado no tipo de estabelecimento
-                        const autoPlan = key === 'private_practice' ? 'professional' : 'enterprise';
+                        const autoPlan = key === 'private_practice' ? 'professional'
+                          : key === 'small_clinic' ? 'enterprise'
+                          : 'sob_medida';
                         handleInputChange('plan_type', autoPlan);
                       }}
                       className={`group relative w-full p-4 sm:p-3.5 rounded-lg text-left transition-all min-h-[88px] ${
@@ -1526,91 +1528,163 @@ function OnboardingPageInner() {
         );
       }
 
-      // ── Step 4: Plano + Confirmação ─────────────────────────────────────────
+      // ── Step 4: Plano (auto) + Add-on + Confirmação ────────────────────────
       case 4: {
         const profType = (formData.professional_type as ProfessionalTypeKey) || 'medico';
         const council = COUNCIL_BY_PROFESSIONAL[profType];
         const acceptedMethods = (formData.payment_methods ?? []) as string[];
         const insuranceList = (formData.insurance_list ?? []) as string[];
+        const isSobMedida = formData.establishment_type === 'large_clinic';
+        const activePlan = isSobMedida ? null : PLAN_DETAILS[formData.plan_type];
+        const addonSelected = !!formData.addon_human_support;
+
         return (
           <div className="space-y-6">
-            {/* ── Plan picker ─────────────────────────────────────────── */}
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.08em] text-zinc-400 font-medium mb-3">
-                Escolha seu plano
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(Object.entries(PLAN_DETAILS) as [string, typeof PLAN_DETAILS[keyof typeof PLAN_DETAILS]][]).map(([key, plan]) => {
-                  const selected = formData.plan_type === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => handleInputChange('plan_type', key)}
-                      className={`relative text-left rounded-xl p-5 transition-all ${
-                        selected
-                          ? 'bg-white border-2'
-                          : 'bg-white border border-black/[0.08] hover:border-black/20'
-                      }`}
-                      style={selected ? { borderColor: ACCENT } : undefined}
+            {/* ── Plano determinado automaticamente ───────────────────── */}
+            {activePlan && (
+              <div
+                className="rounded-xl border-2 p-5"
+                style={{ borderColor: ACCENT, background: ACCENT_SOFT }}
+              >
+                <div className="flex items-baseline justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px] font-semibold" style={{ color: ACCENT_DEEP }}>
+                      {activePlan.label}
+                    </span>
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded-full text-white"
+                      style={{ background: ACCENT }}
                     >
-                      {plan.highlight && (
-                        <span
-                          className="absolute -top-2.5 left-4 text-[10px] font-bold uppercase tracking-[0.06em] px-2.5 py-0.5 rounded-full text-white"
-                          style={{ background: ACCENT }}
-                        >
-                          Mais escolhido
-                        </span>
-                      )}
-                      <div className="flex items-baseline justify-between mb-1">
-                        <span className={`text-[14px] font-semibold ${selected ? '' : 'text-zinc-700'}`}
-                              style={selected ? { color: ACCENT_DEEP } : undefined}>
-                          {plan.label}
-                        </span>
-                        <span className="text-[18px] font-bold text-zinc-900">{plan.price}<span className="text-[12px] font-normal text-zinc-400">/mês</span></span>
+                      Seu plano
+                    </span>
+                  </div>
+                  <span className="text-[20px] font-bold text-zinc-900">
+                    {activePlan.price}<span className="text-[12px] font-normal text-zinc-400">/mês</span>
+                  </span>
+                </div>
+                <p className="text-[12px] text-zinc-500 mb-3">{activePlan.desc}</p>
+                <ul className="space-y-1.5">
+                  {activePlan.features.map(f => (
+                    <li key={f} className="flex items-center gap-2 text-[12px] text-zinc-700">
+                      <div
+                        className="h-4 w-4 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ background: 'white' }}
+                      >
+                        <Check className="w-2.5 h-2.5" strokeWidth={3} style={{ color: ACCENT_DEEP }} />
                       </div>
-                      <p className="text-[12px] text-zinc-500 mb-3">{plan.desc}</p>
-                      <ul className="space-y-1.5">
-                        {plan.features.map(f => (
-                          <li key={f} className="flex items-center gap-2 text-[12px] text-zinc-600">
-                            <div
-                              className="h-4 w-4 rounded-full flex items-center justify-center flex-shrink-0"
-                              style={{ background: ACCENT_SOFT }}
-                            >
-                              <Check className="w-2.5 h-2.5" strokeWidth={3} style={{ color: ACCENT_DEEP }} />
-                            </div>
-                            {f}
-                          </li>
-                        ))}
-                      </ul>
-                      {/* Selection indicator */}
-                      <div className="absolute top-4 right-4">
-                        <div
-                          className={`h-5 w-5 rounded-full flex items-center justify-center transition-colors ${
-                            selected ? '' : 'border-2 border-zinc-200'
-                          }`}
-                          style={selected ? { background: ACCENT } : undefined}
-                        >
-                          {selected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[11px] text-zinc-400 mt-3">7 dias grátis · Cadastro rápido</p>
               </div>
-              <p className="text-[12px] text-zinc-400 mt-3 text-center">
-                Precisa de mais?{' '}
-                <a
-                  href="https://wa.me/5511999999999?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20o%20plano%20Sob%20Medida"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline hover:text-zinc-700 transition-colors"
-                  style={{ color: ACCENT_DEEP }}
+            )}
+
+            {/* ── Sob Medida: coleta informações ──────────────────────── */}
+            {isSobMedida && (
+              <div className="space-y-4">
+                <div
+                  className="rounded-xl border-2 p-5"
+                  style={{ borderColor: ACCENT, background: ACCENT_SOFT }}
                 >
-                  Conheça o plano Sob Medida →
-                </a>
-              </p>
-            </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[14px] font-semibold" style={{ color: ACCENT_DEEP }}>
+                      Sob Medida
+                    </span>
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded-full text-white"
+                      style={{ background: ACCENT }}
+                    >
+                      Proposta personalizada
+                    </span>
+                  </div>
+                  <p className="text-[13px] text-zinc-600 leading-relaxed">
+                    Para clínicas com +5 profissionais, desenhamos uma solução sob medida.
+                    Preencha abaixo para que nossa equipe prepare sua proposta.
+                  </p>
+                </div>
+
+                <Field label="Quantos profissionais?" hint="Estimativa">
+                  <input
+                    type="text"
+                    value={formData.sob_medida_num_profissionais ?? ''}
+                    onChange={e => handleInputChange('sob_medida_num_profissionais', e.target.value)}
+                    placeholder="Ex: 12"
+                    inputMode="numeric"
+                    className={inputClasses(false)}
+                  />
+                </Field>
+
+                <Field label="Quantas unidades / filiais?" hint="Opcional">
+                  <input
+                    type="text"
+                    value={formData.sob_medida_num_unidades ?? ''}
+                    onChange={e => handleInputChange('sob_medida_num_unidades', e.target.value)}
+                    placeholder="Ex: 3"
+                    inputMode="numeric"
+                    className={inputClasses(false)}
+                  />
+                </Field>
+
+                <Field label="Necessidades específicas" hint="Integrações, fluxos, etc.">
+                  <textarea
+                    value={formData.sob_medida_necessidades ?? ''}
+                    onChange={e => handleInputChange('sob_medida_necessidades', e.target.value)}
+                    placeholder="Ex: Integração com sistema próprio de prontuário, múltiplas agendas por unidade..."
+                    rows={3}
+                    className="w-full px-3.5 py-3 bg-white text-[15px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all resize-none"
+                  />
+                </Field>
+              </div>
+            )}
+
+            {/* ── Add-on: Singulare Atendimento ───────────────────────── */}
+            <button
+              type="button"
+              onClick={() => {
+                setFormData(prev => ({
+                  ...prev,
+                  addon_human_support: !addonSelected as never,
+                }));
+              }}
+              className={`w-full text-left rounded-xl p-5 transition-all ${
+                addonSelected
+                  ? 'bg-white border-2'
+                  : 'bg-white border border-black/[0.08] hover:border-black/20'
+              }`}
+              style={addonSelected ? { borderColor: ACCENT } : undefined}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={`mt-0.5 h-5 w-5 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
+                    addonSelected ? '' : 'border border-zinc-300'
+                  }`}
+                  style={addonSelected ? { background: ACCENT_DEEP } : undefined}
+                >
+                  {addonSelected && <Check className="w-3 h-3 text-white" strokeWidth={3.5} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[14px] font-semibold text-zinc-900">Singulare Atendimento</span>
+                    <span
+                      className="text-[9px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded-full text-white"
+                      style={{ background: ACCENT }}
+                    >
+                      Add-on
+                    </span>
+                  </div>
+                  <p className="text-[12px] text-zinc-500 leading-relaxed mb-2">
+                    Quando a IA detecta que o paciente precisa de atendimento humano, nossa equipe assume a conversa no nome da sua clínica.
+                    Você não contrata, não treina, não gerencia ninguém.
+                  </p>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-[11px] text-zinc-400">A partir de</span>
+                    <span className="text-[16px] font-bold text-zinc-900">R$ 297</span>
+                    <span className="text-[11px] text-zinc-400">/mês · adicional ao plano</span>
+                  </div>
+                </div>
+              </div>
+            </button>
 
             <Hairline />
 
@@ -1640,15 +1714,16 @@ function OnboardingPageInner() {
               />
               <ReviewBlock
                 icon={<Settings className="w-3.5 h-3.5" strokeWidth={1.75} />}
-                title="Preferências"
+                title="Configuração"
                 rows={[
                   ['Consulta', `${formData.consultation_duration} min`],
                   [
-                    'Tipo',
+                    'Estabelecimento',
                     ESTABLISHMENT_SIZES[formData.establishment_type as EstablishmentSizeKey]?.label
                       ?? formData.establishment_type,
                   ],
-                  ['Plano', PLAN_DETAILS[formData.plan_type]?.label ?? formData.plan_type, true],
+                  ['Plano', isSobMedida ? 'Sob Medida (proposta personalizada)' : (PLAN_DETAILS[formData.plan_type]?.label + ' — ' + PLAN_DETAILS[formData.plan_type]?.price + '/mês'), true],
+                  ...(addonSelected ? [['Add-on', 'Singulare Atendimento'] as [string, string]] : []),
                 ]}
               />
               {(formData.consultation_value || acceptedMethods.length > 0) && (
@@ -1667,7 +1742,9 @@ function OnboardingPageInner() {
             </div>
 
             <p className="text-[12px] text-zinc-500 text-center pt-1 leading-relaxed">
-              7 dias grátis · Ao finalizar, sua conta será criada e as integrações ativadas automaticamente.
+              {isSobMedida
+                ? 'Nossa equipe entrará em contato para desenhar a solução ideal para sua clínica.'
+                : '7 dias grátis · Ao finalizar, sua conta será criada e as integrações ativadas automaticamente.'}
             </p>
           </div>
         );
@@ -1788,7 +1865,7 @@ function OnboardingPageInner() {
               </>
             ) : (
               <>
-                Escolha seu plano{' '}
+                Confirme{' '}
                 <span className="font-serif italic font-normal text-zinc-700">e finalize.</span>
               </>
             )}
@@ -1874,11 +1951,11 @@ function OnboardingPageInner() {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Configurando…
+                      {formData.establishment_type === 'large_clinic' ? 'Enviando…' : 'Configurando…'}
                     </>
                   ) : (
                     <>
-                      Criar conta
+                      {formData.establishment_type === 'large_clinic' ? 'Solicitar proposta' : 'Criar conta'}
                       <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                     </>
                   )}
@@ -1946,11 +2023,11 @@ function OnboardingPageInner() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Configurando…
+                    {formData.establishment_type === 'large_clinic' ? 'Enviando…' : 'Configurando…'}
                   </>
                 ) : (
                   <>
-                    Criar minha conta
+                    {formData.establishment_type === 'large_clinic' ? 'Solicitar proposta' : 'Criar minha conta'}
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                   </>
                 )}
