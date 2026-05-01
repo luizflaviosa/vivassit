@@ -11,7 +11,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from('tenant_doctors')
     .select(
-      'id, doctor_name, doctor_crm, specialty, is_primary, status, consultation_value, payment_methods, working_hours, accepts_insurance, insurance_note, followup_value, followup_window_days, consultation_duration, contact_email, contact_phone, address, calendar_id, created_at'
+      'id, doctor_name, doctor_crm, specialty, is_primary, status, consultation_value, payment_methods, working_hours, accepts_insurance, insurance_note, followup_value, followup_window_days, consultation_duration, contact_email, contact_phone, address, calendar_id, business_rules, created_at'
     )
     .eq('tenant_id', auth.ctx.tenant.tenant_id)
     .order('is_primary', { ascending: false })
@@ -23,6 +23,18 @@ export async function GET() {
   }
 
   return NextResponse.json({ success: true, doctors: data ?? [] });
+}
+
+// Schema de regras de negócio por médico (todas opcionais com defaults sensatos no fn_rebuild_tenant_prompt).
+// Usado pelo (futuro) sub-workflow safe_create_event como gate server-side.
+interface DoctorBusinessRules {
+  min_advance_hours?: number;          // mín antes da consulta (default 2)
+  max_advance_days?: number;           // máx pra agendar futuro (default 60)
+  appointment_buffer_minutes?: number; // espaçamento entre consultas (default 0)
+  max_per_day?: number | null;         // limite/dia (null=sem limite)
+  allow_emergency_fds?: boolean;       // atende emergência fim de semana
+  requires_anamnese?: boolean;         // exige formulário antes da 1a
+  custom_rules_text?: string;          // texto livre exibido no rendered_prompt
 }
 
 interface DoctorInput {
@@ -39,6 +51,7 @@ interface DoctorInput {
   contact_email?: string;
   contact_phone?: string;
   address?: string;
+  business_rules?: DoctorBusinessRules;
 }
 
 export async function POST(req: NextRequest) {
@@ -81,6 +94,7 @@ export async function POST(req: NextRequest) {
     contact_email: body.contact_email?.trim() || null,
     contact_phone: body.contact_phone?.trim() || null,
     address: body.address?.trim() || null,
+    business_rules: body.business_rules ?? {},
   };
 
   const { data, error } = await supabase.from('tenant_doctors').insert(row).select('id').single();
@@ -148,6 +162,7 @@ interface DoctorPatch {
   accepts_insurance?: boolean;
   insurance_note?: string | null;
   working_hours?: Record<string, string>;
+  business_rules?: DoctorBusinessRules;
 }
 
 export async function PATCH(req: NextRequest) {
@@ -170,7 +185,7 @@ export async function PATCH(req: NextRequest) {
     'doctor_name', 'doctor_crm', 'specialty', 'consultation_value', 'consultation_duration',
     'payment_methods', 'contact_email', 'contact_phone', 'address', 'calendar_id',
     'followup_value', 'followup_window_days', 'followup_duration', 'accepts_insurance',
-    'insurance_note', 'working_hours',
+    'insurance_note', 'working_hours', 'business_rules',
   ];
   for (const f of fields) {
     if (body[f] !== undefined) updates[f] = body[f];

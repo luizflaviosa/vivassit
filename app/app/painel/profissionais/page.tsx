@@ -18,6 +18,15 @@ const ACCENT_SOFT = '#F5F3FF';
 
 type WorkingHours = Record<string, string>;
 
+interface BusinessRules {
+  min_advance_hours?: number;
+  max_advance_days?: number;
+  max_per_day?: number | null;
+  allow_emergency_fds?: boolean;
+  requires_anamnese?: boolean;
+  custom_rules_text?: string;
+}
+
 interface Doctor {
   id: string;
   doctor_name: string;
@@ -38,6 +47,7 @@ interface Doctor {
   contact_phone: string | null;
   address: string | null;
   calendar_id: string | null;
+  business_rules: BusinessRules | null;
 }
 
 interface FormData {
@@ -57,6 +67,13 @@ interface FormData {
   followup_duration: string;
   followup_window_days: string;
   working_hours: WorkingHours;
+  // Regras de negócio (todas opcionais — defaults aplicados no backend gate)
+  rule_min_advance_hours: string;
+  rule_max_advance_days: string;
+  rule_max_per_day: string;
+  rule_allow_emergency_fds: boolean;
+  rule_requires_anamnese: boolean;
+  rule_custom_text: string;
 }
 
 const EMPTY_FORM: FormData = {
@@ -66,6 +83,8 @@ const EMPTY_FORM: FormData = {
   payment_methods: '', accepts_insurance: false, insurance_note: '',
   followup_value: '', followup_duration: '30', followup_window_days: '30',
   working_hours: {},
+  rule_min_advance_hours: '', rule_max_advance_days: '', rule_max_per_day: '',
+  rule_allow_emergency_fds: false, rule_requires_anamnese: false, rule_custom_text: '',
 };
 
 const DAYS = [
@@ -131,6 +150,12 @@ function ProfissionaisInner() {
       followup_duration: d.followup_duration ? String(d.followup_duration) : '30',
       followup_window_days: d.followup_window_days ? String(d.followup_window_days) : '30',
       working_hours: d.working_hours ?? {},
+      rule_min_advance_hours: d.business_rules?.min_advance_hours != null ? String(d.business_rules.min_advance_hours) : '',
+      rule_max_advance_days: d.business_rules?.max_advance_days != null ? String(d.business_rules.max_advance_days) : '',
+      rule_max_per_day: d.business_rules?.max_per_day != null ? String(d.business_rules.max_per_day) : '',
+      rule_allow_emergency_fds: !!d.business_rules?.allow_emergency_fds,
+      rule_requires_anamnese: !!d.business_rules?.requires_anamnese,
+      rule_custom_text: d.business_rules?.custom_rules_text ?? '',
     });
   };
 
@@ -155,24 +180,36 @@ function ProfissionaisInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
 
-  const buildPayload = () => ({
-    doctor_name: form.doctor_name.trim(),
-    doctor_crm: form.doctor_crm.trim() || null,
-    specialty: form.specialty.trim(),
-    consultation_value: form.consultation_value ? parseFloat(form.consultation_value) : null,
-    consultation_duration: form.consultation_duration ? parseInt(form.consultation_duration, 10) : null,
-    contact_email: form.contact_email.trim() || null,
-    contact_phone: form.contact_phone.trim() || null,
-    address: form.address.trim() || null,
-    calendar_id: form.calendar_id.trim() || null,
-    payment_methods: form.payment_methods.trim() || null,
-    accepts_insurance: form.accepts_insurance,
-    insurance_note: form.insurance_note.trim() || null,
-    followup_value: form.followup_value ? parseFloat(form.followup_value) : null,
-    followup_duration: form.followup_duration ? parseInt(form.followup_duration, 10) : null,
-    followup_window_days: form.followup_window_days ? parseInt(form.followup_window_days, 10) : null,
-    working_hours: form.working_hours,
-  });
+  const buildPayload = () => {
+    // Monta business_rules apenas com chaves preenchidas (evita poluir o jsonb)
+    const businessRules: BusinessRules = {};
+    if (form.rule_min_advance_hours.trim()) businessRules.min_advance_hours = parseInt(form.rule_min_advance_hours, 10);
+    if (form.rule_max_advance_days.trim()) businessRules.max_advance_days = parseInt(form.rule_max_advance_days, 10);
+    if (form.rule_max_per_day.trim()) businessRules.max_per_day = parseInt(form.rule_max_per_day, 10);
+    if (form.rule_allow_emergency_fds) businessRules.allow_emergency_fds = true;
+    if (form.rule_requires_anamnese) businessRules.requires_anamnese = true;
+    if (form.rule_custom_text.trim()) businessRules.custom_rules_text = form.rule_custom_text.trim();
+
+    return {
+      doctor_name: form.doctor_name.trim(),
+      doctor_crm: form.doctor_crm.trim() || null,
+      specialty: form.specialty.trim(),
+      consultation_value: form.consultation_value ? parseFloat(form.consultation_value) : null,
+      consultation_duration: form.consultation_duration ? parseInt(form.consultation_duration, 10) : null,
+      contact_email: form.contact_email.trim() || null,
+      contact_phone: form.contact_phone.trim() || null,
+      address: form.address.trim() || null,
+      calendar_id: form.calendar_id.trim() || null,
+      payment_methods: form.payment_methods.trim() || null,
+      accepts_insurance: form.accepts_insurance,
+      insurance_note: form.insurance_note.trim() || null,
+      followup_value: form.followup_value ? parseFloat(form.followup_value) : null,
+      followup_duration: form.followup_duration ? parseInt(form.followup_duration, 10) : null,
+      followup_window_days: form.followup_window_days ? parseInt(form.followup_window_days, 10) : null,
+      working_hours: form.working_hours,
+      business_rules: businessRules,
+    };
+  };
 
   const handleSubmit = async () => {
     if (!form.doctor_name.trim() || !form.specialty.trim()) {
@@ -383,6 +420,66 @@ function ProfissionaisInner() {
                     value={form.working_hours}
                     onChange={(v) => setField('working_hours', v)}
                   />
+                </Section>
+
+                {/* Regras de negócio — usadas pelo agente IA pra cotar/agendar */}
+                <Section title="Regras de agendamento" icon={<Shield className="w-3.5 h-3.5" />}>
+                  <p className="text-[12px] text-zinc-500 -mt-1">
+                    O agente IA usa essas regras pra recusar pedidos fora do esperado. Vazios = padrões saudáveis (mín 2h antecedência, máx 60d futuro, sem limite por dia).
+                  </p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <FormInput
+                      placeholder="Antecedência mín (h)"
+                      value={form.rule_min_advance_hours}
+                      onChange={(v) => setField('rule_min_advance_hours', v.replace(/\D/g, ''))}
+                      inputMode="numeric"
+                    />
+                    <FormInput
+                      placeholder="Janela máx (dias)"
+                      value={form.rule_max_advance_days}
+                      onChange={(v) => setField('rule_max_advance_days', v.replace(/\D/g, ''))}
+                      inputMode="numeric"
+                    />
+                    <FormInput
+                      placeholder="Máx por dia"
+                      value={form.rule_max_per_day}
+                      onChange={(v) => setField('rule_max_per_day', v.replace(/\D/g, ''))}
+                      inputMode="numeric"
+                    />
+                  </div>
+                  <div className="space-y-2 pt-1">
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={form.rule_allow_emergency_fds}
+                        onChange={(e) => setField('rule_allow_emergency_fds', e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-violet-600 cursor-pointer"
+                      />
+                      <span className="text-[13px] text-zinc-700 group-hover:text-zinc-900">
+                        Atende emergência em fim de semana (sob demanda)
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={form.rule_requires_anamnese}
+                        onChange={(e) => setField('rule_requires_anamnese', e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-violet-600 cursor-pointer"
+                      />
+                      <span className="text-[13px] text-zinc-700 group-hover:text-zinc-900">
+                        Exige formulário de anamnese antes da primeira consulta
+                      </span>
+                    </label>
+                  </div>
+                  <div className="pt-1">
+                    <textarea
+                      value={form.rule_custom_text}
+                      onChange={(e) => setField('rule_custom_text', e.target.value)}
+                      placeholder="Outras regras especiais (texto livre — aparece no prompt do agente). Ex: Não atende crianças < 12 anos. Para emergência, encaminhar ao PS Humberto Primo."
+                      rows={3}
+                      className="w-full px-3 py-2.5 bg-white text-[13px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all resize-none"
+                    />
+                  </div>
                 </Section>
 
                 {/* Calendar — criado automaticamente, sem campo manual */}
