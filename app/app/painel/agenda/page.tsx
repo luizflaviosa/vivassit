@@ -49,6 +49,8 @@ interface AgendaEvent {
   status: string;
   link: string | null;
   meet_link: string | null;
+  color_id: string | null;
+  color_hex: string | null;
 }
 
 interface DoctorOption {
@@ -143,7 +145,7 @@ function AgendaInner() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [setupIssue, setSetupIssue] = useState<SetupIssue | null>(null);
-  const [view, setView] = useState<View>('month');
+  const [view, setView] = useState<View>('week');
   const [date, setDate] = useState<Date>(new Date());
   const [selected, setSelected] = useState<AgendaEvent | null>(null);
   const [doctors, setDoctors] = useState<DoctorOption[]>([]);
@@ -274,6 +276,17 @@ function AgendaInner() {
   const eventPropGetter = useCallback((ev: RBCEvent) => {
     if (ev.raw.status === 'cancelled') {
       return { className: 'singulare-event-cancelled' };
+    }
+    // Preserva a cor que o profissional definiu no Google Calendar (colorId).
+    // Sem colorId, react-big-calendar usa o default do CSS (violeta Singulare).
+    if (ev.raw.color_hex) {
+      return {
+        style: {
+          backgroundColor: ev.raw.color_hex,
+          borderColor: ev.raw.color_hex,
+          color: '#ffffff',
+        },
+      };
     }
     return {};
   }, []);
@@ -555,7 +568,7 @@ function AgendaInner() {
           className={
             rbcEvents.length === 0
               ? 'hidden'
-              : 'singulare-calendar-wrap h-[640px] sm:h-[720px]'
+              : 'singulare-calendar-wrap h-[calc(100vh-320px)] min-h-[640px]'
           }
         >
           <DnDCalendar
@@ -573,7 +586,12 @@ function AgendaInner() {
             date={date}
             onNavigate={(d) => setDate(d)}
             views={['month', 'week', 'day']}
-            defaultView="month"
+            defaultView="week"
+            min={new Date(1970, 0, 1, 7, 0, 0)}
+            max={new Date(1970, 0, 1, 20, 0, 0)}
+            step={30}
+            timeslots={2}
+            scrollToTime={new Date(1970, 0, 1, 8, 0, 0)}
             popup
             selectable
             resizable
