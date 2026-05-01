@@ -6,10 +6,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
   return [
     {
-      url: `${BASE_URL}/landing`,
+      url: `${BASE_URL}/v6.html`,
       lastModified,
       changeFrequency: 'weekly',
       priority: 1,
+    },
+    {
+      url: `${BASE_URL}/landing`,
+      lastModified,
+      changeFrequency: 'weekly',
+      priority: 0.8,
     },
     {
       url: `${BASE_URL}/onboarding`,
