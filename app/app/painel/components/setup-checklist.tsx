@@ -24,6 +24,9 @@ interface ChecklistData {
   has_payment: boolean;
   has_ai_prompt: boolean;
   has_clinic_data: boolean;
+  has_doctors_configured?: boolean;
+  doctors_total?: number;
+  doctors_configured?: number;
 }
 
 export default function SetupChecklist() {
@@ -48,20 +51,26 @@ export default function SetupChecklist() {
   // Deeplinks com ?from=checklist: target page mostra link "← voltar pro painel"
   // após salvar, pra usuário não se perder após completar uma etapa.
   // Calendar é automático ao salvar profissional (sem item separado).
+  const docTotal = data.doctors_total ?? 0;
+  const docConfigured = data.doctors_configured ?? 0;
+  const docPending = Math.max(0, docTotal - docConfigured);
+
   const items: ChecklistItem[] = [
     {
       key: 'doctor',
-      label: 'Cadastrar profissional',
-      desc: 'Nome, valor da consulta, especialidade — agenda Google é criada automaticamente',
+      label: 'Cadastrar profissionais',
+      desc: 'Nome, especialidade, registro — agenda Google criada automaticamente. Pode adicionar múltiplos.',
       href: '/painel/profissionais?action=new&from=checklist',
       done: data.has_doctor && data.has_calendar,
     },
     {
-      key: 'ai',
-      label: 'Personalizar a IA',
-      desc: 'Tom de voz, regras, o que oferecer aos pacientes',
-      href: '/painel/configuracoes?from=checklist#ai-prompt',
-      done: data.has_ai_prompt,
+      key: 'doctors_configured',
+      label: docTotal > 1
+        ? `Ajustar dados de cada profissional${docPending > 0 ? ` · ${docPending} pendente${docPending === 1 ? '' : 's'}` : ''}`
+        : 'Ajustar valor da consulta e horários',
+      desc: 'Valor da consulta, horários de atendimento, formas de pagamento, convênios — por profissional.',
+      href: '/painel/profissionais?from=checklist',
+      done: data.has_doctors_configured ?? false,
     },
     {
       key: 'clinic',
@@ -69,6 +78,13 @@ export default function SetupChecklist() {
       desc: 'Nome, endereço, telefone administrativo',
       href: '/painel/configuracoes?from=checklist#clinica',
       done: data.has_clinic_data,
+    },
+    {
+      key: 'ai',
+      label: 'Personalizar a IA',
+      desc: 'Tom de voz, regras, o que oferecer aos pacientes',
+      href: '/painel/configuracoes?from=checklist#ai-prompt',
+      done: data.has_ai_prompt,
     },
     {
       key: 'payment',

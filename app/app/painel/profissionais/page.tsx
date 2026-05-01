@@ -652,6 +652,13 @@ function WorkingHoursEditor({ value, onChange }: { value: WorkingHours; onChange
 }
 
 function DoctorCard({ doctor, onDelete, onEdit }: { doctor: Doctor; onDelete: (id: string, isPrimary: boolean) => void; onEdit: () => void }) {
+  // Mesmas regras do setup-status backend
+  const hasValue = doctor.consultation_value != null && Number(doctor.consultation_value) > 0;
+  const hasHours = !!doctor.working_hours && Object.keys(doctor.working_hours).length > 0;
+  const isIncomplete = !hasValue || !hasHours;
+  const missing: string[] = [];
+  if (!hasValue) missing.push('valor');
+  if (!hasHours) missing.push('horários');
   return (
     <div className="rounded-xl border border-black/[0.07] bg-white p-4 sm:p-5 flex items-start gap-4">
       <div
@@ -676,6 +683,16 @@ function DoctorCard({ doctor, onDelete, onEdit }: { doctor: Doctor; onDelete: (i
             <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] font-semibold px-2 py-0.5 rounded text-emerald-700 bg-emerald-50">
               <Calendar className="w-2.5 h-2.5" /> calendar
             </span>
+          )}
+          {isIncomplete && doctor.status === 'active' && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] font-semibold px-2 py-0.5 rounded text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
+              title={`Faltam: ${missing.join(' e ')}`}
+            >
+              ⚠ falta {missing.join(' + ')}
+            </button>
           )}
           {doctor.status !== 'active' && (
             <span className="inline-flex items-center text-[10px] uppercase tracking-[0.08em] font-semibold px-2 py-0.5 rounded bg-zinc-100 text-zinc-500">
