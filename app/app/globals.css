@@ -54,6 +54,31 @@
   background-color: #0F0F0E;
 }
 
+/* ─── Modal pattern (design system) ────────────────────
+ * Overlay:  .modal-overlay
+ * Content:  .modal-box (+ size modifier: sm/md/lg)
+ * Body:     .modal-body (scrollable inner area)
+ * ──────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  overflow-y: auto;
+  display: flex; min-height: 100%; align-items: center; justify-content: center;
+  padding: 1rem;
+  background: rgba(0,0,0,0.35);
+}
+.modal-box {
+  position: relative; background: white; border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+  width: 100%; margin: auto;
+  max-height: calc(100vh - 2rem);
+  display: flex; flex-direction: column;
+}
+.modal-box.sm { max-width: 24rem; }
+.modal-box.md { max-width: 32rem; }
+.modal-box.lg { max-width: 42rem; }
+.modal-body   { flex: 1; overflow-y: auto; }
+.dark .modal-box { background: #18181B; }
+
 /* ─── Page Background ──────────────────────────────── */
 .gradient-bg {
   background-color: #F6F5FF;

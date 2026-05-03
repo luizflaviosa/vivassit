@@ -632,8 +632,8 @@ export default function DocDetailPage() {
 
       {/* ═══════ Send Channel Modal ═══════ */}
       {showSend && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex min-h-full items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4 my-auto max-h-[calc(100vh-2rem)] overflow-y-auto">
             <h3 className="text-[18px] font-semibold text-zinc-900">Enviar ao paciente</h3>
             <p className="text-[14px] text-zinc-500">
               Escolha como enviar o documento para <strong>{patient?.name || 'o paciente'}</strong>.
@@ -733,8 +733,8 @@ export default function DocDetailPage() {
 
       {/* ═══════ Reject Modal ═══════ */}
       {showReject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex min-h-full items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4 my-auto">
             <h3 className="text-[18px] font-semibold text-zinc-900">Rejeitar documento</h3>
             <p className="text-[14px] text-zinc-500">Informe o motivo da rejeição.</p>
             <textarea
@@ -917,8 +917,8 @@ export default function DocDetailPage() {
 
       {/* ═══════ Cancel Confirm ═══════ */}
       {showCancel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex min-h-full items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4 my-auto">
             <h3 className="text-[18px] font-semibold text-zinc-900">Cancelar documento?</h3>
             <p className="text-[14px] text-zinc-500">Essa acao nao pode ser desfeita.</p>
             <div className="flex gap-3 justify-end">

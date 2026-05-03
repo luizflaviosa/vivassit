@@ -201,7 +201,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
       const active = isActive(item);
       const base = mobile
         ? `group flex items-center gap-3 px-3 py-3 rounded-lg text-[14px] font-medium transition-all min-h-[44px]`
-        : `group flex items-center gap-2 px-2.5 h-8 rounded-md text-[13px] font-medium transition-colors`;
+        : `group flex items-center gap-2 px-2.5 h-7 rounded-md text-[12.5px] font-medium transition-colors`;
       const defaultActiveBg = isDark ? 'rgba(87,70,175,0.22)' : '#EDE9FE';
       const defaultActiveFg = isDark ? '#C4B5FD' : '#5746AF';
       const activeBg = colors ? (isDark ? colors.darkActiveBg : colors.activeBg) : defaultActiveBg;
@@ -239,22 +239,28 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
       );
     });
 
-  const renderSections = (mobile = false) => (
-    <div className="flex flex-col gap-2.5">
-      {navSections.map((section, i) => {
-        if (!section.colors) {
-          return (
-            <div key={i} className="space-y-px">
-              {renderNavItems(section.items, undefined, mobile)}
-            </div>
+  const renderSections = (mobile = false) => {
+    const els: React.ReactNode[] = [];
+    navSections.forEach((section, i) => {
+      if (!section.colors) {
+        els.push(
+          <div key={i} className="space-y-px">
+            {renderNavItems(section.items, undefined, mobile)}
+          </div>
+        );
+        // Divider after "Visão geral" (first unlabeled section)
+        if (i === 0) {
+          els.push(
+            <div key="divider" className="h-px bg-zinc-100 dark:bg-white/[0.06]" />
           );
         }
+      } else {
         const bg = isDark ? section.colors.darkBg : section.colors.bg;
         const labelColor = isDark ? section.colors.darkLabel : section.colors.label;
-        return (
-          <div key={i} className="rounded-xl p-2" style={{ background: bg }}>
+        els.push(
+          <div key={i} className="rounded-xl p-1.5" style={{ background: bg }}>
             <p
-              className="px-2 pt-1 pb-2 text-[10px] uppercase tracking-[0.1em] font-semibold select-none"
+              className="px-2 pt-0.5 pb-1.5 text-[10px] uppercase tracking-[0.1em] font-semibold select-none"
               style={{ color: labelColor }}
             >
               {section.label}
@@ -264,9 +270,10 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         );
-      })}
-    </div>
-  );
+      }
+    });
+    return <div className="flex flex-col gap-2">{els}</div>;
+  };
 
   return (
     <MeContext.Provider value={me}>
@@ -323,7 +330,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
         </header>
 
         <div className="max-w-7xl mx-auto flex gap-0 sm:gap-6 px-0 sm:px-6">
-          <aside className="hidden md:block w-56 flex-shrink-0 py-6 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-zinc-100 dark:border-white/[0.06]">
+          <aside className="hidden md:block w-52 flex-shrink-0 py-4 sticky top-[68px] h-[calc(100vh-68px)] overflow-y-auto border-r border-zinc-100 dark:border-white/[0.06]">
             <nav className="space-y-0">
               {renderSections(false)}
             </nav>
