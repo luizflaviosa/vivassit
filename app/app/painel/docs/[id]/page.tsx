@@ -425,22 +425,25 @@ export default function DocDetailPage() {
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
             <h3 className="text-[18px] font-semibold text-zinc-900">Assinar documento</h3>
             <p className="text-[14px] text-zinc-500">
-              Informe seu CPF para assinatura digital via BirdID. Você receberá uma notificação no app para autorizar.
+              Se o profissional tiver CPF BirdID configurado, você receberá uma notificação no app BirdID para autorizar a assinatura digital.
             </p>
             <p className="text-[12px] text-zinc-400">
-              Se o BirdID não estiver configurado, o documento será assinado diretamente (sem certificado digital).
+              Sem CPF BirdID cadastrado, o documento será assinado diretamente (sem certificado digital). Para configurar, acesse as configurações do profissional.
             </p>
 
-            <div>
-              <label className="block text-[13px] font-medium text-zinc-700 mb-2">CPF do assinante (opcional)</label>
-              <input
-                type="text"
-                value={signerCpf}
-                onChange={(e) => setSignerCpf(e.target.value)}
-                placeholder="000.000.000-00"
-                className="w-full h-11 px-4 bg-white text-[15px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
-              />
-            </div>
+            <details className="text-[12px] text-zinc-500">
+              <summary className="cursor-pointer hover:text-zinc-700 transition-colors">Informar CPF manualmente (opcional)</summary>
+              <div className="mt-2">
+                <input
+                  type="text"
+                  value={signerCpf}
+                  onChange={(e) => setSignerCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                  placeholder="Apenas números — sobrescreve o CPF salvo no perfil"
+                  className="w-full h-11 px-4 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                  inputMode="numeric"
+                />
+              </div>
+            </details>
 
             {signMessage && (
               <p className={`text-[13px] ${signMessage.startsWith('✅') ? 'text-green-600' : 'text-red-600'}`}>

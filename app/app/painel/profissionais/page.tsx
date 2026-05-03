@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import BackToChecklist from '../components/back-to-checklist';
 import {
   Plus, Trash2, User, Star, Mail, Phone, Loader2, X, Check, Pencil, Calendar,
-  Clock, MapPin, CreditCard, Shield, Repeat,
+  Clock, MapPin, CreditCard, Shield, Repeat, Fingerprint,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import { DoctorCardSkeleton } from '@/lib/painel-skeleton';
@@ -48,6 +48,7 @@ interface Doctor {
   address: string | null;
   calendar_id: string | null;
   business_rules: BusinessRules | null;
+  birdid_cpf: string | null;
 }
 
 interface FormData {
@@ -74,6 +75,8 @@ interface FormData {
   rule_allow_emergency_fds: boolean;
   rule_requires_anamnese: boolean;
   rule_custom_text: string;
+  // BirdID (assinatura digital)
+  birdid_cpf: string;
 }
 
 const EMPTY_FORM: FormData = {
@@ -85,6 +88,7 @@ const EMPTY_FORM: FormData = {
   working_hours: {},
   rule_min_advance_hours: '', rule_max_advance_days: '', rule_max_per_day: '',
   rule_allow_emergency_fds: false, rule_requires_anamnese: false, rule_custom_text: '',
+  birdid_cpf: '',
 };
 
 const DAYS = [
@@ -156,6 +160,7 @@ function ProfissionaisInner() {
       rule_allow_emergency_fds: !!d.business_rules?.allow_emergency_fds,
       rule_requires_anamnese: !!d.business_rules?.requires_anamnese,
       rule_custom_text: d.business_rules?.custom_rules_text ?? '',
+      birdid_cpf: d.birdid_cpf ?? '',
     });
   };
 
@@ -208,6 +213,7 @@ function ProfissionaisInner() {
       followup_window_days: form.followup_window_days ? parseInt(form.followup_window_days, 10) : null,
       working_hours: form.working_hours,
       business_rules: businessRules,
+      birdid_cpf: form.birdid_cpf.replace(/\D/g, '').trim() || null,
     };
   };
 
@@ -480,6 +486,29 @@ function ProfissionaisInner() {
                       className="w-full px-3 py-2.5 bg-white text-[13px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 hover:border-black/20 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all resize-none"
                     />
                   </div>
+                </Section>
+
+                {/* BirdID — assinatura digital */}
+                <Section title="Assinatura Digital (BirdID)" icon={<Fingerprint className="w-3.5 h-3.5" />}>
+                  <p className="text-[12px] text-zinc-500 -mt-1">
+                    CPF cadastrado no BirdID para assinatura digital de documentos médicos. Sem isso, documentos serão assinados manualmente.
+                  </p>
+                  <div className="relative">
+                    <FormInput
+                      placeholder="CPF (apenas números)"
+                      value={form.birdid_cpf}
+                      onChange={(v) => setField('birdid_cpf', v.replace(/\D/g, '').slice(0, 11))}
+                      inputMode="numeric"
+                    />
+                    {form.birdid_cpf.length === 11 && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Check className="w-4 h-4 text-emerald-500" />
+                      </div>
+                    )}
+                  </div>
+                  {form.birdid_cpf.length > 0 && form.birdid_cpf.length < 11 && (
+                    <p className="text-[11px] text-amber-600">CPF incompleto ({form.birdid_cpf.length}/11 dígitos)</p>
+                  )}
                 </Section>
 
                 {/* Calendar — criado automaticamente, sem campo manual */}
@@ -774,6 +803,11 @@ function DoctorCard({ doctor, onDelete, onEdit }: { doctor: Doctor; onDelete: (i
             >
               <Star className="w-3 h-3 fill-current" />
               Principal
+            </span>
+          )}
+          {doctor.birdid_cpf && (
+            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] font-semibold px-2 py-0.5 rounded text-blue-700 bg-blue-50">
+              <Fingerprint className="w-2.5 h-2.5" /> birdid
             </span>
           )}
           {doctor.calendar_id && (
