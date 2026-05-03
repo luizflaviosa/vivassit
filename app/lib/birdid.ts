@@ -1,83 +1,93 @@
 // app/lib/birdid.ts
 //
-// BirdID Pro API client (Soluti/VaultID CESS)
-// ICP-Brasil digital signature for medical documents.
+// BirdID integration via OTP (código do app do médico).
 //
-// Env vars: BIRDID_CLIENT_ID, BIRDID_CLIENT_SECRET, BIRDID_API_URL, BIRDID_CESS_URL
+// Fluxo:
+//   1. Médico tem app BirdID no celular → gera OTP a cada ~30s
+//   2. Na hora de assinar, médico digita o OTP no modal
+//   3. Backend autentica com BirdID ID + OTP → recebe access_token
+//   4. Usa o token pra criar sessão de assinatura no CESS (VaultID)
+//   5. Upload do PDF → assinatura ICP-Brasil
+//
+// Env vars (opcionais, com defaults de sandbox):
+//   BIRDID_API_URL  — auth endpoint (default: sandbox)
+//   BIRDID_CESS_URL — signing service (default: sandbox)
+//
+// Dados por médico (armazenados em tenant_doctors):
+//   birdid_account_id — ex: "c2a217b6e9"
 
-const API_URL = process.env.BIRDID_API_URL || 'https://api.birdid.com.br';
-const CESS_URL = process.env.BIRDID_CESS_URL || 'https://cess.vaultid.com.br';
-const CLIENT_ID = process.env.BIRDID_CLIENT_ID || '';
-const CLIENT_SECRET = process.env.BIRDID_CLIENT_SECRET || '';
+const API_URL = process.env.BIRDID_API_URL || 'https://apihom.birdid.com.br';
+const CESS_URL = process.env.BIRDID_CESS_URL || 'https://cesshom.vaultid.com.br';
 const WEBHOOK_BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://singulare.org';
 
 // ──────────────────────────────────────────────────────────────
-// 1. OAuth2 — get access token (client_credentials)
+// 1. Authenticate doctor via OTP (código do app BirdID)
 // ──────────────────────────────────────────────────────────────
 
-let cachedToken: { token: string; expiresAt: number } | null = null;
-
-export async function getBirdIdToken(): Promise<string> {
-  if (cachedToken && Date.now() < cachedToken.expiresAt) {
-    return cachedToken.token;
-  }
-
-  const res = await fetch(`${API_URL}/v0/oauth/client_token`, {
+export async function authenticateWithOTP(
+  accountId: string,
+  otp: string,
+): Promise<{ token: string; expiresIn: number }> {
+  const res = await fetch(`${API_URL}/v0/oauth/otp-auth`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      grant_type: 'client_credentials',
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
+      username: accountId,
+      otp,
+      lifetime: 600, // 10 min — enough for signing flow
     }),
   });
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`BirdID OAuth failed: ${res.status} — ${text}`);
+    // Try to parse error for better message
+    let errorMsg = `BirdID auth failed: ${res.status}`;
+    try {
+      const err = JSON.parse(text);
+      errorMsg = err.error_description || err.message || errorMsg;
+    } catch {
+      errorMsg += ` — ${text.slice(0, 200)}`;
+    }
+    throw new BirdIdError(errorMsg, 'AUTH_FAILED');
   }
 
   const data = await res.json();
-  cachedToken = {
+  return {
     token: data.access_token,
-    expiresAt: Date.now() + (data.expires_in - 60) * 1000, // 60s buffer
+    expiresIn: data.expires_in || 600,
   };
-
-  return data.access_token;
 }
 
 // ──────────────────────────────────────────────────────────────
-// 2. Start signing session — upload PDF and begin signature
+// 2. Start signing session + upload PDF
 // ──────────────────────────────────────────────────────────────
 
 export interface BirdIdSignRequest {
+  token: string;           // from authenticateWithOTP
+  accountId: string;       // certificate_alias (BirdID ID)
   pdfBuffer: Buffer;
   fileName: string;
-  signerCpf: string;       // Doctor's CPF (linked to BirdID account)
-  docId: number;           // Our document ID for webhook callback
-  reason?: string;         // e.g. "Assinatura de atestado médico"
-  location?: string;       // e.g. "São Paulo, SP"
+  docId: number;           // our document ID for webhook callback
+  reason?: string;
+  location?: string;
 }
 
 export interface BirdIdSignResponse {
   tcn: string;             // Transaction Control Number
-  certificateAlias: string;
   status: 'WAITING' | 'SIGNED' | 'ERROR';
 }
 
-export async function startSigningSession(req: BirdIdSignRequest): Promise<BirdIdSignResponse> {
-  const token = await getBirdIdToken();
-
+export async function signDocument(req: BirdIdSignRequest): Promise<BirdIdSignResponse> {
   // Step 1: Create signing session
   const sessionRes = await fetch(`${CESS_URL}/signature-service`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${req.token}`,
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
     body: JSON.stringify({
-      certificate_alias: req.signerCpf,
+      certificate_alias: req.accountId,
       type: 'PDFSignature',
       hash_algorithm: 'SHA256',
       auto_fix_document: true,
@@ -99,13 +109,13 @@ export async function startSigningSession(req: BirdIdSignRequest): Promise<BirdI
 
   if (!sessionRes.ok) {
     const text = await sessionRes.text();
-    throw new Error(`BirdID session failed: ${sessionRes.status} — ${text}`);
+    throw new BirdIdError(`CESS session failed: ${sessionRes.status} — ${text.slice(0, 300)}`, 'SESSION_FAILED');
   }
 
   const session = await sessionRes.json();
   const tcn = session.tcn;
 
-  // Step 2: Upload PDF document
+  // Step 2: Upload PDF
   const formData = new FormData();
   const blob = new Blob([req.pdfBuffer], { type: 'application/pdf' });
   formData.append('file', blob, req.fileName);
@@ -113,7 +123,7 @@ export async function startSigningSession(req: BirdIdSignRequest): Promise<BirdI
   const uploadRes = await fetch(`${CESS_URL}/file-transfer/${tcn}/eot/default`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${req.token}`,
       'Accept': 'application/json',
     },
     body: formData,
@@ -121,14 +131,10 @@ export async function startSigningSession(req: BirdIdSignRequest): Promise<BirdI
 
   if (!uploadRes.ok) {
     const text = await uploadRes.text();
-    throw new Error(`BirdID upload failed: ${uploadRes.status} — ${text}`);
+    throw new BirdIdError(`PDF upload failed: ${uploadRes.status} — ${text.slice(0, 300)}`, 'UPLOAD_FAILED');
   }
 
-  return {
-    tcn,
-    certificateAlias: session.certificate_alias || '',
-    status: 'WAITING',
-  };
+  return { tcn, status: 'WAITING' };
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -146,26 +152,21 @@ export interface BirdIdDocStatus {
   }>;
 }
 
-export async function getSigningStatus(tcn: string): Promise<BirdIdDocStatus> {
-  const token = await getBirdIdToken();
-
+export async function getSigningStatus(token: string, tcn: string): Promise<BirdIdDocStatus> {
   const res = await fetch(`${CESS_URL}/signature-service/${tcn}`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
   });
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`BirdID status failed: ${res.status} — ${text}`);
+    throw new BirdIdError(`Status check failed: ${res.status} — ${text.slice(0, 200)}`, 'STATUS_FAILED');
   }
 
   const data = await res.json();
-
-  // Determine overall status
   const docs = (data.documents || []).map((d: any) => ({
     id: d.id,
     originalFileName: d.original_file_name,
@@ -187,18 +188,14 @@ export async function getSigningStatus(tcn: string): Promise<BirdIdDocStatus> {
 // 4. Download signed PDF
 // ──────────────────────────────────────────────────────────────
 
-export async function downloadSignedPdf(tcn: string, docIndex: number = 0): Promise<Buffer> {
-  const token = await getBirdIdToken();
-
+export async function downloadSignedPdf(token: string, tcn: string, docIndex = 0): Promise<Buffer> {
   const res = await fetch(`${CESS_URL}/file-transfer/${tcn}/${docIndex}`, {
     method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    headers: { 'Authorization': `Bearer ${token}` },
   });
 
   if (!res.ok) {
-    throw new Error(`BirdID download failed: ${res.status}`);
+    throw new BirdIdError(`Download failed: ${res.status}`, 'DOWNLOAD_FAILED');
   }
 
   const arrayBuffer = await res.arrayBuffer();
@@ -206,9 +203,26 @@ export async function downloadSignedPdf(tcn: string, docIndex: number = 0): Prom
 }
 
 // ──────────────────────────────────────────────────────────────
-// 5. Check if BirdID is configured
+// 5. Error class + helpers
 // ──────────────────────────────────────────────────────────────
 
-export function isBirdIdConfigured(): boolean {
-  return !!(CLIENT_ID && CLIENT_SECRET);
+export type BirdIdErrorCode =
+  | 'AUTH_FAILED'
+  | 'SESSION_FAILED'
+  | 'UPLOAD_FAILED'
+  | 'STATUS_FAILED'
+  | 'DOWNLOAD_FAILED';
+
+export class BirdIdError extends Error {
+  code: BirdIdErrorCode;
+  constructor(message: string, code: BirdIdErrorCode) {
+    super(message);
+    this.name = 'BirdIdError';
+    this.code = code;
+  }
+}
+
+/** BirdID is available if the doctor has an account ID configured */
+export function isDoctorBirdIdReady(accountId: string | null | undefined): boolean {
+  return !!accountId?.trim();
 }

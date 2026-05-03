@@ -11,7 +11,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from('tenant_doctors')
     .select(
-      'id, doctor_name, doctor_crm, specialty, is_primary, status, consultation_value, payment_methods, working_hours, accepts_insurance, insurance_note, followup_value, followup_window_days, consultation_duration, contact_email, contact_phone, address, calendar_id, business_rules, birdid_cpf, created_at'
+      'id, doctor_name, doctor_crm, specialty, is_primary, status, consultation_value, payment_methods, working_hours, accepts_insurance, insurance_note, followup_value, followup_window_days, consultation_duration, contact_email, contact_phone, address, calendar_id, business_rules, birdid_account_id, created_at'
     )
     .eq('tenant_id', auth.ctx.tenant.tenant_id)
     .order('is_primary', { ascending: false })
@@ -52,7 +52,7 @@ interface DoctorInput {
   contact_phone?: string;
   address?: string;
   business_rules?: DoctorBusinessRules;
-  birdid_cpf?: string | null;
+  birdid_account_id?: string | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     contact_phone: body.contact_phone?.trim() || null,
     address: body.address?.trim() || null,
     business_rules: body.business_rules ?? {},
-    birdid_cpf: body.birdid_cpf?.replace(/\D/g, '').trim() || null,
+    birdid_account_id: body.birdid_account_id?.trim() || null,
   };
 
   const { data, error } = await supabase.from('tenant_doctors').insert(row).select('id').single();
@@ -187,7 +187,7 @@ interface DoctorPatch {
   insurance_note?: string | null;
   working_hours?: Record<string, string>;
   business_rules?: DoctorBusinessRules;
-  birdid_cpf?: string | null;
+  birdid_account_id?: string | null;
 }
 
 export async function PATCH(req: NextRequest) {
@@ -210,7 +210,7 @@ export async function PATCH(req: NextRequest) {
     'doctor_name', 'doctor_crm', 'specialty', 'consultation_value', 'consultation_duration',
     'payment_methods', 'contact_email', 'contact_phone', 'address', 'calendar_id',
     'followup_value', 'followup_window_days', 'followup_duration', 'accepts_insurance',
-    'insurance_note', 'working_hours', 'business_rules', 'birdid_cpf',
+    'insurance_note', 'working_hours', 'business_rules', 'birdid_account_id',
   ];
   for (const f of fields) {
     if (body[f] !== undefined) updates[f] = body[f];

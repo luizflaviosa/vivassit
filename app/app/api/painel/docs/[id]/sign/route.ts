@@ -1,4 +1,14 @@
 // app/app/api/painel/docs/[id]/sign/route.ts
+//
+// POST: sign document (draft|pending → signed)
+//
+// BirdID OTP flow:
+//   1. Frontend sends { otp: "123456" }
+//   2. Backend looks up doctor's birdid_account_id
+//   3. Authenticates with BirdID via OTP
+//   4. Generates PDF → creates CESS session → uploads → signs
+//
+// Manual fallback: if doctor has no BirdID account, marks as signed directly.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant, type MemberRole } from '@/lib/auth-tenant';
@@ -6,16 +16,17 @@ import { getDocument, updateDocument } from '@/lib/docs-queries';
 import { supabaseAdmin } from '@/lib/supabase';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { AptidaoFisicaPDF } from '@/lib/pdf/aptidao-fisica';
-import { isBirdIdConfigured, startSigningSession } from '@/lib/birdid';
+import {
+  authenticateWithOTP,
+  signDocument,
+  isDoctorBirdIdReady,
+  BirdIdError,
+} from '@/lib/birdid';
 import type { AptidaoFisicaForm } from '@/lib/docs-types';
 import React from 'react';
 
-// Only doctors and owners (who are also professionals) can sign
 const SIGN_ROLES: MemberRole[] = ['owner', 'doctor'];
 
-// POST: sign document (draft|pending → signed)
-// With BirdID: generates PDF → sends to BirdID → doctor approves on app → webhook updates status
-// Without BirdID: marks as signed immediately (MVP fallback)
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -40,7 +51,6 @@ export async function POST(
     return NextResponse.json({ success: false, message: 'Documento não encontrado' }, { status: 404 });
   }
 
-  // Allow signing from draft (Profile A: self-service) or pending (Profiles B/C)
   if (doc.status !== 'draft' && doc.status !== 'pending') {
     return NextResponse.json(
       { success: false, message: `Status atual é "${doc.status}", esperado "draft" ou "pending"` },
@@ -48,8 +58,9 @@ export async function POST(
     );
   }
 
-  // Check for rejection request
   const body = await req.json().catch(() => ({}));
+
+  // ── Rejection flow ──
   if (body.reject) {
     if (!body.rejection_note?.trim()) {
       return NextResponse.json(
@@ -65,7 +76,7 @@ export async function POST(
   }
 
   try {
-    // Generate PDF first
+    // ── Generate PDF ──
     let pdfBuffer: Buffer | null = null;
     if (doc.doc_type === 'aptidao_fisica') {
       const form = doc.form_data as unknown as AptidaoFisicaForm;
@@ -77,69 +88,95 @@ export async function POST(
       );
     }
 
-    // Try BirdID digital signature
-    if (isBirdIdConfigured() && pdfBuffer) {
-      // Auto-lookup doctor's BirdID CPF from tenant_doctors
-      let doctorCpf = body.signer_cpf?.replace(/\D/g, '') || ''; // Allow override from body
-      if (!doctorCpf && doc.doctor_id) {
-        const { data: doctorRow } = await supabaseAdmin()
+    // ── Look up doctor's BirdID account ──
+    let doctorAccountId: string | null = null;
+    if (doc.doctor_id) {
+      const { data: doctorRow } = await supabaseAdmin()
+        .from('tenant_doctors')
+        .select('birdid_account_id')
+        .eq('id', doc.doctor_id)
+        .maybeSingle();
+      doctorAccountId = doctorRow?.birdid_account_id || null;
+    }
+
+    // If first-time setup: save account_id from body
+    if (body.birdid_account_id && doc.doctor_id) {
+      const newId = body.birdid_account_id.trim();
+      if (newId) {
+        await supabaseAdmin()
           .from('tenant_doctors')
-          .select('birdid_cpf')
-          .eq('id', doc.doctor_id)
-          .maybeSingle();
-        doctorCpf = doctorRow?.birdid_cpf || '';
+          .update({ birdid_account_id: newId })
+          .eq('id', doc.doctor_id);
+        doctorAccountId = newId;
       }
-      if (!doctorCpf) {
+    }
+
+    // ── BirdID OTP signing ──
+    if (isDoctorBirdIdReady(doctorAccountId) && body.otp && pdfBuffer) {
+      const otp = String(body.otp).trim();
+      if (!otp || otp.length < 4) {
         return NextResponse.json(
-          { success: false, message: 'CPF do profissional não configurado. Informe o CPF BirdID para assinar digitalmente.', need_cpf: true },
+          { success: false, message: 'Código OTP inválido. Digite o código do app BirdID.' },
           { status: 400 }
         );
       }
 
-      // If caller asked to persist the CPF for future signings, save it now
-      if (body.save_cpf && doc.doctor_id && body.signer_cpf) {
-        await supabaseAdmin()
-          .from('tenant_doctors')
-          .update({ birdid_cpf: doctorCpf })
-          .eq('id', doc.doctor_id);
+      // Step 1: Authenticate with OTP
+      let token: string;
+      try {
+        const authResult = await authenticateWithOTP(doctorAccountId!, otp);
+        token = authResult.token;
+      } catch (e) {
+        const msg = e instanceof BirdIdError
+          ? `Falha na autenticação BirdID: ${e.message}`
+          : 'Erro ao conectar com BirdID. Verifique o código OTP e tente novamente.';
+        return NextResponse.json({ success: false, message: msg, error_code: 'AUTH_FAILED' }, { status: 401 });
       }
 
-      // Start BirdID signing session
-      const birdIdResult = await startSigningSession({
-        pdfBuffer,
-        fileName: `${doc.doc_type}-${doc.id}.pdf`,
-        signerCpf: doctorCpf,
-        docId: doc.id,
-        reason: 'Assinatura digital de documento médico',
-        location: auth.ctx.tenant.clinic_name || '',
-      });
+      // Step 2: Sign document
+      try {
+        const signResult = await signDocument({
+          token,
+          accountId: doctorAccountId!,
+          pdfBuffer,
+          fileName: `${doc.doc_type}-${doc.id}.pdf`,
+          docId: doc.id,
+          reason: 'Assinatura digital de documento médico',
+          location: auth.ctx.tenant.clinic_name || '',
+        });
 
-      // Update document — status stays draft/pending until webhook confirms
-      await updateDocument(auth.ctx.tenant.tenant_id, docId, {
-        submitted_at: new Date().toISOString(),
-      });
+        // Update document
+        await updateDocument(auth.ctx.tenant.tenant_id, docId, {
+          submitted_at: new Date().toISOString(),
+        });
 
-      // Store TCN for reference
-      await supabaseAdmin()
-        .from('medical_documents')
-        .update({
-          form_data: {
-            ...doc.form_data as object,
-            _birdid_tcn: birdIdResult.tcn,
-          },
-        })
-        .eq('id', docId);
+        // Store TCN for tracking
+        await supabaseAdmin()
+          .from('medical_documents')
+          .update({
+            form_data: {
+              ...doc.form_data as object,
+              _birdid_tcn: signResult.tcn,
+            },
+          })
+          .eq('id', docId);
 
-      return NextResponse.json({
-        success: true,
-        signing_method: 'birdid',
-        message: 'Assinatura enviada para o BirdID. Autorize no app BirdID.',
-        tcn: birdIdResult.tcn,
-      });
+        return NextResponse.json({
+          success: true,
+          signing_method: 'birdid',
+          message: 'Documento assinado digitalmente via BirdID!',
+          tcn: signResult.tcn,
+        });
+      } catch (e) {
+        const msg = e instanceof BirdIdError
+          ? `Falha na assinatura: ${e.message}`
+          : 'Erro ao assinar via BirdID.';
+        console.error('[sign] BirdID signing error:', e);
+        return NextResponse.json({ success: false, message: msg, error_code: 'SIGN_FAILED' }, { status: 500 });
+      }
     }
 
-    // Fallback: sign without BirdID (MVP mode)
-    // Store unsigned PDF in storage
+    // ── Manual fallback (no BirdID or no OTP) ──
     if (pdfBuffer) {
       const storagePath = `docs/${docId}.pdf`;
       await supabaseAdmin()
