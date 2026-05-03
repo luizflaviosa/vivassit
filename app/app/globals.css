@@ -45,6 +45,35 @@
   }
 }
 
+/* ─── Painel section backgrounds ─────────────────────── */
+/*
+ * Each section group gets a very subtle background tint (~4% saturation).
+ * CSS custom property --painel-bg is set via data-group on the root element.
+ * Dark mode tokens are defined here so enabling dark mode is a 1-line change
+ * (add `dark` class to <html> and swap media query to .dark selector).
+ */
+:root {
+  --painel-bg: #FAFAF7;
+}
+[data-group="daily"]        { --painel-bg: #F3F7FF; }
+[data-group="consultation"] { --painel-bg: #F3FBF5; }
+[data-group="clinic"]       { --painel-bg: #FAF8F3; }
+[data-group="growth"]       { --painel-bg: #FBF3F6; }
+
+@media (prefers-color-scheme: dark) {
+  :root                       { --painel-bg: #0F0F0E; }
+  [data-group="daily"]        { --painel-bg: #0B0D18; }
+  [data-group="consultation"] { --painel-bg: #0B1410; }
+  [data-group="clinic"]       { --painel-bg: #130F0B; }
+  [data-group="growth"]       { --painel-bg: #14090D; }
+}
+
+.painel-root {
+  background-color: var(--painel-bg);
+  transition: background-color 0.45s ease;
+  min-height: 100vh;
+}
+
 /* ─── Page Background ──────────────────────────────── */
 .gradient-bg {
   background-color: #F6F5FF;
