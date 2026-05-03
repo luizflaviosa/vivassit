@@ -104,12 +104,11 @@ function AtendimentoInner() {
             />
 
             <motion.div
-              className="fixed z-50 flex flex-col bg-white"
+              className="fixed z-50 overflow-hidden bg-white"
               style={{
                 inset: '12px',
                 borderRadius: '16px',
                 boxShadow: '0 32px 80px -20px rgba(0,0,0,0.35)',
-                overflow: 'hidden',
               }}
               initial={{ opacity: 0, scale: 0.97, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -120,19 +119,24 @@ function AtendimentoInner() {
                 src={chatwootUrl}
                 title="Atendimento Chatwoot"
                 sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
-                style={{ flex: 1, minHeight: 0, width: '100%', border: 'none', display: 'block' }}
+                style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
               />
 
-              {/* Barra abaixo do iframe — fora da área de captura de eventos */}
-              <div className="flex-shrink-0 flex items-center justify-end px-3 h-9 border-t border-black/[0.05] bg-zinc-50/80">
+              {/* pointer-events-none no container — só o botão captura eventos */}
+              <div className="absolute inset-0 pointer-events-none flex items-end justify-center pb-5">
                 <motion.button
                   type="button"
                   onClick={() => setFullscreen(false)}
-                  className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] font-medium text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200/60 transition-colors"
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.96 }}
+                  className="pointer-events-auto inline-flex items-center gap-1.5 h-8 px-4 rounded-full text-[12px] font-medium text-zinc-700"
+                  style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(10px)', boxShadow: '0 2px 16px rgba(0,0,0,0.14)' }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ delay: 0.2 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  <Minimize2 className="w-3 h-3" />
+                  <Minimize2 className="w-3.5 h-3.5" />
                   Minimizar
                 </motion.button>
               </div>
