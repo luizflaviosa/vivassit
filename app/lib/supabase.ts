@@ -40,3 +40,6 @@ export const ADDON_HUMAN_SUPPORT_PRICE = 297;
 
 // Trial padrao (em dias)
 export const TRIAL_DAYS = 7;
+
+// Marketing add-on pricing
+export { MARKETING_PLAN_AMOUNTS } from './marketing-types';
