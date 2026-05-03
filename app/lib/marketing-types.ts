@@ -46,7 +46,7 @@ export interface MarketingSubscription {
 export interface VitrineProfile {
   id: number;
   tenant_id: string;
-  doctor_id: number | null;
+  doctor_id: string | null; // uuid
   slug: string;
   display_name: string;
   professional_type: string;

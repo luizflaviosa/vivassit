@@ -22,9 +22,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false },
 });
 
-// CSV source: DataSUS CID-10 subcategories
-const CSV_URL =
-  'https://raw.githubusercontent.com/cleytonferrari/CidDataSus/master/CidDataSus/Data/CID-10-SUBCATEGORIAS.CSV';
+// SQL source: CID-10 subcategories from lucasrafagnin/CID10-SQL
+const SQL_URL =
+  'https://raw.githubusercontent.com/lucasrafagnin/CID10-SQL/master/subcategoria.sql';
 
 // CID chapters by first letter range
 function getChapter(code: string): string {
@@ -54,23 +54,18 @@ function formatCode(raw: string): string {
 }
 
 async function main() {
-  console.log('Downloading CID-10 CSV from GitHub...');
-  const res = await fetch(CSV_URL);
+  console.log('Downloading CID-10 SQL from GitHub...');
+  const res = await fetch(SQL_URL);
   if (!res.ok) {
     console.error(`Failed to download: ${res.status} ${res.statusText}`);
     process.exit(1);
   }
 
   const text = await res.text();
-  const lines = text.split('\n').filter((l) => l.trim().length > 0);
+  const lines = text.split('\n').filter((l) => l.includes('VALUES'));
+  console.log(`Parsed ${lines.length} CID-10 subcategories`);
 
-  // Skip header line
-  const header = lines[0];
-  console.log(`Header: ${header}`);
-  const rows = lines.slice(1);
-  console.log(`Parsed ${rows.length} CID-10 subcategories`);
-
-  // Parse CSV (semicolon-separated)
+  // Parse SQL INSERT statements
   const records: Array<{
     code: string;
     name: string;
@@ -78,21 +73,16 @@ async function main() {
     chapter: string;
   }> = [];
 
-  for (const line of rows) {
-    const parts = line.split(';');
-    if (parts.length < 2) continue;
+  const regex = /VALUES \('([^']+)','([^']*)'\)/;
+  for (const line of lines) {
+    const m = line.match(regex);
+    if (!m) continue;
 
-    const rawCode = parts[0].trim();
-    const name = parts[1].trim();
-    const nameShort = parts[2]?.trim() || null;
-
-    if (!rawCode || !name) continue;
-
-    const code = formatCode(rawCode);
+    const code = formatCode(m[1].trim());
     records.push({
       code,
-      name,
-      name_short: nameShort,
+      name: m[2].trim(),
+      name_short: null,
       chapter: getChapter(code),
     });
   }

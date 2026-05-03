@@ -101,7 +101,7 @@ export interface MedicalDocument {
   id: number;
   tenant_id: string;
   patient_id: number;
-  doctor_id: number | null;
+  doctor_id: string | null; // uuid
   created_by_user: string | null;
   signed_by_user: string | null;
   doc_type: DocTypeKey;

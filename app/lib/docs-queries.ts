@@ -110,7 +110,7 @@ export async function upsertPatientClinical(
 export async function createDocument(params: {
   tenant_id: string;
   patient_id: number;
-  doctor_id: number;
+  doctor_id: string; // uuid
   created_by_user: string;
   doc_type: DocTypeKey;
   form_data: Record<string, unknown>;
@@ -135,7 +135,7 @@ export async function createDocument(params: {
 
 export async function listDocuments(
   tenantId: string,
-  filters?: { status?: DocStatus; doc_type?: DocTypeKey; doctor_id?: number }
+  filters?: { status?: DocStatus; doc_type?: DocTypeKey; doctor_id?: string }
 ) {
   let query = sb()
     .from('medical_documents')

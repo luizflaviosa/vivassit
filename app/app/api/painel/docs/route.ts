@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     const docs = await listDocuments(auth.ctx.tenant.tenant_id, {
       status: status ?? undefined,
       doc_type: docType ?? undefined,
-      doctor_id: doctorId ? parseInt(doctorId, 10) : undefined,
+      doctor_id: doctorId ?? undefined,
     });
 
     // Enrich with patient name
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
   let body: {
     patient_id: number;
-    doctor_id: number;
+    doctor_id: string; // uuid
     doc_type: DocTypeKey;
     form_data: Record<string, unknown>;
   };

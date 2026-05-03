@@ -7,7 +7,7 @@ BEGIN;
 -- 1. Marketing subscriptions per tenant
 CREATE TABLE IF NOT EXISTS public.marketing_subscriptions (
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  tenant_id     uuid NOT NULL REFERENCES public.tenants(tenant_id) ON DELETE CASCADE,
+  tenant_id     varchar NOT NULL REFERENCES public.tenants(tenant_id) ON DELETE CASCADE,
   plan          text NOT NULL CHECK (plan IN ('presenca', 'social', 'ads')),
   status        text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'cancelled', 'trial')),
   started_at    timestamptz NOT NULL DEFAULT now(),
@@ -54,7 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_mktevents_tenant_type
 CREATE TABLE IF NOT EXISTS public.vitrine_profiles (
   id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tenant_id       uuid NOT NULL REFERENCES public.tenants(tenant_id) ON DELETE CASCADE,
-  doctor_id       bigint REFERENCES public.tenant_doctors(id),
+  doctor_id       uuid REFERENCES public.tenant_doctors(id),
   slug            text NOT NULL UNIQUE,  -- 'dr-joao-silva-dermatologista-campinas'
   display_name    text NOT NULL,
   professional_type text NOT NULL,       -- key from PROFESSIONAL_TYPES

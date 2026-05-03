@@ -31,7 +31,7 @@ interface PatientLite {
 }
 
 interface DoctorLite {
-  id: number;
+  id: string; // uuid
   doctor_name: string;
   doctor_crm: string;
   specialty: string;
@@ -267,7 +267,7 @@ export default function NovoDocPage() {
               <label className="block text-[13px] font-medium text-zinc-700 mb-2">Profissional responsável</label>
               <select
                 value={selectedDoctor?.id ?? ''}
-                onChange={(e) => setSelectedDoctor(doctors.find((d) => d.id === parseInt(e.target.value)) ?? null)}
+                onChange={(e) => setSelectedDoctor(doctors.find((d) => d.id === e.target.value) ?? null)}
                 className="w-full h-11 px-3 bg-white text-[15px] rounded-lg border border-black/10 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06]"
               >
                 <option value="">Selecionar...</option>

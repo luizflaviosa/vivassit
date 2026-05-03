@@ -22,23 +22,19 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false },
 });
 
-// TUSS table 22 JSON from charlesfgarcia/tabelas-ans
+// TUSS table 22 JSON from charlesfgarcia/tabelas-ans (master branch)
 const TABLES_TO_IMPORT = [
   {
     tableNumber: 22,
-    url: 'https://raw.githubusercontent.com/charlesfgarcia/tabelas-ans/main/Tabela22.json',
+    url: 'https://raw.githubusercontent.com/charlesfgarcia/tabelas-ans/master/TUSS/tabela%2022/tabela_22.json',
     label: 'Procedimentos e eventos em saúde',
-  },
-  {
-    tableNumber: 98,
-    url: 'https://raw.githubusercontent.com/charlesfgarcia/tabelas-ans/main/Tabela98.json',
-    label: 'Tipo de consulta',
   },
 ];
 
 interface TUSSJsonEntry {
-  codigo: string;
-  termo: string;
+  codigo: number | string;
+  procedimento?: string;
+  termo?: string;
   dt_inicio_vigencia?: string;
   dt_fim_vigencia?: string | null;
   dt_implantacao?: string;
@@ -54,12 +50,14 @@ async function importTable(tableNumber: number, url: string, label: string) {
     return 0;
   }
 
-  const entries: TUSSJsonEntry[] = await res.json();
+  const raw = await res.json();
+  // Handle both array format and {table, rows} wrapper format
+  const entries: TUSSJsonEntry[] = Array.isArray(raw) ? raw : raw.rows ?? [];
   console.log(`  Parsed ${entries.length} entries`);
 
   const records = entries.map((e) => ({
-    code: e.codigo,
-    name: e.termo,
+    code: String(e.codigo),
+    name: e.procedimento ?? e.termo ?? '',
     table_number: tableNumber,
     valid_from: e.dt_inicio_vigencia || null,
     valid_until: e.dt_fim_vigencia || null,

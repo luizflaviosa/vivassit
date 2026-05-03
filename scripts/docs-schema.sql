@@ -37,7 +37,7 @@ CREATE INDEX IF NOT EXISTS idx_tuss_search
 
 CREATE TABLE IF NOT EXISTS public.patient_clinical_data (
   id                    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  tenant_id             uuid NOT NULL REFERENCES public.tenants(tenant_id) ON DELETE CASCADE,
+  tenant_id             varchar NOT NULL REFERENCES public.tenants(tenant_id) ON DELETE CASCADE,
   patient_id            bigint NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
 
   -- Personal data (complementary to patients table)
@@ -80,9 +80,9 @@ CREATE INDEX IF NOT EXISTS idx_clinical_lookup
 
 CREATE TABLE IF NOT EXISTS public.medical_documents (
   id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  tenant_id           uuid NOT NULL REFERENCES public.tenants(tenant_id) ON DELETE CASCADE,
+  tenant_id           varchar NOT NULL REFERENCES public.tenants(tenant_id) ON DELETE CASCADE,
   patient_id          bigint NOT NULL REFERENCES public.patients(id),
-  doctor_id           bigint REFERENCES public.tenant_doctors(id),
+  doctor_id           uuid REFERENCES public.tenant_doctors(id),
 
   -- Who did what
   created_by_user     uuid REFERENCES auth.users(id),
