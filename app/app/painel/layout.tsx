@@ -177,7 +177,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
       const active = isActive(item);
       const base = mobile
         ? `group flex items-center gap-3 px-3 py-3 rounded-lg text-[14px] font-medium transition-all min-h-[44px]`
-        : `group flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-all`;
+        : `group flex items-center gap-2 px-2.5 h-8 rounded-md text-[13px] font-medium transition-colors`;
       return item.enabled ? (
         <Link
           key={item.href}
@@ -216,16 +216,16 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
 
   const renderSections = (mobile = false) =>
     navSections.map((section, i) => (
-      <div key={i} className={section.label ? 'mt-4 first:mt-0' : ''}>
+      <div key={i} className={section.label ? 'mt-6 first:mt-0' : ''}>
         {section.label && (
           <p
-            className="px-3 pb-1 text-[10px] uppercase tracking-[0.12em] font-semibold select-none transition-colors duration-500"
+            className="px-2.5 mb-1 text-[10px] uppercase tracking-[0.1em] font-semibold select-none"
             style={{ color: 'var(--sg-label)' }}
           >
             {section.label}
           </p>
         )}
-        <div className="space-y-0.5">
+        <div className="space-y-px">
           {renderNavItems(section.items, mobile)}
         </div>
       </div>
@@ -286,7 +286,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
         </header>
 
         <div className="max-w-7xl mx-auto flex gap-0 sm:gap-6 px-0 sm:px-6">
-          <aside className="hidden md:block w-60 flex-shrink-0 py-8 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-black/[0.05] dark:border-white/[0.05]" style={{ borderRightColor: 'color-mix(in srgb, var(--sg-active-bg) 60%, transparent)' }}>
+          <aside className="hidden md:block w-56 flex-shrink-0 py-6 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-zinc-100 dark:border-white/[0.06]">
             <nav className="space-y-0">
               {renderSections(false)}
             </nav>
@@ -333,9 +333,8 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
             )}
           </AnimatePresence>
 
-          <main className="flex-1 min-w-0 px-4 sm:px-0 py-6 sm:py-8 pb-20 relative">
-            <div className="painel-glow absolute inset-x-0 top-0 h-56 -z-0" aria-hidden />
-            <div className="relative z-10">{children}</div>
+          <main className="flex-1 min-w-0 px-4 sm:px-0 py-6 sm:py-8 pb-20">
+            {children}
           </main>
         </div>
 
