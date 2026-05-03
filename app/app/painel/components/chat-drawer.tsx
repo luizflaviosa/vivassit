@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, ArrowUp, Mic, MicOff, Bot, Sparkles, Loader2, Trash2 } from 'lucide-react';
+import { MessageCircle, X, ArrowUp, Mic, MicOff, Bot, Sparkles, Loader2, Trash2, Bell, BellOff } from 'lucide-react';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -46,7 +46,9 @@ export default function ChatDrawer() {
   const [streaming, setStreaming] = useState(false);
   const [recording, setRecording] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission>('default');
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const openRef = useRef(false);
   const [capabilities, setCapabilities] = useState<string>('');
   const [clinicName, setClinicName] = useState<string>('');
 
@@ -65,6 +67,16 @@ export default function ChatDrawer() {
       }
     } catch {
       // ignore
+    }
+  }, []);
+
+  // Sincroniza ref com state (evita stale closure no send callback)
+  useEffect(() => { openRef.current = open; }, [open]);
+
+  // Permissão de notificação atual
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotifPerm(Notification.permission);
     }
   }, []);
 
@@ -206,10 +218,19 @@ export default function ChatDrawer() {
         console.error('[chat] erro:', e);
       } finally {
         setStreaming(false);
-        if (!open) setUnread((u) => u + 1);
+        if (!openRef.current) {
+          setUnread((u) => u + 1);
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            new Notification('Singulare IA', {
+              body: acc.slice(0, 120),
+              icon: '/icon-192.png',
+              tag: 'singulare-chat',
+            });
+          }
+        }
       }
     },
-    [streaming, messages, open]
+    [streaming, messages]
   );
 
   const updateAiMsg = (id: string, text: string) => {
@@ -300,7 +321,7 @@ export default function ChatDrawer() {
           >
             <MessageCircle className="w-6 h-6" />
             {unread > 0 && (
-              <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 rounded-full bg-rose-500 text-white text-[11px] font-semibold flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
                 {unread}
               </span>
             )}
@@ -320,7 +341,7 @@ export default function ChatDrawer() {
             <Sparkles className="w-3.5 h-3.5" />
             <span className="text-[13px] font-semibold">Falar com a IA</span>
             {unread > 0 && (
-              <span className="ml-1 h-5 min-w-[20px] px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-semibold flex items-center justify-center">
+              <span className="ml-1 h-4 min-w-[16px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
                 {unread}
               </span>
             )}
@@ -385,6 +406,21 @@ export default function ChatDrawer() {
                 </div>
 
                 <div className="flex items-center gap-0.5 flex-shrink-0">
+                  {'Notification' in (typeof window !== 'undefined' ? window : {}) && notifPerm !== 'denied' && (
+                    <button
+                      onClick={async () => {
+                        const perm = await Notification.requestPermission();
+                        setNotifPerm(perm);
+                      }}
+                      className="h-10 w-10 rounded-full hover:bg-black/[0.04] inline-flex items-center justify-center text-zinc-500 hover:text-zinc-900"
+                      aria-label={notifPerm === 'granted' ? 'Notificações ativas' : 'Ativar notificações'}
+                      title={notifPerm === 'granted' ? 'Notificações ativas' : 'Ativar notificações'}
+                    >
+                      {notifPerm === 'granted'
+                        ? <Bell className="w-4 h-4 text-violet-500" />
+                        : <BellOff className="w-4 h-4" />}
+                    </button>
+                  )}
                   {messages.length > 0 && (
                     <button
                       onClick={clear}
