@@ -36,7 +36,7 @@ export async function GET(
           React.createElement(AptidaoFisicaPDF, {
             form,
             clinicName: auth.ctx.tenant.clinic_name,
-          })
+          }) as any // eslint-disable-line @typescript-eslint/no-explicit-any
         );
         break;
       }
