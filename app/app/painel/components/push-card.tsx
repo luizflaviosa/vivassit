@@ -7,15 +7,14 @@ import { detectPushStatus, subscribePush, unsubscribePush, type PushStatus } fro
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
-const ACCENT_SOFT = '#F5F3FF';
 
 const NOTIF_TYPES = [
-  { icon: '👤', label: 'Novo paciente no WhatsApp' },
-  { icon: '📅', label: 'Consulta agendada ou cancelada' },
-  { icon: '💸', label: 'Pagamento confirmado ou atrasado' },
-  { icon: '⭐', label: 'NPS ou avaliação recebida' },
-  { icon: '🆘', label: 'IA pediu sua intervenção' },
-  { icon: '🌅', label: 'Resumo da agenda (manhã)' },
+  { icon: '👤', label: 'Novo paciente' },
+  { icon: '📅', label: 'Agenda' },
+  { icon: '💸', label: 'Pagamento' },
+  { icon: '⭐', label: 'NPS' },
+  { icon: '🆘', label: 'Intervenção IA' },
+  { icon: '🌅', label: 'Resumo diário' },
 ];
 
 export default function PushCard() {
@@ -57,30 +56,25 @@ export default function PushCard() {
 
   if (status === 'ios-needs-pwa') {
     return (
-      <div className="rounded-2xl border border-violet-200/60 bg-gradient-to-br from-violet-50/40 via-white to-white p-5">
-        <div className="flex items-start gap-3">
-          <div className="h-9 w-9 rounded-lg inline-flex items-center justify-center text-white flex-shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}>
-            <Smartphone className="w-4 h-4" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-[15px] font-semibold text-zinc-900">Instale o app pra receber notificações</h3>
-            <p className="text-[13px] text-zinc-500 mt-0.5 leading-relaxed">
-              No iPhone, o Safari só envia notificações quando o Singulare está instalado na Tela de Início.
-            </p>
-            <ol className="mt-3 space-y-2 text-[12.5px] text-zinc-700">
-              {[
-                <span key="1">Toque em <span className="inline-flex items-center gap-1 font-medium text-zinc-900"><Share className="w-3.5 h-3.5" />Compartilhar</span> na barra do Safari.</span>,
-                <span key="2">Toque em <span className="inline-flex items-center gap-1 font-medium text-zinc-900"><Plus className="w-3.5 h-3.5" />Adicionar à Tela de Início</span>.</span>,
-                <span key="3">Abra pelo ícone e ative as notificações aqui.</span>,
-              ].map((step, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 font-semibold text-[11px]">{i + 1}</span>
-                  {step}
-                </li>
-              ))}
-            </ol>
-            <p className="text-[11.5px] text-zinc-400 mt-3">Requer iOS/iPadOS 16.4 ou superior.</p>
-          </div>
+      <div className="rounded-xl border border-violet-200/60 bg-violet-50/30 p-4 flex items-start gap-3">
+        <div className="h-8 w-8 rounded-lg inline-flex items-center justify-center text-white flex-shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}>
+          <Smartphone className="w-3.5 h-3.5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-semibold text-zinc-900">Instale o app para notificações</p>
+          <ol className="mt-2 space-y-1.5 text-[12px] text-zinc-600">
+            {[
+              <span key="1">Toque em <Share className="w-3 h-3 inline" /> <b>Compartilhar</b> no Safari</span>,
+              <span key="2">Toque em <Plus className="w-3 h-3 inline" /> <b>Adicionar à Tela de Início</b></span>,
+              <span key="3">Abra pelo ícone e ative aqui</span>,
+            ].map((s, i) => (
+              <li key={i} className="flex items-start gap-1.5">
+                <span className="inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 font-bold text-[10px] mt-0.5">{i + 1}</span>
+                {s}
+              </li>
+            ))}
+          </ol>
+          <p className="text-[11px] text-zinc-400 mt-2">Requer iOS 16.4+</p>
         </div>
       </div>
     );
@@ -88,28 +82,18 @@ export default function PushCard() {
 
   if (status === 'unsupported') {
     return (
-      <div className="rounded-2xl border border-black/[0.06] bg-white p-5 flex items-start gap-3">
-        <div className="h-9 w-9 rounded-lg bg-zinc-100 inline-flex items-center justify-center text-zinc-400 flex-shrink-0">
-          <BellOff className="w-4 h-4" />
-        </div>
-        <div>
-          <h3 className="text-[14px] font-semibold text-zinc-900">Notificações não suportadas</h3>
-          <p className="text-[13px] text-zinc-500 mt-0.5">Abra o Singulare no Chrome, Edge, Firefox ou Safari para ativar.</p>
-        </div>
+      <div className="rounded-xl border border-black/[0.06] bg-white p-4 flex items-center gap-3">
+        <BellOff className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+        <p className="text-[12.5px] text-zinc-500">Navegador não suporta notificações. Use Chrome, Edge ou Safari.</p>
       </div>
     );
   }
 
   if (status === 'denied') {
     return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50/40 p-5 flex items-start gap-3">
-        <div className="h-9 w-9 rounded-lg bg-rose-100 inline-flex items-center justify-center text-rose-500 flex-shrink-0">
-          <BellOff className="w-4 h-4" />
-        </div>
-        <div>
-          <h3 className="text-[14px] font-semibold text-rose-900">Notificações bloqueadas</h3>
-          <p className="text-[13px] text-rose-700/80 mt-0.5">Libere pelo cadeado ao lado da URL → Notificações → Permitir.</p>
-        </div>
+      <div className="rounded-xl border border-rose-200 bg-rose-50/40 p-4 flex items-center gap-3">
+        <BellOff className="w-4 h-4 text-rose-400 flex-shrink-0" />
+        <p className="text-[12.5px] text-rose-700">Notificações bloqueadas. Libere pelo cadeado na barra de URL.</p>
       </div>
     );
   }
@@ -118,75 +102,64 @@ export default function PushCard() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl border border-black/[0.07] bg-white overflow-hidden"
+      className="rounded-xl border border-black/[0.07] bg-white"
       style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-black/[0.06]">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg inline-flex items-center justify-center text-white flex-shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}>
-            <Bell className="w-3.5 h-3.5" />
-          </div>
-          <div>
-            <p className="text-[14px] font-semibold text-zinc-900 leading-tight">Notificações</p>
-            <p className="text-[12px] text-zinc-400 leading-tight">Alertas no celular ou desktop</p>
-          </div>
+      {/* Header linha única */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-black/[0.05]">
+        <div className="h-7 w-7 rounded-md inline-flex items-center justify-center text-white flex-shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}>
+          <Bell className="w-3.5 h-3.5" />
         </div>
+        <p className="flex-1 text-[13.5px] font-semibold text-zinc-900">Notificações</p>
 
-        {/* Toggle on/off */}
+        {/* Toggle */}
         <button
           type="button"
           onClick={isOn ? disable : enable}
           disabled={loading || (!isOn && !vapid)}
-          className="relative flex-shrink-0 h-6 w-11 rounded-full transition-colors duration-200 disabled:opacity-50 focus:outline-none"
-          style={{ background: isOn ? ACCENT : '#E4E4E7' }}
-          aria-label={isOn ? 'Desativar notificações' : 'Ativar notificações'}
+          className="relative h-5 w-9 rounded-full transition-colors duration-200 disabled:opacity-40 flex-shrink-0"
+          style={{ background: isOn ? ACCENT : '#D4D4D8' }}
+          aria-label={isOn ? 'Desativar' : 'Ativar'}
         >
           <span
-            className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200"
-            style={{ transform: isOn ? 'translateX(20px)' : 'translateX(0)' }}
+            className="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200"
+            style={{ transform: isOn ? 'translateX(16px)' : 'translateX(0)' }}
           />
-          {loading && <Loader2 className="absolute inset-0 m-auto w-3 h-3 text-white animate-spin" />}
+          {loading && <Loader2 className="absolute inset-0 m-auto w-2.5 h-2.5 text-white animate-spin" />}
         </button>
       </div>
 
-      {/* Tipos em grid 2 colunas */}
-      <div className="px-5 py-4 grid grid-cols-2 gap-x-4 gap-y-2.5">
+      {/* Tipos em linha — chips compactos */}
+      <div className="px-4 py-3 flex flex-wrap gap-1.5">
         {NOTIF_TYPES.map((it) => (
-          <div key={it.label} className="flex items-center gap-2 text-[12.5px] text-zinc-600">
-            <span className="text-[15px] leading-none flex-shrink-0">{it.icon}</span>
-            <span className="leading-snug">{it.label}</span>
-          </div>
+          <span
+            key={it.label}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11.5px] text-zinc-600 border border-black/[0.07] bg-zinc-50"
+          >
+            <span className="text-[12px]">{it.icon}</span>
+            {it.label}
+          </span>
         ))}
       </div>
 
-      {/* Footer com status + botão testar */}
-      <div className="flex items-center justify-between px-5 py-3 border-t border-black/[0.05] bg-zinc-50/60">
-        {isOn ? (
-          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium" style={{ color: ACCENT_DEEP }}>
-            <Check className="w-3.5 h-3.5" /> Ativadas
+      {/* Footer */}
+      {isOn && (
+        <div className="flex items-center justify-between px-4 py-2 border-t border-black/[0.05] bg-zinc-50/60">
+          <span className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: ACCENT_DEEP }}>
+            <Check className="w-3 h-3" /> Ativas
           </span>
-        ) : (
-          <span className="text-[12px] text-zinc-400">Desativadas</span>
-        )}
-
-        {isOn && (
           <button
             type="button"
             onClick={test}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[12px] font-medium text-zinc-600 border border-black/[0.08] bg-white hover:bg-zinc-50 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1 h-6 px-2.5 rounded-md text-[11.5px] font-medium text-zinc-600 border border-black/[0.08] bg-white hover:bg-zinc-50 transition-colors disabled:opacity-50"
           >
             {sentTest ? <><Check className="w-3 h-3 text-emerald-500" /> Enviada</> : <><Send className="w-3 h-3" /> Testar</>}
           </button>
-        )}
-
-        {!vapid && (
-          <span className="text-[11px] text-zinc-400">Push não configurado no servidor.</span>
-        )}
-      </div>
+        </div>
+      )}
     </motion.div>
   );
 }
