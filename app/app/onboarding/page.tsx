@@ -37,6 +37,7 @@ import {
   Plus,
   X,
 } from 'lucide-react';
+import { WhatsAppConnect } from './components/WhatsAppConnect';
 import {
   OnboardingData,
   ValueBlock,
@@ -399,6 +400,10 @@ interface SuccessData {
   calendar_link?: string | null;
   telegram_link?: string | null;
   whatsapp_pairing_code?: string | null;
+  evolution_qr_code?: string | null;
+  evolution_qr_string?: string | null;
+  evolution_phone_number?: string | null;
+  evolution_instance_name?: string | null;
   drive_link?: string | null;
   automation_status?: string | null;
 }
@@ -569,8 +574,25 @@ function SuccessScreen({ data }: { data: SuccessData }) {
           </ul>
         </motion.div>
 
+        {/* WhatsApp connection (pair code default, QR fallback, polling) */}
+        {(data.whatsapp_pairing_code || data.evolution_qr_code) && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.55, duration: 0.5 }}
+            className="mt-8"
+          >
+            <WhatsAppConnect
+              tenantId={data.tenant_id}
+              qrCodeBase64={data.evolution_qr_code}
+              pairingCode={data.whatsapp_pairing_code}
+              phoneNumber={data.evolution_phone_number}
+            />
+          </motion.div>
+        )}
+
         {/* Access links */}
-        {(data.calendar_link || data.telegram_link || data.whatsapp_pairing_code || data.drive_link) && (
+        {(data.calendar_link || data.telegram_link || data.drive_link) && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -601,22 +623,6 @@ function SuccessScreen({ data }: { data: SuccessData }) {
                   icon={<HardDrive className="w-4 h-4" strokeWidth={1.75} />}
                   label="Google Drive da clínica"
                 />
-              )}
-              {data.whatsapp_pairing_code && (
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <div
-                    className="h-7 w-7 rounded-md flex items-center justify-center text-emerald-700 flex-shrink-0"
-                    style={{ background: '#ECFDF5' }}
-                  >
-                    <Phone className="w-4 h-4" strokeWidth={1.75} />
-                  </div>
-                  <div className="text-[14px] text-zinc-700">
-                    Código WhatsApp:{' '}
-                    <code className="font-mono font-semibold text-emerald-700">
-                      {data.whatsapp_pairing_code}
-                    </code>
-                  </div>
-                </div>
               )}
             </div>
           </motion.div>

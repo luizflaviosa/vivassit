@@ -444,6 +444,8 @@ export async function POST(request: NextRequest) {
           if (typeof sum.evolution_instance_id === 'string') updates.evolution_instance_id = sum.evolution_instance_id;
           if (typeof sum.evolution_status === 'string') updates.evolution_status = sum.evolution_status;
           if (typeof sum.evolution_qr_code === 'string') updates.evolution_qr_code = sum.evolution_qr_code;
+          if (typeof sum.evolution_qr_string === 'string') updates.evolution_qr_string = sum.evolution_qr_string;
+          if (typeof sum.whatsapp_pairing_code === 'string') updates.evolution_pairing_code = sum.whatsapp_pairing_code;
           if (typeof sum.telegram_bot_link === 'string') updates.telegram_bot_link = sum.telegram_bot_link;
           if (typeof sum.telegram_chat_id === 'string') updates.telegram_chat_id = sum.telegram_chat_id;
           if (typeof sum.chatwoot_account_id === 'string') updates.chatwoot_account_id = sum.chatwoot_account_id;
@@ -512,6 +514,10 @@ export async function POST(request: NextRequest) {
         calendar_link: n8nSummary?.calendar_access_link ?? null,
         telegram_link: n8nSummary?.telegram_bot_link ?? null,
         whatsapp_pairing_code: n8nSummary?.whatsapp_pairing_code ?? null,
+        evolution_qr_code: n8nSummary?.evolution_qr_code ?? null,
+        evolution_qr_string: n8nSummary?.evolution_qr_string ?? null,
+        evolution_phone_number: n8nSummary?.evolution_phone_number ?? null,
+        evolution_instance_name: n8nSummary?.evolution_instance_name ?? null,
         automation_status: n8nSummary?.final_status ?? 'Em configuração',
         ready_for_appointments: n8nSummary?.ready_for_appointments ?? false,
         drive_link: n8nSummary?.drive_folder_link ?? null,
