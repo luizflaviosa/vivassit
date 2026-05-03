@@ -125,13 +125,12 @@ function AtendimentoInner() {
               <motion.button
                 type="button"
                 onClick={() => setFullscreen(false)}
-                className="absolute top-3 right-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium text-zinc-700"
-                style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', boxShadow: '0 1px 8px rgba(0,0,0,0.12)' }}
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ delay: 0.18 }}
-                whileHover={{ scale: 1.04 }}
+                className="absolute bottom-4 right-4 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium text-zinc-600"
+                style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', boxShadow: '0 2px 12px rgba(0,0,0,0.15)' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0 }}
+                exit={{ opacity: 0 }}
+                whileHover={{ opacity: 1, scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
               >
                 <Minimize2 className="w-3.5 h-3.5" />
