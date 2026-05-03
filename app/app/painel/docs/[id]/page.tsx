@@ -27,6 +27,7 @@ import {
   type AptidaoFisicaForm,
   type MedicalDocument,
 } from '@/lib/docs-types';
+import { DocPreviewAptidao } from '@/lib/components/doc-preview-aptidao';
 
 const ACCENT_DEEP = '#5746AF';
 
@@ -42,15 +43,6 @@ function StatusBadge({ status }: { status: DocStatus }) {
   );
 }
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
 function fmtDateTime(iso: string | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('pt-BR', {
@@ -62,23 +54,6 @@ function fmtDateTime(iso: string | null): string {
   });
 }
 
-function resultLabel(r: string): string {
-  switch (r) {
-    case 'apto': return 'Apto';
-    case 'inapto': return 'Inapto';
-    case 'apto_restricoes': return 'Apto com restrições';
-    default: return r;
-  }
-}
-
-function resultColor(r: string): string {
-  switch (r) {
-    case 'apto': return '#22C55E';
-    case 'inapto': return '#EF4444';
-    case 'apto_restricoes': return '#F59E0B';
-    default: return '#71717A';
-  }
-}
 
 interface DocDetail {
   document: MedicalDocument;
@@ -315,56 +290,9 @@ export default function DocDetailPage() {
         </div>
       )}
 
-      {/* Patient info */}
-      <div className="rounded-xl bg-zinc-50 p-4 space-y-1">
-        <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Paciente</p>
-        <p className="text-[15px] font-semibold text-zinc-900">{patient?.name ?? 'Sem nome'}</p>
-        <p className="text-[12px] text-zinc-500">
-          {patient?.phone}{form.patient_cpf && ` · CPF: ${form.patient_cpf}`}
-        </p>
-        {patient?.email && <p className="text-[12px] text-zinc-500">{patient.email}</p>}
-      </div>
-
-      {/* Doctor info */}
-      {doctor && (
-        <div className="rounded-xl bg-zinc-50 p-4 space-y-1">
-          <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Profissional</p>
-          <p className="text-[15px] font-semibold text-zinc-900">{doctor.doctor_name}</p>
-          <p className="text-[12px] text-zinc-500">{doctor.doctor_crm} · {doctor.specialty}</p>
-        </div>
-      )}
-
-      {/* Form data — Aptidão Física */}
+      {/* ── Preview visual do documento (replica o layout do PDF) ── */}
       {doc.doc_type === 'aptidao_fisica' && form && (
-        <div className="rounded-xl border border-black/[0.07] bg-white p-5 space-y-4">
-          <h3 className="text-[13px] uppercase tracking-[0.08em] font-semibold text-zinc-500">Dados do atestado</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.08em] font-semibold text-zinc-400 mb-1">Atividade</p>
-              <p className="text-[15px] text-zinc-900">{form.activity_type}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.08em] font-semibold text-zinc-400 mb-1">Resultado</p>
-              <span className="text-[14px] font-bold" style={{ color: resultColor(form.result) }}>
-                {resultLabel(form.result)}
-              </span>
-            </div>
-            {form.result === 'apto_restricoes' && form.restrictions && (
-              <div className="sm:col-span-2">
-                <p className="text-[11px] uppercase tracking-[0.08em] font-semibold text-zinc-400 mb-1">Restrições</p>
-                <p className="text-[14px] text-zinc-700">{form.restrictions}</p>
-              </div>
-            )}
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.08em] font-semibold text-zinc-400 mb-1">Data de emissão</p>
-              <p className="text-[15px] text-zinc-900">{fmtDate(form.issue_date)}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.08em] font-semibold text-zinc-400 mb-1">Validade</p>
-              <p className="text-[15px] text-zinc-900">{fmtDate(form.validity_date)}</p>
-            </div>
-          </div>
-        </div>
+        <DocPreviewAptidao form={form} clinicName={me?.clinic_name ?? undefined} />
       )}
 
       {/* Timeline */}
@@ -437,7 +365,7 @@ export default function DocDetailPage() {
         )}
       </div>
 
-      {/* ═══��═══ Sign Modal (BirdID) — com conferência do documento ═══════ */}
+      {/* ═══════ Sign Modal (BirdID) — com conferência do documento ═══════ */}
       {showSign && (() => {
         const hasSavedCpf = !!data?.doctor?.birdid_cpf;
         const maskedCpf = data?.doctor?.birdid_cpf
@@ -465,65 +393,13 @@ export default function DocDetailPage() {
 
               {/* Scrollable body */}
               <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-                {/* ── 1. Resumo do documento para conferência ── */}
-                <div className="rounded-xl bg-zinc-50 border border-black/[0.06] p-4 space-y-3">
-                  <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3 h-3" /> Conferência do documento
+                {/* ── 1. Preview visual do documento (mesmo layout do PDF) ── */}
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 flex items-center gap-1.5 mb-2">
+                    <ShieldCheck className="w-3 h-3" /> Confira o documento antes de assinar
                   </p>
-
-                  {/* Paciente */}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Paciente</p>
-                      <p className="text-[14px] font-medium text-zinc-900">{patient?.name || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Tipo</p>
-                      <p className="text-[14px] text-zinc-900">{DOC_TYPES[doc.doc_type]}</p>
-                    </div>
-                  </div>
-
-                  {/* Dados específicos — Aptidão Física */}
                   {doc.doc_type === 'aptidao_fisica' && form && (
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-1 border-t border-black/[0.05]">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Atividade</p>
-                        <p className="text-[14px] text-zinc-900">{form.activity_type}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Resultado</p>
-                        <p className="text-[14px] font-bold" style={{ color: resultColor(form.result) }}>
-                          {resultLabel(form.result)}
-                        </p>
-                      </div>
-                      {form.result === 'apto_restricoes' && form.restrictions && (
-                        <div className="col-span-2">
-                          <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Restrições</p>
-                          <p className="text-[13px] text-zinc-700">{form.restrictions}</p>
-                        </div>
-                      )}
-                      {form.patient_cpf && (
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">CPF Paciente</p>
-                          <p className="text-[13px] text-zinc-700 font-mono">{form.patient_cpf}</p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Validade</p>
-                        <p className="text-[13px] text-zinc-700">{fmtDate(form.validity_date)}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Profissional */}
-                  {doctor && (
-                    <div className="pt-1 border-t border-black/[0.05]">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Profissional assinante</p>
-                      <p className="text-[14px] font-medium text-zinc-900">
-                        {doctor.doctor_name}
-                        <span className="text-zinc-500 font-normal"> · {doctor.doctor_crm}</span>
-                      </p>
-                    </div>
+                    <DocPreviewAptidao form={form} clinicName={me?.clinic_name ?? undefined} compact />
                   )}
                 </div>
 
@@ -564,7 +440,7 @@ export default function DocDetailPage() {
                           inputMode="numeric"
                         />
                         {signerCpf.length > 0 && signerCpf.length < 11 && (
-                          <p className="text-[11px] text-amber-600 mt-1.5">{signerCpf.length}/11 d��gitos</p>
+                          <p className="text-[11px] text-amber-600 mt-1.5">{signerCpf.length}/11 dígitos</p>
                         )}
                         {signerCpf.length === 11 && (
                           <p className="text-[11px] text-emerald-600 mt-1.5 flex items-center gap-1">
