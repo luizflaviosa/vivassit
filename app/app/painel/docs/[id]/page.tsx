@@ -87,10 +87,15 @@ export default function DocDetailPage() {
   // Edit modal (draft only)
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState<{
+    patient_name: string;
+    patient_cpf: string;
+    patient_birthdate: string;
     activity_type: string;
     result: FitnessResult;
     restrictions: string;
-  }>({ activity_type: '', result: 'apto', restrictions: '' });
+    professional_name: string;
+    professional_council: string;
+  }>({ patient_name: '', patient_cpf: '', patient_birthdate: '', activity_type: '', result: 'apto', restrictions: '', professional_name: '', professional_council: '' });
 
   // Reject modal
   const [showReject, setShowReject] = useState(false);
@@ -235,9 +240,14 @@ export default function DocDetailPage() {
     if (!data) return;
     const f = data.document.form_data as unknown as AptidaoFisicaForm;
     setEditForm({
+      patient_name: f.patient_name || '',
+      patient_cpf: f.patient_cpf || '',
+      patient_birthdate: f.patient_birthdate || '',
       activity_type: f.activity_type || '',
       result: (f.result as FitnessResult) || 'apto',
       restrictions: f.restrictions || '',
+      professional_name: f.professional_name || '',
+      professional_council: f.professional_council || '',
     });
     setShowEdit(true);
   }, [data]);
@@ -248,9 +258,14 @@ export default function DocDetailPage() {
     const currentForm = data.document.form_data as unknown as AptidaoFisicaForm;
     const updatedForm: AptidaoFisicaForm = {
       ...currentForm,
+      patient_name: editForm.patient_name,
+      patient_cpf: editForm.patient_cpf,
+      patient_birthdate: editForm.patient_birthdate,
       activity_type: editForm.activity_type,
       result: editForm.result,
       restrictions: editForm.result === 'apto_restricoes' ? editForm.restrictions : '',
+      professional_name: editForm.professional_name,
+      professional_council: editForm.professional_council,
     };
     try {
       const res = await fetch(`/api/painel/docs/${docId}`, {
@@ -717,10 +732,13 @@ export default function DocDetailPage() {
 
       {/* ═══════ Edit Modal (draft only) ═══════ */}
       {showEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[18px] font-semibold text-zinc-900">Editar documento</h3>
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/40 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full my-auto flex flex-col max-h-[calc(100vh-2rem)]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-black/[0.06] flex-shrink-0">
+              <h3 className="text-[17px] font-semibold text-zinc-900 flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-zinc-400" /> Editar documento
+              </h3>
               <button
                 onClick={() => setShowEdit(false)}
                 className="h-8 w-8 -mr-2 rounded-md hover:bg-black/[0.04] inline-flex items-center justify-center text-zinc-400"
@@ -729,69 +747,138 @@ export default function DocDetailPage() {
               </button>
             </div>
 
-            {/* Activity type */}
-            <div>
-              <label className="block text-[13px] font-medium text-zinc-700 mb-2">Tipo de atividade</label>
-              <div className="flex flex-wrap gap-2">
-                {ACTIVITY_TYPES.map((a) => (
-                  <button
-                    key={a}
-                    type="button"
-                    onClick={() => setEditForm((f) => ({ ...f, activity_type: a }))}
-                    className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
-                      editForm.activity_type === a
-                        ? 'bg-violet-100 text-violet-800 border border-violet-300'
-                        : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
-                    }`}
-                  >
-                    {a}
-                  </button>
-                ))}
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              {/* Patient data */}
+              <div className="space-y-3">
+                <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Paciente</p>
+                <div>
+                  <label className="block text-[12px] font-medium text-zinc-500 mb-1">Nome</label>
+                  <input
+                    type="text"
+                    value={editForm.patient_name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, patient_name: e.target.value }))}
+                    className="w-full h-10 px-3 bg-white text-[14px] text-zinc-900 rounded-lg border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[12px] font-medium text-zinc-500 mb-1">CPF</label>
+                    <input
+                      type="text"
+                      value={editForm.patient_cpf}
+                      onChange={(e) => setEditForm((f) => ({ ...f, patient_cpf: e.target.value }))}
+                      placeholder="000.000.000-00"
+                      className="w-full h-10 px-3 bg-white text-[14px] text-zinc-900 rounded-lg border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-zinc-500 mb-1">Data de nascimento</label>
+                    <input
+                      type="date"
+                      value={editForm.patient_birthdate ? editForm.patient_birthdate.slice(0, 10) : ''}
+                      onChange={(e) => setEditForm((f) => ({ ...f, patient_birthdate: e.target.value }))}
+                      className="w-full h-10 px-3 bg-white text-[14px] text-zinc-900 rounded-lg border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Professional data */}
+              <div className="space-y-3">
+                <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Profissional</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[12px] font-medium text-zinc-500 mb-1">Nome</label>
+                    <input
+                      type="text"
+                      value={editForm.professional_name}
+                      onChange={(e) => setEditForm((f) => ({ ...f, professional_name: e.target.value }))}
+                      className="w-full h-10 px-3 bg-white text-[14px] text-zinc-900 rounded-lg border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-zinc-500 mb-1">Registro (CRM)</label>
+                    <input
+                      type="text"
+                      value={editForm.professional_council}
+                      onChange={(e) => setEditForm((f) => ({ ...f, professional_council: e.target.value }))}
+                      className="w-full h-10 px-3 bg-white text-[14px] text-zinc-900 rounded-lg border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Clinical data */}
+              <div className="space-y-3">
+                <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Avaliacao</p>
+
+                {/* Activity type */}
+                <div>
+                  <label className="block text-[12px] font-medium text-zinc-500 mb-1.5">Tipo de atividade</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ACTIVITY_TYPES.map((a) => (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => setEditForm((f) => ({ ...f, activity_type: a }))}
+                        className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${
+                          editForm.activity_type === a
+                            ? 'bg-violet-100 text-violet-800 border border-violet-300'
+                            : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
+                        }`}
+                      >
+                        {a}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Result */}
+                <div>
+                  <label className="block text-[12px] font-medium text-zinc-500 mb-1.5">Resultado</label>
+                  <div className="flex gap-2">
+                    {FITNESS_RESULTS.map((r) => (
+                      <button
+                        key={r.value}
+                        type="button"
+                        onClick={() => setEditForm((f) => ({ ...f, result: r.value as FitnessResult }))}
+                        className={`flex-1 px-3 py-2 rounded-lg text-[13px] font-medium transition-all text-center ${
+                          editForm.result === r.value
+                            ? 'bg-violet-100 text-violet-800 border border-violet-300'
+                            : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
+                        }`}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Restrictions (conditional) */}
+                {editForm.result === 'apto_restricoes' && (
+                  <div>
+                    <label className="block text-[12px] font-medium text-zinc-500 mb-1">Restricoes</label>
+                    <textarea
+                      value={editForm.restrictions}
+                      onChange={(e) => setEditForm((f) => ({ ...f, restrictions: e.target.value }))}
+                      placeholder="Descreva as restricoes..."
+                      rows={3}
+                      className="w-full px-3 py-2.5 bg-white text-[14px] rounded-lg border border-black/10 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] resize-none"
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Result */}
-            <div>
-              <label className="block text-[13px] font-medium text-zinc-700 mb-2">Resultado</label>
-              <div className="flex gap-2">
-                {FITNESS_RESULTS.map((r) => (
-                  <button
-                    key={r.value}
-                    type="button"
-                    onClick={() => setEditForm((f) => ({ ...f, result: r.value as FitnessResult }))}
-                    className={`flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all text-center ${
-                      editForm.result === r.value
-                        ? 'bg-violet-100 text-violet-800 border border-violet-300'
-                        : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
-                    }`}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Restrictions (conditional) */}
-            {editForm.result === 'apto_restricoes' && (
-              <div>
-                <label className="block text-[13px] font-medium text-zinc-700 mb-2">Restricoes</label>
-                <textarea
-                  value={editForm.restrictions}
-                  onChange={(e) => setEditForm((f) => ({ ...f, restrictions: e.target.value }))}
-                  placeholder="Descreva as restricoes..."
-                  rows={3}
-                  className="w-full px-4 py-3 bg-white text-[15px] rounded-lg border border-black/10 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] resize-none"
-                />
-              </div>
-            )}
-
-            <div className="flex gap-3 justify-end">
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2 px-6 py-4 bg-zinc-50/60 border-t border-black/[0.06] flex-shrink-0">
               <button type="button" onClick={() => setShowEdit(false)}
-                className="h-10 px-4 rounded-lg text-[14px] font-medium text-zinc-600 hover:bg-zinc-100 transition-colors">
+                className="h-10 px-4 rounded-lg text-[13px] font-semibold text-zinc-600 hover:bg-black/[0.04] transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={handleEdit} disabled={acting || !editForm.activity_type}
-                className="h-10 px-5 rounded-lg text-white text-[14px] font-semibold hover:brightness-110 transition-all disabled:opacity-40"
+                className="h-10 px-5 rounded-lg text-white text-[13px] font-semibold hover:brightness-110 transition-all disabled:opacity-40"
                 style={{ background: ACCENT_DEEP }}>
                 {acting ? <Loader2 className="w-4 h-4 animate-spin mx-2" /> : 'Salvar'}
               </button>

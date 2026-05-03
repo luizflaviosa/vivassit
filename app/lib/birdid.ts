@@ -5,42 +5,62 @@
 // Fluxo:
 //   1. Médico tem app BirdID no celular → gera OTP a cada ~30s
 //   2. Na hora de assinar, médico digita o OTP no modal
-//   3. Backend autentica com BirdID ID + OTP → recebe access_token
-//   4. Usa o token pra criar sessão de assinatura no CESS (VaultID)
+//   3. Backend autentica via pwd_authorize (OAuth2 Password Grant)
+//   4. Usa o access_token pra criar sessão de assinatura no CESS (VaultID)
 //   5. Upload do PDF → assinatura ICP-Brasil
 //
-// Env vars (opcionais, com defaults de sandbox):
+// Env vars OBRIGATÓRIAS:
+//   BIRDID_CLIENT_ID     — app client ID (registrado no BirdID)
+//   BIRDID_CLIENT_SECRET — app client secret
+//
+// Env vars opcionais (defaults de sandbox):
 //   BIRDID_API_URL  — auth endpoint (default: sandbox)
 //   BIRDID_CESS_URL — signing service (default: sandbox)
 //
 // Dados por médico (armazenados em tenant_doctors):
-//   birdid_account_id — ex: "c2a217b6e9"
+//   birdid_account_id — CPF ou slot_alias do médico (ex: "12345678900")
 
 const API_URL = process.env.BIRDID_API_URL || 'https://apihom.birdid.com.br';
 const CESS_URL = process.env.BIRDID_CESS_URL || 'https://cesshom.vaultid.com.br';
 const WEBHOOK_BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://singulare.org';
+const CLIENT_ID = process.env.BIRDID_CLIENT_ID || '';
+const CLIENT_SECRET = process.env.BIRDID_CLIENT_SECRET || '';
 
 // ──────────────────────────────────────────────────────────────
-// 1. Authenticate doctor via OTP (código do app BirdID)
+// 1. Authenticate doctor via OTP (OAuth2 Password Grant — pwd_authorize)
+//    Docs: https://docs.vaultid.com.br/workspace/cloud/api/autenticacao-de-usuarios/autenticacao-em-sistemas-desktop
 // ──────────────────────────────────────────────────────────────
 
 export async function authenticateWithOTP(
   accountId: string,
   otp: string,
 ): Promise<{ token: string; expiresIn: number }> {
-  const res = await fetch(`${API_URL}/v0/oauth/otp-auth`, {
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    throw new BirdIdError(
+      'BIRDID_CLIENT_ID e BIRDID_CLIENT_SECRET não configurados. Adicione nas variáveis de ambiente.',
+      'AUTH_FAILED',
+    );
+  }
+
+  const res = await fetch(`${API_URL}/v0/oauth/pwd_authorize`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
     body: JSON.stringify({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
       username: accountId,
-      otp,
+      password: otp,
+      grant_type: 'password',
+      scope: 'signature_session',
       lifetime: 600, // 10 min — enough for signing flow
     }),
   });
 
   if (!res.ok) {
     const text = await res.text();
-    // Try to parse error for better message
     let errorMsg = `BirdID auth failed: ${res.status}`;
     try {
       const err = JSON.parse(text);
