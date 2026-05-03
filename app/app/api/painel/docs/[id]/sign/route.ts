@@ -3,12 +3,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenant, type MemberRole } from '@/lib/auth-tenant';
 import { getDocument, updateDocument } from '@/lib/docs-queries';
+import { supabaseAdmin } from '@/lib/supabase';
+import { renderToBuffer } from '@react-pdf/renderer';
+import { AptidaoFisicaPDF } from '@/lib/pdf/aptidao-fisica';
+import { isBirdIdConfigured, startSigningSession } from '@/lib/birdid';
+import type { AptidaoFisicaForm } from '@/lib/docs-types';
+import React from 'react';
 
 // Only doctors and owners (who are also professionals) can sign
 const SIGN_ROLES: MemberRole[] = ['owner', 'doctor'];
 
-// POST: sign document (pending → signed)
-// MVP: marks as signed without BirdID. Phase 2 adds real digital signature.
+// POST: sign document (draft|pending → signed)
+// With BirdID: generates PDF → sends to BirdID → doctor approves on app → webhook updates status
+// Without BirdID: marks as signed immediately (MVP fallback)
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -58,15 +65,96 @@ export async function POST(
   }
 
   try {
-    // MVP: mark as signed (no BirdID integration yet)
-    // Phase 2: call BirdID API here to get real ICP-Brasil signature
+    // Generate PDF first
+    let pdfBuffer: Buffer | null = null;
+    if (doc.doc_type === 'aptidao_fisica') {
+      const form = doc.form_data as unknown as AptidaoFisicaForm;
+      pdfBuffer = await renderToBuffer(
+        React.createElement(AptidaoFisicaPDF, {
+          form,
+          clinicName: auth.ctx.tenant.clinic_name,
+        }) as any
+      );
+    }
+
+    // Try BirdID digital signature
+    if (isBirdIdConfigured() && pdfBuffer) {
+      // Get doctor's CPF for BirdID
+      const doctorCpf = body.signer_cpf;
+      if (!doctorCpf) {
+        return NextResponse.json(
+          { success: false, message: 'CPF do assinante é necessário para assinatura digital' },
+          { status: 400 }
+        );
+      }
+
+      // Start BirdID signing session
+      const birdIdResult = await startSigningSession({
+        pdfBuffer,
+        fileName: `${doc.doc_type}-${doc.id}.pdf`,
+        signerCpf: doctorCpf,
+        docId: doc.id,
+        reason: 'Assinatura digital de documento médico',
+        location: auth.ctx.tenant.clinic_name || '',
+      });
+
+      // Update document — status stays draft/pending until webhook confirms
+      await updateDocument(auth.ctx.tenant.tenant_id, docId, {
+        submitted_at: new Date().toISOString(),
+      });
+
+      // Store TCN for reference
+      await supabaseAdmin()
+        .from('medical_documents')
+        .update({
+          form_data: {
+            ...doc.form_data as object,
+            _birdid_tcn: birdIdResult.tcn,
+          },
+        })
+        .eq('id', docId);
+
+      return NextResponse.json({
+        success: true,
+        signing_method: 'birdid',
+        message: 'Assinatura enviada para o BirdID. Autorize no app BirdID.',
+        tcn: birdIdResult.tcn,
+      });
+    }
+
+    // Fallback: sign without BirdID (MVP mode)
+    // Store unsigned PDF in storage
+    if (pdfBuffer) {
+      const storagePath = `docs/${docId}.pdf`;
+      await supabaseAdmin()
+        .storage
+        .from('documents')
+        .upload(storagePath, pdfBuffer, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+
+      const { data: urlData } = supabaseAdmin()
+        .storage
+        .from('documents')
+        .getPublicUrl(storagePath);
+
+      await updateDocument(auth.ctx.tenant.tenant_id, docId, {
+        pdf_url: urlData?.publicUrl || null,
+      });
+    }
+
     const updated = await updateDocument(auth.ctx.tenant.tenant_id, docId, {
       status: 'signed',
       signed_by_user: auth.ctx.user.id,
       signed_at: new Date().toISOString(),
     });
 
-    return NextResponse.json({ success: true, document: updated });
+    return NextResponse.json({
+      success: true,
+      signing_method: 'manual',
+      document: updated,
+    });
   } catch (error) {
     console.error('[painel/docs/[id]/sign] erro:', error);
     return NextResponse.json({ success: false, message: 'Erro ao assinar documento' }, { status: 500 });
