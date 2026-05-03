@@ -80,20 +80,28 @@ export async function POST(
     // Try BirdID digital signature
     if (isBirdIdConfigured() && pdfBuffer) {
       // Auto-lookup doctor's BirdID CPF from tenant_doctors
-      let doctorCpf = body.signer_cpf; // Allow override from body (backward compat)
+      let doctorCpf = body.signer_cpf?.replace(/\D/g, '') || ''; // Allow override from body
       if (!doctorCpf && doc.doctor_id) {
         const { data: doctorRow } = await supabaseAdmin()
           .from('tenant_doctors')
           .select('birdid_cpf')
           .eq('id', doc.doctor_id)
           .maybeSingle();
-        doctorCpf = doctorRow?.birdid_cpf;
+        doctorCpf = doctorRow?.birdid_cpf || '';
       }
       if (!doctorCpf) {
         return NextResponse.json(
-          { success: false, message: 'CPF do profissional não configurado. Configure o CPF BirdID nas configurações do profissional.' },
+          { success: false, message: 'CPF do profissional não configurado. Informe o CPF BirdID para assinar digitalmente.', need_cpf: true },
           { status: 400 }
         );
+      }
+
+      // If caller asked to persist the CPF for future signings, save it now
+      if (body.save_cpf && doc.doctor_id && body.signer_cpf) {
+        await supabaseAdmin()
+          .from('tenant_doctors')
+          .update({ birdid_cpf: doctorCpf })
+          .eq('id', doc.doctor_id);
       }
 
       // Start BirdID signing session

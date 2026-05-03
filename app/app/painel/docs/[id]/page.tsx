@@ -80,7 +80,7 @@ function resultColor(r: string): string {
 interface DocDetail {
   document: MedicalDocument;
   patient: { name: string | null; phone: string; email: string | null; birthdate: string | null } | null;
-  doctor: { doctor_name: string; doctor_crm: string; specialty: string } | null;
+  doctor: { doctor_name: string; doctor_crm: string; specialty: string; birdid_cpf: string | null } | null;
 }
 
 type SendChannel = 'whatsapp' | 'email' | 'both';
@@ -98,6 +98,7 @@ export default function DocDetailPage() {
   // Sign modal (BirdID CPF input)
   const [showSign, setShowSign] = useState(false);
   const [signerCpf, setSignerCpf] = useState('');
+  const [saveCpf, setSaveCpf] = useState(true); // default: save for next time
   const [signMessage, setSignMessage] = useState('');
 
   // Reject modal
@@ -133,17 +134,20 @@ export default function DocDetailPage() {
   const handleSign = useCallback(async () => {
     setActing(true);
     setSignMessage('');
+    const cpfClean = signerCpf.replace(/\D/g, '');
     try {
       const res = await fetch(`/api/painel/docs/${docId}/sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signer_cpf: signerCpf.replace(/\D/g, '') || undefined }),
+        body: JSON.stringify({
+          signer_cpf: cpfClean || undefined,
+          save_cpf: cpfClean ? saveCpf : false,
+        }),
       });
       const json = await res.json();
       if (json.success) {
         if (json.signing_method === 'birdid') {
           setSignMessage('✅ Enviado para o BirdID! Autorize no app.');
-          // Poll for status update
           setTimeout(() => { fetchDoc(); setShowSign(false); setSignMessage(''); }, 5000);
         } else {
           await fetchDoc();
@@ -158,7 +162,7 @@ export default function DocDetailPage() {
     } finally {
       setActing(false);
     }
-  }, [docId, signerCpf, fetchDoc]);
+  }, [docId, signerCpf, saveCpf, fetchDoc]);
 
   const handleReject = useCallback(async () => {
     setActing(true);
@@ -420,58 +424,101 @@ export default function DocDetailPage() {
       </div>
 
       {/* ═══════ Sign Modal (BirdID) ═══════ */}
-      {showSign && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-[18px] font-semibold text-zinc-900">Assinar documento</h3>
-            <p className="text-[14px] text-zinc-500">
-              Se o profissional tiver CPF BirdID configurado, você receberá uma notificação no app BirdID para autorizar a assinatura digital.
-            </p>
-            <p className="text-[12px] text-zinc-400">
-              Sem CPF BirdID cadastrado, o documento será assinado diretamente (sem certificado digital). Para configurar, acesse as configurações do profissional.
-            </p>
+      {showSign && (() => {
+        const hasSavedCpf = !!data?.doctor?.birdid_cpf;
+        const maskedCpf = data?.doctor?.birdid_cpf
+          ? `***.***.${data.doctor.birdid_cpf.slice(-5, -2)}-${data.doctor.birdid_cpf.slice(-2)}`
+          : '';
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+              <h3 className="text-[18px] font-semibold text-zinc-900">Assinar documento</h3>
 
-            <details className="text-[12px] text-zinc-500">
-              <summary className="cursor-pointer hover:text-zinc-700 transition-colors">Informar CPF manualmente (opcional)</summary>
-              <div className="mt-2">
-                <input
-                  type="text"
-                  value={signerCpf}
-                  onChange={(e) => setSignerCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                  placeholder="Apenas números — sobrescreve o CPF salvo no perfil"
-                  className="w-full h-11 px-4 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-lg border border-black/10 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
-                  inputMode="numeric"
-                />
+              {hasSavedCpf ? (
+                /* ── CPF já configurado: fluxo rápido ── */
+                <>
+                  <div className="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 p-4">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-[14px] font-medium text-emerald-900">BirdID configurado</p>
+                      <p className="text-[13px] text-emerald-700">CPF: {maskedCpf} · {doctor?.doctor_name}</p>
+                    </div>
+                  </div>
+                  <p className="text-[13px] text-zinc-500">
+                    Ao confirmar, você receberá uma notificação no app BirdID para autorizar a assinatura digital.
+                  </p>
+                </>
+              ) : (
+                /* ── Primeira vez: input proeminente ── */
+                <>
+                  <p className="text-[14px] text-zinc-600">
+                    Para assinar digitalmente via BirdID, informe o CPF cadastrado no BirdID do profissional.
+                  </p>
+                  <div>
+                    <label className="block text-[13px] font-medium text-zinc-700 mb-2">CPF BirdID</label>
+                    <input
+                      type="text"
+                      value={signerCpf}
+                      onChange={(e) => setSignerCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                      placeholder="00000000000"
+                      autoFocus
+                      className="w-full h-12 px-4 bg-white text-[16px] text-zinc-900 placeholder:text-zinc-300 rounded-xl border-2 border-zinc-200 focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all font-mono tracking-widest"
+                      inputMode="numeric"
+                    />
+                    {signerCpf.length > 0 && signerCpf.length < 11 && (
+                      <p className="text-[11px] text-amber-600 mt-1">{signerCpf.length}/11 dígitos</p>
+                    )}
+                    {signerCpf.length === 11 && (
+                      <p className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> CPF válido
+                      </p>
+                    )}
+                  </div>
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={saveCpf}
+                      onChange={(e) => setSaveCpf(e.target.checked)}
+                      className="h-4 w-4 accent-violet-600 cursor-pointer"
+                    />
+                    <span className="text-[13px] text-zinc-600 group-hover:text-zinc-900 transition-colors">
+                      Salvar CPF no perfil do profissional (não precisa digitar de novo)
+                    </span>
+                  </label>
+                  <p className="text-[12px] text-zinc-400">
+                    Sem CPF, o documento será assinado diretamente (sem certificado digital).
+                  </p>
+                </>
+              )}
+
+              {signMessage && (
+                <p className={`text-[13px] rounded-lg px-3 py-2 ${signMessage.startsWith('✅') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                  {signMessage}
+                </p>
+              )}
+
+              <div className="flex gap-3 justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => { setShowSign(false); setSignerCpf(''); setSignMessage(''); }}
+                  className="h-10 px-4 rounded-lg text-[14px] font-medium text-zinc-600 hover:bg-zinc-100 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSign}
+                  disabled={acting}
+                  className="h-10 px-5 rounded-lg text-white text-[14px] font-semibold hover:brightness-110 transition-all disabled:opacity-40"
+                  style={{ background: '#22C55E' }}
+                >
+                  {acting ? <Loader2 className="w-4 h-4 animate-spin mx-2" /> : 'Assinar'}
+                </button>
               </div>
-            </details>
-
-            {signMessage && (
-              <p className={`text-[13px] ${signMessage.startsWith('✅') ? 'text-green-600' : 'text-red-600'}`}>
-                {signMessage}
-              </p>
-            )}
-
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => { setShowSign(false); setSignerCpf(''); setSignMessage(''); }}
-                className="h-10 px-4 rounded-lg text-[14px] font-medium text-zinc-600 hover:bg-zinc-100 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSign}
-                disabled={acting}
-                className="h-10 px-5 rounded-lg text-white text-[14px] font-semibold hover:brightness-110 transition-all disabled:opacity-40"
-                style={{ background: '#22C55E' }}
-              >
-                {acting ? <Loader2 className="w-4 h-4 animate-spin mx-2" /> : 'Assinar'}
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ═══════ Send Channel Modal ═══════ */}
       {showSend && (

@@ -35,7 +35,7 @@ export async function GET(
     const [patientRes, doctorRes] = await Promise.all([
       supabaseAdmin().from('patients').select('name, phone, email, birthdate').eq('id', doc.patient_id).maybeSingle(),
       doc.doctor_id
-        ? supabaseAdmin().from('tenant_doctors').select('doctor_name, doctor_crm, specialty').eq('id', doc.doctor_id).maybeSingle()
+        ? supabaseAdmin().from('tenant_doctors').select('doctor_name, doctor_crm, specialty, birdid_cpf').eq('id', doc.doctor_id).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
 
