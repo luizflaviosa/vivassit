@@ -45,82 +45,9 @@
   }
 }
 
-/* ─── Painel sidebar color system ─────────────────────────
- *
- * 3 tokens color the sidebar only — page body stays neutral.
- * @property makes them animatable: colors cross-fade (0.4s)
- * when navigating between sections.
- * ────────────────────────────────────────────────────────── */
-
-@property --sg-label     { syntax: '<color>'; inherits: true; initial-value: #A1A1AA; }
-@property --sg-active-bg { syntax: '<color>'; inherits: true; initial-value: #EDE9FE; }
-@property --sg-active-fg { syntax: '<color>'; inherits: true; initial-value: #5746AF; }
-
-/* ── Default / home / config ── */
-:root, .light, [data-group="default"] {
-  --sg-label:     #A1A1AA;
-  --sg-active-bg: #EDE9FE;
-  --sg-active-fg: #5746AF;
-}
-/* ── Todo dia — azul clínico ── */
-[data-group="daily"] {
-  --sg-label:     #2563EB;
-  --sg-active-bg: #DBEAFE;
-  --sg-active-fg: #1D4ED8;
-}
-/* ── Por consulta — verde saúde ── */
-[data-group="consultation"] {
-  --sg-label:     #16A34A;
-  --sg-active-bg: #DCFCE7;
-  --sg-active-fg: #15803D;
-}
-/* ── Clínica — âmbar estrutural ── */
-[data-group="clinic"] {
-  --sg-label:     #D97706;
-  --sg-active-bg: #FEF3C7;
-  --sg-active-fg: #B45309;
-}
-/* ── Crescimento — rosa energia ── */
-[data-group="growth"] {
-  --sg-label:     #E11D48;
-  --sg-active-bg: #FFE4E6;
-  --sg-active-fg: #BE123C;
-}
-
-/* ── Dark mode ── */
-.dark, .dark [data-group="default"] {
-  --sg-label:     #71717A;
-  --sg-active-bg: rgba(87, 70, 175, 0.22);
-  --sg-active-fg: #C4B5FD;
-}
-.dark [data-group="daily"] {
-  --sg-label:     #60A5FA;
-  --sg-active-bg: rgba(37, 99, 235, 0.2);
-  --sg-active-fg: #93C5FD;
-}
-.dark [data-group="consultation"] {
-  --sg-label:     #4ADE80;
-  --sg-active-bg: rgba(22, 163, 74, 0.2);
-  --sg-active-fg: #86EFAC;
-}
-.dark [data-group="clinic"] {
-  --sg-label:     #FBBF24;
-  --sg-active-bg: rgba(217, 119, 6, 0.2);
-  --sg-active-fg: #FDE68A;
-}
-.dark [data-group="growth"] {
-  --sg-label:     #FB7185;
-  --sg-active-bg: rgba(225, 29, 72, 0.2);
-  --sg-active-fg: #FDA4AF;
-}
-
-/* ── Root element ── */
+/* ─── Painel root ── */
 .painel-root {
   background-color: #FAFAF7;
-  transition:
-    --sg-label     0.4s ease,
-    --sg-active-bg 0.4s ease,
-    --sg-active-fg 0.4s ease;
   min-height: 100vh;
 }
 .dark .painel-root {

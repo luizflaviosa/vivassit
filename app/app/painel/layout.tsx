@@ -47,10 +47,16 @@ interface NavItem {
   exact?: boolean;
 }
 
+interface SectionColors {
+  bg: string; label: string; activeBg: string; activeFg: string;
+  darkBg: string; darkLabel: string; darkActiveBg: string; darkActiveFg: string;
+}
+
 interface NavSection {
   group: SectionGroup;
   label: string | null;
   items: NavItem[];
+  colors?: SectionColors;
 }
 
 const ROUTE_GROUP: Array<[string, SectionGroup]> = [
@@ -119,6 +125,10 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
     {
       group: 'daily',
       label: 'Todo dia',
+      colors: {
+        bg: '#EFF6FF', label: '#2563EB', activeBg: '#BFDBFE', activeFg: '#1E40AF',
+        darkBg: 'rgba(37,99,235,0.12)', darkLabel: '#60A5FA', darkActiveBg: 'rgba(37,99,235,0.28)', darkActiveFg: '#93C5FD',
+      },
       items: [
         { href: '/painel/agenda', label: 'Agenda', icon: <Calendar className="w-4 h-4" />, enabled: true },
         { href: '/painel/pacientes', label: 'Pacientes', icon: <UserPlus className="w-4 h-4" />, enabled: true },
@@ -129,6 +139,10 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
     {
       group: 'consultation',
       label: 'Por consulta',
+      colors: {
+        bg: '#F0FDF4', label: '#16A34A', activeBg: '#BBF7D0', activeFg: '#15803D',
+        darkBg: 'rgba(22,163,74,0.12)', darkLabel: '#4ADE80', darkActiveBg: 'rgba(22,163,74,0.28)', darkActiveFg: '#86EFAC',
+      },
       items: [
         { href: '/painel/docs', label: 'Documentos', icon: <FileText className="w-4 h-4" />, enabled: true },
         { href: '/painel/cobrancas', label: 'Cobranças', icon: <CreditCard className="w-4 h-4" />, enabled: true },
@@ -138,6 +152,10 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
     {
       group: 'clinic',
       label: 'Clínica',
+      colors: {
+        bg: '#FFFBEB', label: '#D97706', activeBg: '#FDE68A', activeFg: '#92400E',
+        darkBg: 'rgba(217,119,6,0.12)', darkLabel: '#FBBF24', darkActiveBg: 'rgba(217,119,6,0.28)', darkActiveFg: '#FDE68A',
+      },
       items: [
         { href: '/painel/profissionais', label: 'Profissionais', icon: <Users className="w-4 h-4" />, enabled: true },
         { href: '/painel/equipe', label: 'Equipe', icon: <UserPlus className="w-4 h-4" />, enabled: true },
@@ -147,6 +165,10 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
     {
       group: 'growth',
       label: 'Crescimento',
+      colors: {
+        bg: '#FFF1F2', label: '#E11D48', activeBg: '#FECDD3', activeFg: '#9F1239',
+        darkBg: 'rgba(225,29,72,0.12)', darkLabel: '#FB7185', darkActiveBg: 'rgba(225,29,72,0.28)', darkActiveFg: '#FDA4AF',
+      },
       items: [
         { href: '/painel/feedback', label: 'NPS / feedback', icon: <Star className="w-4 h-4" />, enabled: true },
         { href: '/painel/marketing', label: 'Marketing', icon: <Megaphone className="w-4 h-4" />, enabled: true },
@@ -172,12 +194,18 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
   const isActive = (item: NavItem) =>
     item.exact ? pathname === item.href : pathname.startsWith(item.href);
 
-  const renderNavItems = (items: NavItem[], mobile = false) =>
+  const isDark = resolvedTheme === 'dark';
+
+  const renderNavItems = (items: NavItem[], colors: SectionColors | undefined, mobile = false) =>
     items.map((item) => {
       const active = isActive(item);
       const base = mobile
         ? `group flex items-center gap-3 px-3 py-3 rounded-lg text-[14px] font-medium transition-all min-h-[44px]`
         : `group flex items-center gap-2 px-2.5 h-8 rounded-md text-[13px] font-medium transition-colors`;
+      const defaultActiveBg = isDark ? 'rgba(87,70,175,0.22)' : '#EDE9FE';
+      const defaultActiveFg = isDark ? '#C4B5FD' : '#5746AF';
+      const activeBg = colors ? (isDark ? colors.darkActiveBg : colors.activeBg) : defaultActiveBg;
+      const activeFg = colors ? (isDark ? colors.darkActiveFg : colors.activeFg) : defaultActiveFg;
       return item.enabled ? (
         <Link
           key={item.href}
@@ -187,15 +215,12 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
             active
               ? ''
               : mobile
-                ? 'text-zinc-700 hover:bg-black/[0.05] dark:text-zinc-300 dark:hover:bg-white/[0.05]'
-                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.04] dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-white/[0.04]'
+                ? 'text-zinc-700 hover:bg-black/[0.06] dark:text-zinc-300 dark:hover:bg-white/[0.06]'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.05] dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-white/[0.05]'
           }`}
-          style={active ? {
-            background: 'var(--sg-active-bg)',
-            color: 'var(--sg-active-fg)',
-          } : undefined}
+          style={active ? { background: activeBg, color: activeFg } : undefined}
         >
-          <span className={active ? '' : mobile ? '' : 'text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300'}>
+          <span className={active ? '' : 'text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300'}>
             {item.icon}
           </span>
           <span className="flex-1">{item.label}</span>
@@ -214,22 +239,34 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
       );
     });
 
-  const renderSections = (mobile = false) =>
-    navSections.map((section, i) => (
-      <div key={i} className={section.label ? 'mt-6 first:mt-0' : ''}>
-        {section.label && (
-          <p
-            className="px-2.5 mb-1 text-[10px] uppercase tracking-[0.1em] font-semibold select-none"
-            style={{ color: 'var(--sg-label)' }}
-          >
-            {section.label}
-          </p>
-        )}
-        <div className="space-y-px">
-          {renderNavItems(section.items, mobile)}
-        </div>
-      </div>
-    ));
+  const renderSections = (mobile = false) => (
+    <div className="flex flex-col gap-2.5">
+      {navSections.map((section, i) => {
+        if (!section.colors) {
+          return (
+            <div key={i} className="space-y-px">
+              {renderNavItems(section.items, undefined, mobile)}
+            </div>
+          );
+        }
+        const bg = isDark ? section.colors.darkBg : section.colors.bg;
+        const labelColor = isDark ? section.colors.darkLabel : section.colors.label;
+        return (
+          <div key={i} className="rounded-xl p-2" style={{ background: bg }}>
+            <p
+              className="px-2 pt-1 pb-2 text-[10px] uppercase tracking-[0.1em] font-semibold select-none"
+              style={{ color: labelColor }}
+            >
+              {section.label}
+            </p>
+            <div className="space-y-px">
+              {renderNavItems(section.items, section.colors, mobile)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   return (
     <MeContext.Provider value={me}>
