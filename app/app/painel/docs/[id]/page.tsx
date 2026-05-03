@@ -15,6 +15,9 @@ import {
   MessageCircle,
   Mail,
   Smartphone,
+  Fingerprint,
+  ShieldCheck,
+  FileText,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import {
@@ -95,11 +98,12 @@ export default function DocDetailPage() {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
 
-  // Sign modal (BirdID CPF input)
+  // Sign modal
   const [showSign, setShowSign] = useState(false);
   const [signerCpf, setSignerCpf] = useState('');
-  const [saveCpf, setSaveCpf] = useState(true); // default: save for next time
+  const [saveCpf, setSaveCpf] = useState(true);
   const [signMessage, setSignMessage] = useState('');
+  const [birdidServerOk, setBirdidServerOk] = useState<boolean | null>(null); // null = loading
 
   // Reject modal
   const [showReject, setShowReject] = useState(false);
@@ -130,6 +134,16 @@ export default function DocDetailPage() {
     if (!me?.tenant_id) return;
     fetchDoc();
   }, [me?.tenant_id, fetchDoc]);
+
+  // Check if BirdID is configured on server when sign modal opens
+  useEffect(() => {
+    if (!showSign) return;
+    setBirdidServerOk(null);
+    fetch('/api/painel/docs/birdid-status')
+      .then((r) => r.json())
+      .then((j) => setBirdidServerOk(!!j.birdid_configured))
+      .catch(() => setBirdidServerOk(false));
+  }, [showSign]);
 
   const handleSign = useCallback(async () => {
     setActing(true);
@@ -423,97 +437,205 @@ export default function DocDetailPage() {
         )}
       </div>
 
-      {/* ═══════ Sign Modal (BirdID) ═══════ */}
+      {/* ═══��═══ Sign Modal (BirdID) — com conferência do documento ═══════ */}
       {showSign && (() => {
         const hasSavedCpf = !!data?.doctor?.birdid_cpf;
         const maskedCpf = data?.doctor?.birdid_cpf
           ? `***.***.${data.doctor.birdid_cpf.slice(-5, -2)}-${data.doctor.birdid_cpf.slice(-2)}`
           : '';
+        const birdidAvailable = birdidServerOk === true;
+        const birdidLoading = birdidServerOk === null;
+        const willUseBirdid = birdidAvailable && (hasSavedCpf || signerCpf.length === 11);
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
-              <h3 className="text-[18px] font-semibold text-zinc-900">Assinar documento</h3>
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/40 overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full my-auto flex flex-col max-h-[calc(100vh-2rem)]">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-black/[0.06] flex-shrink-0">
+                <h3 className="text-[17px] font-semibold text-zinc-900 flex items-center gap-2">
+                  <FileText className="w-4.5 h-4.5 text-zinc-400" />
+                  Conferir e assinar
+                </h3>
+                <button
+                  onClick={() => { setShowSign(false); setSignerCpf(''); setSignMessage(''); }}
+                  className="h-8 w-8 -mr-2 rounded-md hover:bg-black/[0.04] inline-flex items-center justify-center text-zinc-400"
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+              </div>
 
-              {hasSavedCpf ? (
-                /* ── CPF já configurado: fluxo rápido ── */
-                <>
-                  <div className="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 p-4">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+              {/* Scrollable body */}
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                {/* ── 1. Resumo do documento para conferência ── */}
+                <div className="rounded-xl bg-zinc-50 border border-black/[0.06] p-4 space-y-3">
+                  <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3 h-3" /> Conferência do documento
+                  </p>
+
+                  {/* Paciente */}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                     <div>
-                      <p className="text-[14px] font-medium text-emerald-900">BirdID configurado</p>
-                      <p className="text-[13px] text-emerald-700">CPF: {maskedCpf} · {doctor?.doctor_name}</p>
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Paciente</p>
+                      <p className="text-[14px] font-medium text-zinc-900">{patient?.name || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Tipo</p>
+                      <p className="text-[14px] text-zinc-900">{DOC_TYPES[doc.doc_type]}</p>
                     </div>
                   </div>
-                  <p className="text-[13px] text-zinc-500">
-                    Ao confirmar, você receberá uma notificação no app BirdID para autorizar a assinatura digital.
-                  </p>
-                </>
-              ) : (
-                /* ── Primeira vez: input proeminente ── */
-                <>
-                  <p className="text-[14px] text-zinc-600">
-                    Para assinar digitalmente via BirdID, informe o CPF cadastrado no BirdID do profissional.
-                  </p>
-                  <div>
-                    <label className="block text-[13px] font-medium text-zinc-700 mb-2">CPF BirdID</label>
-                    <input
-                      type="text"
-                      value={signerCpf}
-                      onChange={(e) => setSignerCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                      placeholder="00000000000"
-                      autoFocus
-                      className="w-full h-12 px-4 bg-white text-[16px] text-zinc-900 placeholder:text-zinc-300 rounded-xl border-2 border-zinc-200 focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all font-mono tracking-widest"
-                      inputMode="numeric"
-                    />
-                    {signerCpf.length > 0 && signerCpf.length < 11 && (
-                      <p className="text-[11px] text-amber-600 mt-1">{signerCpf.length}/11 dígitos</p>
-                    )}
-                    {signerCpf.length === 11 && (
-                      <p className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> CPF válido
+
+                  {/* Dados específicos — Aptidão Física */}
+                  {doc.doc_type === 'aptidao_fisica' && form && (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-1 border-t border-black/[0.05]">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Atividade</p>
+                        <p className="text-[14px] text-zinc-900">{form.activity_type}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Resultado</p>
+                        <p className="text-[14px] font-bold" style={{ color: resultColor(form.result) }}>
+                          {resultLabel(form.result)}
+                        </p>
+                      </div>
+                      {form.result === 'apto_restricoes' && form.restrictions && (
+                        <div className="col-span-2">
+                          <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Restrições</p>
+                          <p className="text-[13px] text-zinc-700">{form.restrictions}</p>
+                        </div>
+                      )}
+                      {form.patient_cpf && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">CPF Paciente</p>
+                          <p className="text-[13px] text-zinc-700 font-mono">{form.patient_cpf}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Validade</p>
+                        <p className="text-[13px] text-zinc-700">{fmtDate(form.validity_date)}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Profissional */}
+                  {doctor && (
+                    <div className="pt-1 border-t border-black/[0.05]">
+                      <p className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Profissional assinante</p>
+                      <p className="text-[14px] font-medium text-zinc-900">
+                        {doctor.doctor_name}
+                        <span className="text-zinc-500 font-normal"> · {doctor.doctor_crm}</span>
                       </p>
-                    )}
+                    </div>
+                  )}
+                </div>
+
+                {/* ── 2. Método de assinatura ── */}
+                {birdidLoading ? (
+                  <div className="flex items-center gap-2 text-[13px] text-zinc-400">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verificando BirdID...
                   </div>
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={saveCpf}
-                      onChange={(e) => setSaveCpf(e.target.checked)}
-                      className="h-4 w-4 accent-violet-600 cursor-pointer"
-                    />
-                    <span className="text-[13px] text-zinc-600 group-hover:text-zinc-900 transition-colors">
-                      Salvar CPF no perfil do profissional (não precisa digitar de novo)
-                    </span>
-                  </label>
-                  <p className="text-[12px] text-zinc-400">
-                    Sem CPF, o documento será assinado diretamente (sem certificado digital).
+                ) : birdidAvailable ? (
+                  /* BirdID está configurado no servidor */
+                  hasSavedCpf ? (
+                    /* CPF já salvo → fluxo rápido */
+                    <div className="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 p-4">
+                      <Fingerprint className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                      <div>
+                        <p className="text-[14px] font-medium text-emerald-900">Assinatura digital BirdID</p>
+                        <p className="text-[13px] text-emerald-700">CPF: {maskedCpf} · Autorize no app BirdID após confirmar</p>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Primeira vez — input proeminente de CPF */
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Fingerprint className="w-4 h-4 text-violet-600" />
+                        <p className="text-[14px] font-medium text-zinc-900">Assinatura digital BirdID</p>
+                      </div>
+                      <p className="text-[13px] text-zinc-500">
+                        Informe o CPF cadastrado no BirdID do profissional para assinar digitalmente com certificado ICP-Brasil.
+                      </p>
+                      <div>
+                        <input
+                          type="text"
+                          value={signerCpf}
+                          onChange={(e) => setSignerCpf(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                          placeholder="CPF do profissional (11 dígitos)"
+                          autoFocus
+                          className="w-full h-12 px-4 bg-white text-[16px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border-2 border-zinc-200 focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all font-mono tracking-widest"
+                          inputMode="numeric"
+                        />
+                        {signerCpf.length > 0 && signerCpf.length < 11 && (
+                          <p className="text-[11px] text-amber-600 mt-1.5">{signerCpf.length}/11 d��gitos</p>
+                        )}
+                        {signerCpf.length === 11 && (
+                          <p className="text-[11px] text-emerald-600 mt-1.5 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> CPF completo
+                          </p>
+                        )}
+                      </div>
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={saveCpf}
+                          onChange={(e) => setSaveCpf(e.target.checked)}
+                          className="h-4 w-4 accent-violet-600 cursor-pointer"
+                        />
+                        <span className="text-[13px] text-zinc-600 group-hover:text-zinc-900 transition-colors">
+                          Salvar CPF no perfil (não precisará digitar novamente)
+                        </span>
+                      </label>
+                    </div>
+                  )
+                ) : (
+                  /* BirdID NÃO configurado → aviso claro */
+                  <div className="flex items-center gap-3 rounded-xl bg-amber-50 border border-amber-200 p-4">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-[14px] font-medium text-amber-900">Assinatura manual (sem certificado digital)</p>
+                      <p className="text-[13px] text-amber-700">
+                        BirdID não está configurado neste ambiente. O documento será marcado como assinado, mas sem certificado ICP-Brasil.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Feedback messages */}
+                {signMessage && (
+                  <p className={`text-[13px] rounded-lg px-3 py-2.5 ${signMessage.startsWith('✅') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+                    {signMessage}
                   </p>
-                </>
-              )}
+                )}
+              </div>
 
-              {signMessage && (
-                <p className={`text-[13px] rounded-lg px-3 py-2 ${signMessage.startsWith('✅') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                  {signMessage}
+              {/* Footer */}
+              <div className="flex items-center justify-between gap-3 px-6 py-4 bg-zinc-50/60 border-t border-black/[0.06] flex-shrink-0">
+                <p className="text-[11px] text-zinc-400">
+                  {willUseBirdid ? 'Certificado digital ICP-Brasil' : 'Assinatura manual'}
                 </p>
-              )}
-
-              <div className="flex gap-3 justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={() => { setShowSign(false); setSignerCpf(''); setSignMessage(''); }}
-                  className="h-10 px-4 rounded-lg text-[14px] font-medium text-zinc-600 hover:bg-zinc-100 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSign}
-                  disabled={acting}
-                  className="h-10 px-5 rounded-lg text-white text-[14px] font-semibold hover:brightness-110 transition-all disabled:opacity-40"
-                  style={{ background: '#22C55E' }}
-                >
-                  {acting ? <Loader2 className="w-4 h-4 animate-spin mx-2" /> : 'Assinar'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setShowSign(false); setSignerCpf(''); setSignMessage(''); }}
+                    className="h-10 px-4 rounded-lg text-[13px] font-semibold text-zinc-600 hover:bg-black/[0.04] transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSign}
+                    disabled={acting || birdidLoading}
+                    className="h-10 px-5 rounded-lg text-white text-[13px] font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-40"
+                    style={{ background: willUseBirdid ? '#22C55E' : ACCENT_DEEP }}
+                  >
+                    {acting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : willUseBirdid ? (
+                      <Fingerprint className="w-4 h-4" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4" />
+                    )}
+                    {acting ? 'Assinando...' : willUseBirdid ? 'Assinar via BirdID' : 'Assinar manualmente'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
