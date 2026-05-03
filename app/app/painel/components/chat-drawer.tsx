@@ -348,14 +348,14 @@ export default function ChatDrawer() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="fixed z-50 bg-[#FAFAF7] flex flex-col
+              className="fixed z-50 bg-[#FAFAF7] dark:bg-zinc-900 flex flex-col
                          inset-0 h-[100dvh]
                          md:inset-auto md:bottom-6 md:right-6 md:w-[420px] md:h-[640px]
-                         md:rounded-2xl md:shadow-[0_24px_64px_-16px_rgba(0,0,0,0.25)] md:max-h-[80vh] md:bg-white"
+                         md:rounded-2xl md:shadow-[0_24px_64px_-16px_rgba(0,0,0,0.25)] md:max-h-[80vh] md:bg-white dark:md:bg-zinc-900"
             >
               {/* Header sticky com blur — fica fixo mesmo com teclado aberto */}
               <header
-                className="flex-shrink-0 sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 bg-white/85 backdrop-blur-xl border-b border-black/[0.06]"
+                className="flex-shrink-0 sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 bg-white/85 dark:bg-zinc-900/85 backdrop-blur-xl border-b border-black/[0.06] dark:border-white/[0.08]"
                 style={{ paddingTop: `max(12px, env(safe-area-inset-top))` }}
               >
                 <button

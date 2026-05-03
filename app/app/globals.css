@@ -54,6 +54,43 @@
   background-color: #0F0F0E;
 }
 
+/* ─── Dark mode: painel page content ─────────────────────
+ * Fixed-position modals are still inside <main> in the DOM tree,
+ * so one selector covers both page cards and modals.
+ * Specificity (0,3,1) beats Tailwind utility (0,1,0) — no !important.
+ * ──────────────────────────────────────────────────────── */
+
+/* Surfaces */
+.dark .painel-root main [class*="bg-white"]    { background-color: #1c1c1e; }
+.dark .painel-root main [class~="bg-zinc-50"]  { background-color: #28282c; }
+.dark .painel-root main [class~="bg-zinc-100"] { background-color: #3f3f46; }
+.dark .painel-root main [class~="bg-zinc-200"] { background-color: #52525b; }
+
+/* Text */
+.dark .painel-root main [class~="text-zinc-900"] { color: #fafafa; }
+.dark .painel-root main [class~="text-zinc-800"] { color: #e4e4e7; }
+.dark .painel-root main [class~="text-zinc-700"] { color: #d4d4d8; }
+.dark .painel-root main [class~="text-zinc-600"] { color: #a1a1aa; }
+.dark .painel-root main [class~="text-zinc-500"] { color: #71717a; }
+.dark .painel-root main [class~="text-zinc-400"] { color: #52525b; }
+
+/* Borders */
+.dark .painel-root main [class*="border-black"] { border-color: rgba(255,255,255,0.08); }
+.dark .painel-root main [class~="border-zinc-200"] { border-color: rgba(255,255,255,0.10); }
+.dark .painel-root main [class~="border-zinc-100"] { border-color: rgba(255,255,255,0.06); }
+
+/* Hover states */
+.dark .painel-root main [class~="hover:bg-zinc-100"]:hover { background-color: #3f3f46; }
+.dark .painel-root main [class~="hover:bg-zinc-50"]:hover  { background-color: #28282c; }
+.dark .painel-root main [class~="hover:bg-zinc-200"]:hover { background-color: #52525b; }
+
+/* Inputs & textareas */
+.dark .painel-root main input,
+.dark .painel-root main textarea,
+.dark .painel-root main select {
+  color-scheme: dark;
+}
+
 /* ─── Modal pattern (design system) ────────────────────
  * Overlay:  .modal-overlay
  * Content:  .modal-box (+ size modifier: sm/md/lg)
@@ -77,7 +114,8 @@
 .modal-box.md { max-width: 32rem; }
 .modal-box.lg { max-width: 42rem; }
 .modal-body   { flex: 1; overflow-y: auto; }
-.dark .modal-box { background: #18181B; }
+.dark .modal-box      { background: #1c1c1e; }
+.dark .modal-overlay  { background: rgba(0,0,0,0.55); }
 
 /* ─── Page Background ──────────────────────────────── */
 .gradient-bg {

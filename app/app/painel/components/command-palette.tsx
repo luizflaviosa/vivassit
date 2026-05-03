@@ -170,9 +170,9 @@ export default function CommandPalette() {
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xl bg-white rounded-2xl border border-black/[0.07] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.30)] overflow-hidden"
+            className="w-full max-w-xl bg-white dark:bg-zinc-900 rounded-2xl border border-black/[0.07] dark:border-white/[0.08] shadow-[0_24px_60px_-20px_rgba(0,0,0,0.30)] overflow-hidden"
           >
-            <div className="flex items-center gap-3 px-4 h-14 border-b border-black/[0.06]">
+            <div className="flex items-center gap-3 px-4 h-14 border-b border-black/[0.06] dark:border-white/[0.08]">
               <Search className="w-4 h-4 text-zinc-400 flex-shrink-0" />
               <input
                 ref={inputRef}
@@ -180,7 +180,7 @@ export default function CommandPalette() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Pra onde vamos? Digite o nome de uma página, ação ou paciente…"
-                className="flex-1 h-full bg-transparent text-[15px] text-zinc-900 placeholder:text-zinc-400 outline-none"
+                className="flex-1 h-full bg-transparent text-[15px] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 outline-none"
               />
               <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[11px] font-medium text-zinc-400 bg-zinc-100 rounded px-1.5 py-0.5">
                 ESC
@@ -236,7 +236,7 @@ export default function CommandPalette() {
               )}
             </div>
 
-            <div className="px-4 py-2.5 border-t border-black/[0.06] bg-zinc-50/60 flex items-center justify-between text-[11px] text-zinc-500">
+            <div className="px-4 py-2.5 border-t border-black/[0.06] dark:border-white/[0.08] bg-zinc-50/60 dark:bg-zinc-800/60 flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center gap-1">
                   <kbd className="font-mono bg-white border border-black/10 rounded px-1">↑↓</kbd>
