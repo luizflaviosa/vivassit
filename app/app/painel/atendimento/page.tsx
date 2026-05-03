@@ -123,7 +123,7 @@ function AtendimentoInner() {
               />
 
               {/* pointer-events-none no container — só o botão captura eventos */}
-              <div className="absolute inset-0 pointer-events-none flex items-end justify-end pb-5 pr-5">
+              <div className="absolute inset-0 pointer-events-none flex items-end justify-end pb-16 pr-5">
                 <motion.button
                   type="button"
                   onClick={() => setFullscreen(false)}
