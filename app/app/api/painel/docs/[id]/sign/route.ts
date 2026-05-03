@@ -145,26 +145,29 @@ export async function POST(
           location: auth.ctx.tenant.clinic_name || '',
         });
 
-        // Update document
-        await updateDocument(auth.ctx.tenant.tenant_id, docId, {
-          submitted_at: new Date().toISOString(),
+        const now = new Date().toISOString();
+
+        // Mark as signed immediately — webhook will add signed_pdf_url when CESS completes
+        const updated = await updateDocument(auth.ctx.tenant.tenant_id, docId, {
+          status: 'signed',
+          signed_at: now,
+          submitted_at: now,
+          signed_by_user: auth.ctx.user.id,
         });
 
-        // Store TCN for tracking
+        // Store TCN in a dedicated column without polluting form_data
         await supabaseAdmin()
           .from('medical_documents')
-          .update({
-            form_data: {
-              ...doc.form_data as object,
-              _birdid_tcn: signResult.tcn,
-            },
-          })
-          .eq('id', docId);
+          .update({ birdid_tcn: signResult.tcn })
+          .eq('id', docId)
+          .throwOnError()
+          .then(() => null)
+          .catch(() => null); // non-fatal if column doesn't exist yet
 
         return NextResponse.json({
           success: true,
           signing_method: 'birdid',
-          message: 'Documento assinado digitalmente via BirdID!',
+          document: updated,
           tcn: signResult.tcn,
         });
       } catch (e) {

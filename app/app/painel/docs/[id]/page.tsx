@@ -20,6 +20,7 @@ import {
   FileText,
   Pencil,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useMe } from '@/lib/painel-context';
 import {
   DOC_TYPES,
@@ -82,7 +83,8 @@ export default function DocDetailPage() {
   const [otpCode, setOtpCode] = useState('');
   const [birdidAccountInput, setBirdidAccountInput] = useState('');
   const [saveAccountId, setSaveAccountId] = useState(true);
-  const [signMessage, setSignMessage] = useState('');
+  const [signError, setSignError] = useState('');
+  const [signingBirdId, setSigningBirdId] = useState(false);
 
   // Edit modal (draft only)
   const [showEdit, setShowEdit] = useState(false);
@@ -129,23 +131,20 @@ export default function DocDetailPage() {
 
   const handleSign = useCallback(async () => {
     setActing(true);
-    setSignMessage('');
+    setSignError('');
 
-    // Determine BirdID account: saved on doctor or entered now
     const doctorHasAccount = !!data?.doctor?.birdid_account_id;
     const accountId = doctorHasAccount
       ? data!.doctor!.birdid_account_id!
       : birdidAccountInput.trim();
 
-    // Build body for the sign API
+    const willUseBirdid = !!accountId && otpCode.trim().length >= 4;
+
     const body: Record<string, unknown> = {};
-    if (otpCode.trim()) {
-      body.otp = otpCode.trim();
-    }
-    // If first-time setup, send the account ID to save
-    if (!doctorHasAccount && accountId) {
-      body.birdid_account_id = accountId;
-    }
+    if (otpCode.trim()) body.otp = otpCode.trim();
+    if (!doctorHasAccount && accountId) body.birdid_account_id = accountId;
+
+    if (willUseBirdid) setSigningBirdId(true);
 
     try {
       const res = await fetch(`/api/painel/docs/${docId}/sign`, {
@@ -154,23 +153,32 @@ export default function DocDetailPage() {
         body: JSON.stringify(body),
       });
       const json = await res.json();
+
       if (json.success) {
         if (json.signing_method === 'birdid') {
-          setSignMessage(`✅ ${json.message || 'Documento assinado digitalmente via BirdID!'}`);
-          setTimeout(() => { fetchDoc(); setShowSign(false); setSignMessage(''); setOtpCode(''); }, 3000);
+          setShowSign(false);
+          setOtpCode('');
+          setBirdidAccountInput('');
+          await fetchDoc();
+          toast.success('Assinado com certificado ICP-Brasil', {
+            description: 'Documento assinado digitalmente via BirdID.',
+            duration: 5000,
+          });
         } else {
           await fetchDoc();
           setShowSign(false);
           setOtpCode('');
+          toast.success('Documento assinado');
         }
       } else {
-        setSignMessage(json.message || 'Erro ao assinar');
+        setSignError(json.message || 'Erro ao assinar');
       }
     } catch (e) {
       console.error(e);
-      setSignMessage('Erro de conexão');
+      setSignError('Erro de conexão. Verifique sua internet e tente novamente.');
     } finally {
       setActing(false);
+      setSigningBirdId(false);
     }
   }, [docId, otpCode, birdidAccountInput, data, fetchDoc]);
 
@@ -449,133 +457,153 @@ export default function DocDetailPage() {
         )}
       </div>
 
-      {/* ═══════ Sign Modal (BirdID OTP) — com conferência do documento ═══════ */}
+      {/* ═══════ Sign Modal (BirdID OTP) ═══════ */}
       {showSign && (() => {
         const doctorHasAccount = !!data?.doctor?.birdid_account_id;
         const accountIdReady = doctorHasAccount || birdidAccountInput.trim().length > 0;
         const willUseBirdid = accountIdReady && otpCode.trim().length >= 4;
+
         return (
           <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/40 overflow-y-auto">
-            <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full my-auto flex flex-col max-h-[calc(100vh-2rem)]">
+            <div className="relative bg-white rounded-2xl shadow-xl max-w-lg w-full my-auto flex flex-col max-h-[calc(100vh-2rem)]">
+
+              {/* Loading overlay (BirdID signing in progress) */}
+              {signingBirdId && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-white/95 backdrop-blur-sm gap-4">
+                  <div className="relative">
+                    <div className="h-16 w-16 rounded-full border-4 border-violet-100 border-t-violet-600 animate-spin" />
+                    <Fingerprint className="absolute inset-0 m-auto w-7 h-7 text-violet-600" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[15px] font-semibold text-zinc-900">Assinando com BirdID…</p>
+                    <p className="text-[13px] text-zinc-500 mt-1">Aguarde, enviando para certificação ICP-Brasil</p>
+                  </div>
+                </div>
+              )}
+
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-black/[0.06] flex-shrink-0">
                 <h3 className="text-[17px] font-semibold text-zinc-900 flex items-center gap-2">
-                  <FileText className="w-4.5 h-4.5 text-zinc-400" />
+                  <FileText className="w-4 h-4 text-zinc-400" />
                   Conferir e assinar
                 </h3>
                 <button
-                  onClick={() => { setShowSign(false); setOtpCode(''); setBirdidAccountInput(''); setSignMessage(''); }}
-                  className="h-8 w-8 -mr-2 rounded-md hover:bg-black/[0.04] inline-flex items-center justify-center text-zinc-400"
+                  onClick={() => { setShowSign(false); setOtpCode(''); setBirdidAccountInput(''); setSignError(''); }}
+                  disabled={acting}
+                  className="h-8 w-8 -mr-2 rounded-md hover:bg-black/[0.04] inline-flex items-center justify-center text-zinc-400 disabled:opacity-40"
                 >
                   <XCircle className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Scrollable body */}
-              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-                {/* ── 1. Preview visual do documento (mesmo layout do PDF) ── */}
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+                {/* 1. Document preview */}
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 flex items-center gap-1.5 mb-2">
-                    <ShieldCheck className="w-3 h-3" /> Confira o documento antes de assinar
+                  <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-400 flex items-center gap-1.5 mb-2.5">
+                    <ShieldCheck className="w-3 h-3" /> Confira antes de assinar
                   </p>
                   {doc.doc_type === 'aptidao_fisica' && form && (
                     <DocPreviewAptidao form={form} clinicName={me?.clinic_name ?? undefined} compact />
                   )}
                 </div>
 
-                {/* ── 2. Assinatura digital BirdID (OTP) ── */}
+                {/* 2. BirdID section */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Fingerprint className="w-4 h-4 text-violet-600" />
-                    <p className="text-[14px] font-medium text-zinc-900">Assinatura digital BirdID</p>
+                    <p className="text-[14px] font-semibold text-zinc-900">Assinatura digital BirdID</p>
                   </div>
 
                   {doctorHasAccount ? (
-                    /* Doctor already has BirdID configured → show status + OTP input */
-                    <div className="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 p-3">
-                      <Fingerprint className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                    <div className="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                       <div>
                         <p className="text-[13px] font-medium text-emerald-900">BirdID configurado</p>
-                        <p className="text-[12px] text-emerald-700 font-mono">{data!.doctor!.birdid_account_id}</p>
+                        <p className="text-[12px] text-emerald-700 font-mono mt-0.5">{data!.doctor!.birdid_account_id}</p>
                       </div>
                     </div>
                   ) : (
-                    /* First time — need to enter BirdID account ID */
-                    <div className="space-y-2">
-                      <p className="text-[13px] text-zinc-500">
-                        Informe o ID da conta BirdID do profissional para habilitar assinatura digital.
+                    <div className="space-y-2.5">
+                      <p className="text-[13px] text-zinc-500 leading-relaxed">
+                        Informe o <strong className="text-zinc-700">CPF</strong> do profissional cadastrado no BirdID para habilitar a assinatura digital ICP-Brasil.
                       </p>
                       <input
                         type="text"
                         value={birdidAccountInput}
-                        onChange={(e) => setBirdidAccountInput(e.target.value)}
-                        placeholder="BirdID Account ID (ex: c2a217b6e9)"
-                        className="w-full h-11 px-4 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border-2 border-zinc-200 focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all font-mono"
+                        onChange={(e) => setBirdidAccountInput(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                        placeholder="CPF do profissional (11 dígitos)"
+                        className="w-full h-11 px-4 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border-2 border-zinc-200 focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all font-mono tracking-widest"
+                        inputMode="numeric"
                       />
-                      <label className="flex items-center gap-3 cursor-pointer group">
+                      <label className="flex items-center gap-2.5 cursor-pointer group">
                         <input
                           type="checkbox"
                           checked={saveAccountId}
                           onChange={(e) => setSaveAccountId(e.target.checked)}
-                          className="h-4 w-4 accent-violet-600 cursor-pointer"
+                          className="h-4 w-4 accent-violet-600 cursor-pointer rounded"
                         />
-                        <span className="text-[13px] text-zinc-600 group-hover:text-zinc-900 transition-colors">
+                        <span className="text-[13px] text-zinc-500 group-hover:text-zinc-800 transition-colors">
                           Salvar no perfil do profissional
                         </span>
                       </label>
                     </div>
                   )}
 
-                  {/* OTP input — always shown when account is available */}
+                  {/* OTP input */}
                   {accountIdReady && (
                     <div className="space-y-2">
                       <p className="text-[13px] text-zinc-600">
-                        Digite o codigo OTP que aparece no app BirdID do profissional:
+                        Código OTP do app BirdID:
                       </p>
                       <input
                         type="text"
                         value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                        placeholder="Codigo OTP (6 digitos)"
-                        autoFocus
-                        className="w-full h-14 px-4 bg-white text-center text-[24px] text-zinc-900 placeholder:text-zinc-400 placeholder:text-[16px] rounded-xl border-2 border-zinc-200 focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all font-mono tracking-[0.3em]"
+                        onChange={(e) => { setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8)); setSignError(''); }}
+                        placeholder="000000"
+                        autoFocus={doctorHasAccount}
+                        disabled={acting}
+                        className="w-full h-16 px-4 bg-zinc-50 text-center text-[28px] text-zinc-900 placeholder:text-zinc-300 placeholder:text-[22px] rounded-xl border-2 border-zinc-200 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all font-mono tracking-[0.35em] disabled:opacity-50"
                         inputMode="numeric"
                       />
-                      <p className="text-[11px] text-zinc-400">
-                        O codigo renova a cada ~30 segundos. Digite o codigo atual do app.
+                      <p className="text-[11px] text-zinc-400 text-center">
+                        Renova a cada ~30 segundos no app BirdID
                       </p>
                     </div>
                   )}
 
-                  {/* Option to skip BirdID and sign manually */}
+                  {/* Manual sign notice */}
                   {!willUseBirdid && (
-                    <div className="flex items-center gap-3 rounded-xl bg-zinc-50 border border-black/[0.06] p-3 mt-2">
-                      <AlertTriangle className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-                      <p className="text-[12px] text-zinc-500">
-                        Sem o codigo OTP, o documento sera assinado manualmente (sem certificado ICP-Brasil).
+                    <div className="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200/80 px-4 py-3">
+                      <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-[12px] text-amber-800 leading-relaxed">
+                        Sem o código OTP, o documento será assinado <strong>manualmente</strong> — sem certificado ICP-Brasil.
                       </p>
+                    </div>
+                  )}
+
+                  {/* Error */}
+                  {signError && (
+                    <div className="flex items-start gap-3 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+                      <XCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                      <p className="text-[13px] text-red-700 leading-relaxed">{signError}</p>
                     </div>
                   )}
                 </div>
-
-                {/* Feedback messages */}
-                {signMessage && (
-                  <p className={`text-[13px] rounded-lg px-3 py-2.5 ${signMessage.startsWith('✅') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
-                    {signMessage}
-                  </p>
-                )}
               </div>
 
               {/* Footer */}
               <div className="flex items-center justify-between gap-3 px-6 py-4 bg-zinc-50/60 border-t border-black/[0.06] flex-shrink-0">
                 <p className="text-[11px] text-zinc-400">
-                  {willUseBirdid ? 'Certificado digital ICP-Brasil' : 'Assinatura manual'}
+                  {willUseBirdid ? '🔐 Certificado ICP-Brasil' : 'Assinatura manual'}
                 </p>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => { setShowSign(false); setOtpCode(''); setBirdidAccountInput(''); setSignMessage(''); }}
-                    className="h-10 px-4 rounded-lg text-[13px] font-semibold text-zinc-600 hover:bg-black/[0.04] transition-colors"
+                    onClick={() => { setShowSign(false); setOtpCode(''); setBirdidAccountInput(''); setSignError(''); }}
+                    disabled={acting}
+                    className="h-10 px-4 rounded-lg text-[13px] font-semibold text-zinc-600 hover:bg-black/[0.04] transition-colors disabled:opacity-40"
                   >
                     Cancelar
                   </button>
@@ -583,8 +611,8 @@ export default function DocDetailPage() {
                     type="button"
                     onClick={handleSign}
                     disabled={acting}
-                    className="h-10 px-5 rounded-lg text-white text-[13px] font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all disabled:opacity-40"
-                    style={{ background: willUseBirdid ? '#22C55E' : ACCENT_DEEP }}
+                    className="h-10 px-5 rounded-lg text-white text-[13px] font-semibold inline-flex items-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-40"
+                    style={{ background: willUseBirdid ? '#7C3AED' : ACCENT_DEEP }}
                   >
                     {acting ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -593,7 +621,7 @@ export default function DocDetailPage() {
                     ) : (
                       <CheckCircle2 className="w-4 h-4" />
                     )}
-                    {acting ? 'Assinando...' : willUseBirdid ? 'Assinar via BirdID' : 'Assinar manualmente'}
+                    {acting ? 'Assinando…' : willUseBirdid ? 'Assinar com BirdID' : 'Assinar manualmente'}
                   </button>
                 </div>
               </div>

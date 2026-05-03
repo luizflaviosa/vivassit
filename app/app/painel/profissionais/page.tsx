@@ -491,13 +491,13 @@ function ProfissionaisInner() {
                 {/* BirdID — assinatura digital */}
                 <Section title="Assinatura Digital (BirdID)" icon={<Fingerprint className="w-3.5 h-3.5" />}>
                   <p className="text-[12px] text-zinc-500 -mt-1">
-                    ID da conta BirdID do profissional (ex: c2a217b6e9). Na hora de assinar, ele digita o código OTP do app BirdID. Sem isso, documentos são assinados manualmente.
+                    CPF do profissional cadastrado no app BirdID. Na hora de assinar documentos, ele digita o código OTP exibido no app. Sem isso, documentos são assinados manualmente.
                   </p>
                   <div className="relative">
                     <FormInput
-                      placeholder="BirdID Account ID (ex: c2a217b6e9)"
+                      placeholder="CPF do profissional (11 dígitos, ex: 12345678900)"
                       value={form.birdid_account_id}
-                      onChange={(v) => setField('birdid_account_id', v.trim())}
+                      onChange={(v) => setField('birdid_account_id', v.replace(/\D/g, '').slice(0, 11))}
                     />
                     {form.birdid_account_id.length > 0 && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
