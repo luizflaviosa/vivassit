@@ -45,33 +45,118 @@
   }
 }
 
-/* ─── Painel section backgrounds ─────────────────────── */
-/*
- * Each section group gets a very subtle background tint (~4% saturation).
- * CSS custom property --painel-bg is set via data-group on the root element.
- * Dark mode tokens are defined here so enabling dark mode is a 1-line change
- * (add `dark` class to <html> and swap media query to .dark selector).
- */
-/* Light */
-:root, .light {
-  --painel-bg: #FAFAF7;
+/* ─── Painel section color system ────────────────────────
+ *
+ * Each nav group has a full color identity: page bg, nav label,
+ * active item, and content-area atmosphere glow.
+ *
+ * @property makes custom properties animatable so every
+ * color cross-fades smoothly when navigating between sections.
+ * ────────────────────────────────────────────────────────── */
+
+@property --sg-bg        { syntax: '<color>'; inherits: true; initial-value: #FAFAF7; }
+@property --sg-label     { syntax: '<color>'; inherits: true; initial-value: #A1A1AA; }
+@property --sg-active-bg { syntax: '<color>'; inherits: true; initial-value: #EDE9FE; }
+@property --sg-active-fg { syntax: '<color>'; inherits: true; initial-value: #5746AF; }
+@property --sg-glow      { syntax: '<color>'; inherits: true; initial-value: #EDE9FE; }
+
+/* ── Default / home / config ── */
+:root, .light, [data-group="default"] {
+  --sg-bg:        #FAFAF7;
+  --sg-label:     #A1A1AA;
+  --sg-active-bg: #EDE9FE;
+  --sg-active-fg: #5746AF;
+  --sg-glow:      #EDE9FE;
 }
-[data-group="daily"]        { --painel-bg: #F3F7FF; }
-[data-group="consultation"] { --painel-bg: #F3FBF5; }
-[data-group="clinic"]       { --painel-bg: #FAF8F3; }
-[data-group="growth"]       { --painel-bg: #FBF3F6; }
+/* ── Todo dia — azul clínico ── */
+[data-group="daily"] {
+  --sg-bg:        #EFF6FF;
+  --sg-label:     #2563EB;
+  --sg-active-bg: #DBEAFE;
+  --sg-active-fg: #1D4ED8;
+  --sg-glow:      #BFDBFE;
+}
+/* ── Por consulta — verde saúde ── */
+[data-group="consultation"] {
+  --sg-bg:        #F0FDF4;
+  --sg-label:     #16A34A;
+  --sg-active-bg: #DCFCE7;
+  --sg-active-fg: #15803D;
+  --sg-glow:      #BBF7D0;
+}
+/* ── Clínica — âmbar estrutural ── */
+[data-group="clinic"] {
+  --sg-bg:        #FFFBEB;
+  --sg-label:     #D97706;
+  --sg-active-bg: #FEF3C7;
+  --sg-active-fg: #B45309;
+  --sg-glow:      #FDE68A;
+}
+/* ── Crescimento — rosa energia ── */
+[data-group="growth"] {
+  --sg-bg:        #FFF1F2;
+  --sg-label:     #E11D48;
+  --sg-active-bg: #FFE4E6;
+  --sg-active-fg: #BE123C;
+  --sg-glow:      #FECDD3;
+}
 
-/* Dark — controlled by next-themes adding .dark to <html> */
-.dark                                   { --painel-bg: #0F0F0E; }
-.dark [data-group="daily"]              { --painel-bg: #0B0D18; }
-.dark [data-group="consultation"]       { --painel-bg: #0B1410; }
-.dark [data-group="clinic"]             { --painel-bg: #130F0B; }
-.dark [data-group="growth"]             { --painel-bg: #14090D; }
+/* ── Dark mode ── */
+.dark, .dark [data-group="default"] {
+  --sg-bg:        #0F0F0E;
+  --sg-label:     #71717A;
+  --sg-active-bg: rgba(87, 70, 175, 0.22);
+  --sg-active-fg: #C4B5FD;
+  --sg-glow:      rgba(87, 70, 175, 0.12);
+}
+.dark [data-group="daily"] {
+  --sg-bg:        #080E1A;
+  --sg-label:     #60A5FA;
+  --sg-active-bg: rgba(37, 99, 235, 0.2);
+  --sg-active-fg: #93C5FD;
+  --sg-glow:      rgba(37, 99, 235, 0.10);
+}
+.dark [data-group="consultation"] {
+  --sg-bg:        #061410;
+  --sg-label:     #4ADE80;
+  --sg-active-bg: rgba(22, 163, 74, 0.2);
+  --sg-active-fg: #86EFAC;
+  --sg-glow:      rgba(22, 163, 74, 0.10);
+}
+.dark [data-group="clinic"] {
+  --sg-bg:        #120D00;
+  --sg-label:     #FBBF24;
+  --sg-active-bg: rgba(217, 119, 6, 0.2);
+  --sg-active-fg: #FDE68A;
+  --sg-glow:      rgba(217, 119, 6, 0.10);
+}
+.dark [data-group="growth"] {
+  --sg-bg:        #150008;
+  --sg-label:     #FB7185;
+  --sg-active-bg: rgba(225, 29, 72, 0.2);
+  --sg-active-fg: #FDA4AF;
+  --sg-glow:      rgba(225, 29, 72, 0.10);
+}
 
+/* ── Root element — all tokens animate together ── */
 .painel-root {
-  background-color: var(--painel-bg);
-  transition: background-color 0.45s ease;
+  background-color: var(--sg-bg);
+  transition:
+    --sg-bg        0.5s ease,
+    --sg-label     0.5s ease,
+    --sg-active-bg 0.5s ease,
+    --sg-active-fg 0.5s ease,
+    --sg-glow      0.5s ease,
+    background-color 0.5s ease;
   min-height: 100vh;
+}
+
+/* ── Content area atmosphere gradient ── */
+.painel-glow {
+  background: linear-gradient(180deg, var(--sg-glow) 0%, transparent 220px);
+  transition: background 0.5s ease;
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 /* ─── Page Background ──────────────────────────────── */

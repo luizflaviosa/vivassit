@@ -185,11 +185,15 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
           onClick={mobile ? () => setMobileOpen(false) : undefined}
           className={`${base} ${
             active
-              ? 'bg-violet-50 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300'
+              ? ''
               : mobile
-                ? 'text-zinc-700 hover:bg-black/[0.04] dark:text-zinc-300 dark:hover:bg-white/[0.05]'
-                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.03] dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-white/[0.04]'
+                ? 'text-zinc-700 hover:bg-black/[0.05] dark:text-zinc-300 dark:hover:bg-white/[0.05]'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.04] dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-white/[0.04]'
           }`}
+          style={active ? {
+            background: 'var(--sg-active-bg)',
+            color: 'var(--sg-active-fg)',
+          } : undefined}
         >
           <span className={active ? '' : mobile ? '' : 'text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300'}>
             {item.icon}
@@ -214,7 +218,10 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
     navSections.map((section, i) => (
       <div key={i} className={section.label ? 'mt-4 first:mt-0' : ''}>
         {section.label && (
-          <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.12em] font-semibold text-zinc-400 dark:text-zinc-600 select-none">
+          <p
+            className="px-3 pb-1 text-[10px] uppercase tracking-[0.12em] font-semibold select-none transition-colors duration-500"
+            style={{ color: 'var(--sg-label)' }}
+          >
             {section.label}
           </p>
         )}
@@ -279,7 +286,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
         </header>
 
         <div className="max-w-7xl mx-auto flex gap-0 sm:gap-6 px-0 sm:px-6">
-          <aside className="hidden md:block w-60 flex-shrink-0 py-8 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-black/[0.04] dark:border-white/[0.04]">
+          <aside className="hidden md:block w-60 flex-shrink-0 py-8 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-black/[0.05] dark:border-white/[0.05]" style={{ borderRightColor: 'color-mix(in srgb, var(--sg-active-bg) 60%, transparent)' }}>
             <nav className="space-y-0">
               {renderSections(false)}
             </nav>
@@ -326,7 +333,10 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
             )}
           </AnimatePresence>
 
-          <main className="flex-1 min-w-0 px-4 sm:px-0 py-6 sm:py-8 pb-20">{children}</main>
+          <main className="flex-1 min-w-0 px-4 sm:px-0 py-6 sm:py-8 pb-20 relative">
+            <div className="painel-glow absolute inset-x-0 top-0 h-56 -z-0" aria-hidden />
+            <div className="relative z-10">{children}</div>
+          </main>
         </div>
 
         {/* Tour de boas-vindas (so na primeira visita) */}
