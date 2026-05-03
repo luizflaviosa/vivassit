@@ -85,6 +85,7 @@ export default function DocDetailPage() {
   const [saveAccountId, setSaveAccountId] = useState(true);
   const [signError, setSignError] = useState('');
   const [signingBirdId, setSigningBirdId] = useState(false);
+  const [signSuccess, setSignSuccess] = useState<{ method: 'birdid' | 'manual'; tcn?: string } | null>(null);
 
   // Edit modal (draft only)
   const [showEdit, setShowEdit] = useState(false);
@@ -155,21 +156,11 @@ export default function DocDetailPage() {
       const json = await res.json();
 
       if (json.success) {
-        if (json.signing_method === 'birdid') {
-          setShowSign(false);
-          setOtpCode('');
-          setBirdidAccountInput('');
-          await fetchDoc();
-          toast.success('Assinado com certificado ICP-Brasil', {
-            description: 'Documento assinado digitalmente via BirdID.',
-            duration: 5000,
-          });
-        } else {
-          await fetchDoc();
-          setShowSign(false);
-          setOtpCode('');
-          toast.success('Documento assinado');
-        }
+        await fetchDoc();
+        setSignSuccess({
+          method: json.signing_method === 'birdid' ? 'birdid' : 'manual',
+          tcn: json.tcn,
+        });
       } else {
         setSignError(json.message || 'Erro ao assinar');
       }
@@ -481,23 +472,68 @@ export default function DocDetailPage() {
                 </div>
               )}
 
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-black/[0.06] flex-shrink-0">
+              {/* ── Success screen ── */}
+              {signSuccess && (
+                <div className="flex flex-col items-center justify-center px-8 py-12 text-center gap-5">
+                  <div className={`h-20 w-20 rounded-full flex items-center justify-center ${signSuccess.method === 'birdid' ? 'bg-emerald-100' : 'bg-violet-100'}`}>
+                    {signSuccess.method === 'birdid'
+                      ? <Fingerprint className="w-10 h-10 text-emerald-600" />
+                      : <CheckCircle2 className="w-10 h-10 text-violet-600" />
+                    }
+                  </div>
+                  <div>
+                    <p className="text-[20px] font-semibold text-zinc-900">
+                      {signSuccess.method === 'birdid' ? 'Assinado com ICP-Brasil' : 'Documento assinado'}
+                    </p>
+                    <p className="text-[14px] text-zinc-500 mt-1">
+                      {signSuccess.method === 'birdid'
+                        ? 'Assinatura digital certificada via BirdID.'
+                        : 'Assinatura manual registrada com sucesso.'}
+                    </p>
+                    {signSuccess.tcn && (
+                      <p className="text-[11px] font-mono text-zinc-400 mt-3 bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 break-all">
+                        TCN: {signSuccess.tcn}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-3 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => { setShowSign(false); setOtpCode(''); setBirdidAccountInput(''); setSignError(''); setSignSuccess(null); }}
+                      className="h-11 px-6 rounded-xl bg-zinc-100 text-zinc-700 text-[14px] font-semibold hover:bg-zinc-200 transition-colors"
+                    >
+                      Fechar
+                    </button>
+                    <a
+                      href={`/api/painel/docs/${docId}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-11 px-6 rounded-xl text-white text-[14px] font-semibold inline-flex items-center gap-2 hover:brightness-110 transition-all"
+                      style={{ background: ACCENT_DEEP }}
+                    >
+                      <Download className="w-4 h-4" /> Baixar PDF
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Header (hidden when success) */}
+              {!signSuccess && <div className="flex items-center justify-between px-6 py-4 border-b border-black/[0.06] flex-shrink-0">
                 <h3 className="text-[17px] font-semibold text-zinc-900 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-zinc-400" />
                   Conferir e assinar
                 </h3>
                 <button
-                  onClick={() => { setShowSign(false); setOtpCode(''); setBirdidAccountInput(''); setSignError(''); }}
+                  onClick={() => { setShowSign(false); setOtpCode(''); setBirdidAccountInput(''); setSignError(''); setSignSuccess(null); }}
                   disabled={acting}
                   className="h-8 w-8 -mr-2 rounded-md hover:bg-black/[0.04] inline-flex items-center justify-center text-zinc-400 disabled:opacity-40"
                 >
                   <XCircle className="w-4 h-4" />
                 </button>
-              </div>
+              </div>}
 
-              {/* Scrollable body */}
-              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              {/* Scrollable body (hidden when success) */}
+              {!signSuccess && <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
                 {/* 1. Document preview */}
                 <div>
@@ -591,17 +627,17 @@ export default function DocDetailPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </div>}
 
-              {/* Footer */}
-              <div className="flex items-center justify-between gap-3 px-6 py-4 bg-zinc-50/60 border-t border-black/[0.06] flex-shrink-0">
+              {/* Footer (hidden when success) */}
+              {!signSuccess && <div className="flex items-center justify-between gap-3 px-6 py-4 bg-zinc-50/60 border-t border-black/[0.06] flex-shrink-0">
                 <p className="text-[11px] text-zinc-400">
                   {willUseBirdid ? '🔐 Certificado ICP-Brasil' : 'Assinatura manual'}
                 </p>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => { setShowSign(false); setOtpCode(''); setBirdidAccountInput(''); setSignError(''); }}
+                    onClick={() => { setShowSign(false); setOtpCode(''); setBirdidAccountInput(''); setSignError(''); setSignSuccess(null); }}
                     disabled={acting}
                     className="h-10 px-4 rounded-lg text-[13px] font-semibold text-zinc-600 hover:bg-black/[0.04] transition-colors disabled:opacity-40"
                   >
@@ -624,7 +660,7 @@ export default function DocDetailPage() {
                     {acting ? 'Assinando…' : willUseBirdid ? 'Assinar com BirdID' : 'Assinar manualmente'}
                   </button>
                 </div>
-              </div>
+              </div>}
             </div>
           </div>
         );
