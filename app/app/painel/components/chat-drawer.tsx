@@ -314,11 +314,11 @@ export default function ChatDrawer() {
             exit={{ opacity: 0, scale: 0.6 }}
             transition={{ type: 'spring', stiffness: 280, damping: 22 }}
             onClick={() => setOpen(true)}
-            className="hidden md:inline-flex fixed bottom-6 right-6 z-40 h-14 px-5 rounded-full text-white items-center gap-2 shadow-[0_8px_24px_-8px_rgba(110,86,207,0.6)] hover:brightness-110 transition-all"
+            className="hidden md:inline-flex fixed bottom-5 right-5 z-40 h-10 px-4 rounded-full text-white items-center gap-1.5 shadow-[0_6px_18px_-6px_rgba(110,86,207,0.6)] hover:brightness-110 transition-all"
             style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
           >
-            <Sparkles className="w-4 h-4" />
-            <span className="text-[14px] font-semibold">Falar com a IA</span>
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="text-[13px] font-semibold">Falar com a IA</span>
             {unread > 0 && (
               <span className="ml-1 h-5 min-w-[20px] px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-semibold flex items-center justify-center">
                 {unread}
