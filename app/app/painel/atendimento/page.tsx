@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useMemo, useState, useEffect } from 'react';
 import { ExternalLink, Headphones, MessageCircle, Minimize2, Maximize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMe } from '@/lib/painel-context';
@@ -18,6 +18,12 @@ function buildChatwootUrl(rawUrl?: string | null, accountId?: string | number | 
 function AtendimentoInner() {
   const me = useMe();
   const [fullscreen, setFullscreen] = useState(true);
+
+  useEffect(() => {
+    const handler = () => setFullscreen(true);
+    window.addEventListener('singulare:atendimento-focus', handler);
+    return () => window.removeEventListener('singulare:atendimento-focus', handler);
+  }, []);
 
   const chatwootUrl = useMemo(
     () => buildChatwootUrl(me?.chatwoot_url, me?.chatwoot_account_id),
