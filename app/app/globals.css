@@ -52,7 +52,8 @@
  * Dark mode tokens are defined here so enabling dark mode is a 1-line change
  * (add `dark` class to <html> and swap media query to .dark selector).
  */
-:root {
+/* Light */
+:root, .light {
   --painel-bg: #FAFAF7;
 }
 [data-group="daily"]        { --painel-bg: #F3F7FF; }
@@ -60,13 +61,12 @@
 [data-group="clinic"]       { --painel-bg: #FAF8F3; }
 [data-group="growth"]       { --painel-bg: #FBF3F6; }
 
-@media (prefers-color-scheme: dark) {
-  :root                       { --painel-bg: #0F0F0E; }
-  [data-group="daily"]        { --painel-bg: #0B0D18; }
-  [data-group="consultation"] { --painel-bg: #0B1410; }
-  [data-group="clinic"]       { --painel-bg: #130F0B; }
-  [data-group="growth"]       { --painel-bg: #14090D; }
-}
+/* Dark — controlled by next-themes adding .dark to <html> */
+.dark                                   { --painel-bg: #0F0F0E; }
+.dark [data-group="daily"]              { --painel-bg: #0B0D18; }
+.dark [data-group="consultation"]       { --painel-bg: #0B1410; }
+.dark [data-group="clinic"]             { --painel-bg: #130F0B; }
+.dark [data-group="growth"]             { --painel-bg: #14090D; }
 
 .painel-root {
   background-color: var(--painel-bg);

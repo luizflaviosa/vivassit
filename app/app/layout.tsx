@@ -2,6 +2,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { Toaster } from 'sonner';
+import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -89,24 +90,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        {/* iOS 16.4+: encolhe a viewport quando o teclado abre, mantendo inputs visíveis */}
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, interactive-widget=resizes-content"
         />
       </head>
       <body className={`${inter.className} antialiased`}>
-        <main>{children}</main>
-        <Toaster
-          position="top-right"
-          richColors
-          closeButton
-          toastOptions={{ duration: 6000 }}
-        />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange={false}>
+          <main>{children}</main>
+          <Toaster
+            position="top-right"
+            richColors
+            closeButton
+            toastOptions={{ duration: 6000 }}
+          />
+        </ThemeProvider>
       </body>
     </html>
   );

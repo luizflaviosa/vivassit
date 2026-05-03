@@ -22,7 +22,10 @@ import {
   ChevronRight,
   LogOut,
   Loader2,
+  Sun,
+  Moon,
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { MeContext, type MeData } from '@/lib/painel-context';
 import WelcomeTour from './components/welcome-tour';
 import ChatDrawer from './components/chat-drawer';
@@ -75,6 +78,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<MeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
 
   useEffect(() => {
     (async () => {
@@ -179,10 +183,15 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
           key={item.href}
           href={item.href}
           onClick={mobile ? () => setMobileOpen(false) : undefined}
-          className={`${base} ${active ? 'text-zinc-900' : mobile ? 'text-zinc-700 hover:bg-black/[0.04]' : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.03]'}`}
-          style={active ? { background: ACCENT_SOFT, color: ACCENT_DEEP } : undefined}
+          className={`${base} ${
+            active
+              ? 'bg-violet-50 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300'
+              : mobile
+                ? 'text-zinc-700 hover:bg-black/[0.04] dark:text-zinc-300 dark:hover:bg-white/[0.05]'
+                : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.03] dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-white/[0.04]'
+          }`}
         >
-          <span className={active ? '' : mobile ? '' : 'text-zinc-400 group-hover:text-zinc-600'}>
+          <span className={active ? '' : mobile ? '' : 'text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300'}>
             {item.icon}
           </span>
           <span className="flex-1">{item.label}</span>
@@ -191,7 +200,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
       ) : (
         <div
           key={item.href}
-          className={`${base} ${mobile ? 'text-zinc-300' : 'text-zinc-300 cursor-not-allowed'}`}
+          className={`${base} text-zinc-300 dark:text-zinc-700 ${mobile ? '' : 'cursor-not-allowed'}`}
           title={item.hint}
         >
           <span>{item.icon}</span>
@@ -205,7 +214,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
     navSections.map((section, i) => (
       <div key={i} className={section.label ? 'mt-4 first:mt-0' : ''}>
         {section.label && (
-          <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.12em] font-semibold text-zinc-400 select-none">
+          <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.12em] font-semibold text-zinc-400 dark:text-zinc-600 select-none">
             {section.label}
           </p>
         )}
@@ -218,7 +227,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
   return (
     <MeContext.Provider value={me}>
       <div className="painel-root text-zinc-900" data-group={group}>
-        <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-white/80 dark:bg-zinc-950/90 dark:border-white/[0.06] backdrop-blur-xl">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-[68px] flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <button
@@ -244,12 +253,23 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
               {me && <TenantSwitcher />}
               <button
                 type="button"
+                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                className="h-9 w-9 inline-flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-black/[0.04] dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+                title={resolvedTheme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+              >
+                {resolvedTheme === 'dark'
+                  ? <Sun className="w-4 h-4" />
+                  : <Moon className="w-4 h-4" />
+                }
+              </button>
+              <button
+                type="button"
                 onClick={handleSignOut}
-                className="h-9 px-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.04] rounded-md transition-colors"
+                className="h-9 px-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.04] dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-white/[0.06] rounded-md transition-colors"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Sair</span>
@@ -259,7 +279,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
         </header>
 
         <div className="max-w-7xl mx-auto flex gap-0 sm:gap-6 px-0 sm:px-6">
-          <aside className="hidden md:block w-60 flex-shrink-0 py-8 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
+          <aside className="hidden md:block w-60 flex-shrink-0 py-8 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-black/[0.04] dark:border-white/[0.04]">
             <nav className="space-y-0">
               {renderSections(false)}
             </nav>
@@ -276,7 +296,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
                   onClick={() => setMobileOpen(false)}
                 />
                 <motion.aside
-                  className="md:hidden fixed top-0 left-0 bottom-0 z-50 w-72 bg-white p-5 overflow-y-auto"
+                  className="md:hidden fixed top-0 left-0 bottom-0 z-50 w-72 bg-white dark:bg-zinc-950 p-5 overflow-y-auto border-r border-black/[0.06] dark:border-white/[0.06]"
                   initial={{ x: -288 }}
                   animate={{ x: 0 }}
                   exit={{ x: -288 }}
