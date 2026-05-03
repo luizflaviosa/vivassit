@@ -18,12 +18,16 @@ import {
   Fingerprint,
   ShieldCheck,
   FileText,
+  Pencil,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import {
   DOC_TYPES,
   DOC_STATUSES,
+  ACTIVITY_TYPES,
+  FITNESS_RESULTS,
   type DocStatus,
+  type FitnessResult,
   type AptidaoFisicaForm,
   type MedicalDocument,
 } from '@/lib/docs-types';
@@ -79,6 +83,14 @@ export default function DocDetailPage() {
   const [birdidAccountInput, setBirdidAccountInput] = useState('');
   const [saveAccountId, setSaveAccountId] = useState(true);
   const [signMessage, setSignMessage] = useState('');
+
+  // Edit modal (draft only)
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    activity_type: string;
+    result: FitnessResult;
+    restrictions: string;
+  }>({ activity_type: '', result: 'apto', restrictions: '' });
 
   // Reject modal
   const [showReject, setShowReject] = useState(false);
@@ -219,6 +231,48 @@ export default function DocDetailPage() {
     }
   }, [docId, fetchDoc]);
 
+  const openEdit = useCallback(() => {
+    if (!data) return;
+    const f = data.document.form_data as unknown as AptidaoFisicaForm;
+    setEditForm({
+      activity_type: f.activity_type || '',
+      result: (f.result as FitnessResult) || 'apto',
+      restrictions: f.restrictions || '',
+    });
+    setShowEdit(true);
+  }, [data]);
+
+  const handleEdit = useCallback(async () => {
+    if (!data) return;
+    setActing(true);
+    const currentForm = data.document.form_data as unknown as AptidaoFisicaForm;
+    const updatedForm: AptidaoFisicaForm = {
+      ...currentForm,
+      activity_type: editForm.activity_type,
+      result: editForm.result,
+      restrictions: editForm.result === 'apto_restricoes' ? editForm.restrictions : '',
+    };
+    try {
+      const res = await fetch(`/api/painel/docs/${docId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ form_data: updatedForm }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchDoc();
+        setShowEdit(false);
+      } else {
+        alert(json.message || 'Erro ao salvar');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro de conexão');
+    } finally {
+      setActing(false);
+    }
+  }, [docId, data, editForm, fetchDoc]);
+
   if (!me?.tenant_id) return null;
 
   if (loading) {
@@ -244,6 +298,7 @@ export default function DocDetailPage() {
   const form = doc.form_data as unknown as AptidaoFisicaForm;
   const status = doc.status as DocStatus;
 
+  const canEdit = status === 'draft';
   const canSign = status === 'draft' || status === 'pending';
   const canSend = status === 'signed';
   const canCancel = status !== 'cancelled' && status !== 'sent';
@@ -312,6 +367,16 @@ export default function DocDetailPage() {
 
       {/* Action buttons */}
       <div className="flex flex-wrap gap-3">
+        {canEdit && (
+          <button
+            type="button"
+            onClick={openEdit}
+            disabled={acting}
+            className="h-11 px-5 rounded-xl bg-zinc-100 text-zinc-700 text-[14px] font-semibold inline-flex items-center gap-2 hover:bg-zinc-200 transition-all disabled:opacity-40"
+          >
+            <Pencil className="w-4 h-4" /> Editar
+          </button>
+        )}
         {canSign && (
           <>
             <button
@@ -650,12 +715,97 @@ export default function DocDetailPage() {
         </div>
       )}
 
+      {/* ═══════ Edit Modal (draft only) ═══════ */}
+      {showEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[18px] font-semibold text-zinc-900">Editar documento</h3>
+              <button
+                onClick={() => setShowEdit(false)}
+                className="h-8 w-8 -mr-2 rounded-md hover:bg-black/[0.04] inline-flex items-center justify-center text-zinc-400"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Activity type */}
+            <div>
+              <label className="block text-[13px] font-medium text-zinc-700 mb-2">Tipo de atividade</label>
+              <div className="flex flex-wrap gap-2">
+                {ACTIVITY_TYPES.map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => setEditForm((f) => ({ ...f, activity_type: a }))}
+                    className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
+                      editForm.activity_type === a
+                        ? 'bg-violet-100 text-violet-800 border border-violet-300'
+                        : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
+                    }`}
+                  >
+                    {a}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Result */}
+            <div>
+              <label className="block text-[13px] font-medium text-zinc-700 mb-2">Resultado</label>
+              <div className="flex gap-2">
+                {FITNESS_RESULTS.map((r) => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setEditForm((f) => ({ ...f, result: r.value as FitnessResult }))}
+                    className={`flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all text-center ${
+                      editForm.result === r.value
+                        ? 'bg-violet-100 text-violet-800 border border-violet-300'
+                        : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Restrictions (conditional) */}
+            {editForm.result === 'apto_restricoes' && (
+              <div>
+                <label className="block text-[13px] font-medium text-zinc-700 mb-2">Restricoes</label>
+                <textarea
+                  value={editForm.restrictions}
+                  onChange={(e) => setEditForm((f) => ({ ...f, restrictions: e.target.value }))}
+                  placeholder="Descreva as restricoes..."
+                  rows={3}
+                  className="w-full px-4 py-3 bg-white text-[15px] rounded-lg border border-black/10 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] resize-none"
+                />
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-end">
+              <button type="button" onClick={() => setShowEdit(false)}
+                className="h-10 px-4 rounded-lg text-[14px] font-medium text-zinc-600 hover:bg-zinc-100 transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={handleEdit} disabled={acting || !editForm.activity_type}
+                className="h-10 px-5 rounded-lg text-white text-[14px] font-semibold hover:brightness-110 transition-all disabled:opacity-40"
+                style={{ background: ACCENT_DEEP }}>
+                {acting ? <Loader2 className="w-4 h-4 animate-spin mx-2" /> : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══════ Cancel Confirm ═══════ */}
       {showCancel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
             <h3 className="text-[18px] font-semibold text-zinc-900">Cancelar documento?</h3>
-            <p className="text-[14px] text-zinc-500">Essa ação não pode ser desfeita.</p>
+            <p className="text-[14px] text-zinc-500">Essa acao nao pode ser desfeita.</p>
             <div className="flex gap-3 justify-end">
               <button type="button" onClick={() => setShowCancel(false)}
                 className="h-10 px-4 rounded-lg text-[14px] font-medium text-zinc-600 hover:bg-zinc-100 transition-colors">
