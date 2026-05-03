@@ -107,40 +107,62 @@ export async function POST(req: NextRequest) {
   }
 
   // ─── Auto-cria Google Calendar dedicado pra este profissional ──────────────
-  // O onboarding cria 1 calendar pro tenant via N8N. Profissionais ADICIONAIS
-  // (cadastrados depois via painel) precisam do próprio calendar.
-  // Service Account é o dono → automaticamente compartilha com contact_email.
-  // Falha silenciosa: se não tiver SA configurado, profissional fica sem calendar
-  // (user pode criar manualmente depois pelo botão "Criar agenda Google").
-  let calendarInfo: { calendar_id?: string; share_status?: string } = {};
+  // OBRIGATÓRIO: profissional sem calendar é inválido. Se a criação do calendar
+  // falhar, ROLLBACK do INSERT do doctor e retornamos erro claro pro usuário.
+  // Sem doctor zumbi (criado mas sem calendar). Sem self-healing maluco.
+  const calendarInfo: { calendar_id?: string; share_status?: string } = {};
+  let createdRes;
   try {
-    const created = await createCalendar({
+    createdRes = await createCalendar({
       summary: `${row.doctor_name} · ${auth.ctx.tenant.clinic_name}`,
     });
-    if ('calendar_id' in created) {
-      calendarInfo.calendar_id = created.calendar_id;
-      // Salva no profissional recém-criado
-      await supabase
-        .from('tenant_doctors')
-        .update({ calendar_id: created.calendar_id })
-        .eq('id', data!.id);
-
-      // Compartilha com contact_email (pra ele ver no Gmail dele)
-      if (row.contact_email) {
-        const shared = await shareCalendarWith({
-          calendarId: created.calendar_id,
-          email: row.contact_email,
-          role: 'writer',
-        });
-        calendarInfo.share_status = 'ok' in shared ? `shared_with_${row.contact_email}` : 'share_failed';
-      }
-    } else {
-      calendarInfo.share_status = `calendar_creation_skipped:${created.code}`;
-    }
   } catch (e) {
-    // Silencioso: profissional foi criado, calendar pode ser feito manualmente
-    console.warn('[painel/profissionais POST] calendar auto-create falhou:', e);
-    calendarInfo.share_status = 'calendar_creation_error';
+    // Rollback: deleta o doctor recém-criado
+    await supabase.from('tenant_doctors').delete().eq('id', data!.id);
+    console.error('[painel/profissionais POST] calendar auto-create EXCEPTION, doctor revertido:', e);
+    return NextResponse.json({
+      success: false,
+      message: 'Falha ao criar agenda Google. Profissional NÃO foi salvo. Tente novamente em instantes ou contate suporte.',
+      error: e instanceof Error ? e.message : String(e),
+    }, { status: 502 });
+  }
+
+  if ('error' in createdRes) {
+    // Calendar não foi criado (SA não configurado, quota, etc) → rollback doctor
+    await supabase.from('tenant_doctors').delete().eq('id', data!.id);
+    console.error('[painel/profissionais POST] calendar auto-create ERROR, doctor revertido:', createdRes.error);
+    return NextResponse.json({
+      success: false,
+      message: `Falha ao criar agenda Google: ${createdRes.error}. Profissional NÃO foi salvo.`,
+      code: createdRes.code,
+    }, { status: 502 });
+  }
+
+  // Calendar criado OK → salva ID no doctor
+  calendarInfo.calendar_id = createdRes.calendar_id;
+  const { error: updErr } = await supabase
+    .from('tenant_doctors')
+    .update({ calendar_id: createdRes.calendar_id })
+    .eq('id', data!.id);
+
+  if (updErr) {
+    console.error('[painel/profissionais POST] erro ao salvar calendar_id:', updErr);
+    // Não dá rollback do calendar do Google — fica órfão lá, mas pelo menos
+    // o doctor com calendar_id NULL agora tá em estado conhecido pra investigar.
+    return NextResponse.json({
+      success: false,
+      message: `Calendar criado (${createdRes.calendar_id}) mas falhou ao salvar no banco: ${updErr.message}`,
+    }, { status: 500 });
+  }
+
+  // Compartilha com contact_email (best effort, não bloqueia)
+  if (row.contact_email) {
+    const shared = await shareCalendarWith({
+      calendarId: createdRes.calendar_id,
+      email: row.contact_email,
+      role: 'writer',
+    });
+    calendarInfo.share_status = 'ok' in shared ? `shared_with_${row.contact_email}` : `share_failed:${shared.error.slice(0, 80)}`;
   }
 
   return NextResponse.json({ success: true, id: data?.id, calendar: calendarInfo });
