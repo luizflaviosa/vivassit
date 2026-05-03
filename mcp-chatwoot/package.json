@@ -1,0 +1,29 @@
+{
+  "name": "mcp-chatwoot",
+  "version": "0.1.0",
+  "description": "MCP server exposing the Chatwoot API (list contacts, send messages)",
+  "type": "module",
+  "bin": {
+    "mcp-chatwoot": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node --env-file=.env dist/index.js",
+    "start:no-env": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
