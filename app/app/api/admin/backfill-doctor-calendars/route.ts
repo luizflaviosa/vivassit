@@ -22,28 +22,14 @@ interface BackfillResult {
 }
 
 export async function POST(req: NextRequest) {
-  // Auth
-  const expected = process.env.N8N_TO_VERCEL_TOKEN;
+  // Auth — trim() defensivo contra whitespace acidental em env vars
+  const expected = process.env.N8N_TO_VERCEL_TOKEN?.trim();
   if (!expected) {
     return NextResponse.json({ success: false, message: 'server_misconfigured' }, { status: 500 });
   }
   const auth = req.headers.get('authorization') ?? '';
-  if (auth !== `Bearer ${expected}`) {
-    // DEBUG: retorna comparação de length sem leak do valor (remove depois)
-    const sent = auth.replace(/^Bearer\s+/, '');
-    return NextResponse.json({
-      success: false,
-      message: 'unauthorized',
-      debug: {
-        expected_length: expected.length,
-        sent_length: sent.length,
-        expected_first4: expected.slice(0, 4),
-        sent_first4: sent.slice(0, 4),
-        expected_last4: expected.slice(-4),
-        sent_last4: sent.slice(-4),
-        match: false,
-      },
-    }, { status: 401 });
+  if (auth.trim() !== `Bearer ${expected}`) {
+    return NextResponse.json({ success: false, message: 'unauthorized' }, { status: 401 });
   }
 
   const saEmail = getServiceAccountEmail();
