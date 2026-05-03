@@ -84,13 +84,14 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
     { href: '/painel/atendimento', label: 'Atendimento', icon: <Headphones className="w-4 h-4" />, enabled: true },
     { href: '/painel/cobrancas', label: 'Cobranças', icon: <CreditCard className="w-4 h-4" />, enabled: true },
     { href: '/painel/nf', label: 'Notas fiscais', icon: <FileText className="w-4 h-4" />, enabled: true },
+    { href: '/painel/docs', label: 'Documentos', icon: <FileText className="w-4 h-4" />, enabled: true },
     { href: '/painel/feedback', label: 'NPS / feedback', icon: <Star className="w-4 h-4" />, enabled: true },
     // Estrutura (baixa frequência)
     { href: '/painel/profissionais', label: 'Profissionais', icon: <Users className="w-4 h-4" />, enabled: true },
     { href: '/painel/equipe', label: 'Equipe', icon: <UserPlus className="w-4 h-4" />, enabled: true },
     // Setup
     { href: '/painel/pagamentos/ativar', label: 'Ativar pagamentos', icon: <CreditCard className="w-4 h-4" />, enabled: true },
-    { href: '/painel/visibilidade', label: 'Visibilidade', icon: <Megaphone className="w-4 h-4" />, enabled: false, hint: 'Tráfego pago e SEO' },
+    { href: '/painel/marketing', label: 'Marketing', icon: <Megaphone className="w-4 h-4" />, enabled: true },
     // Config (último)
     { href: '/painel/configuracoes', label: 'Configurações', icon: <SettingsIcon className="w-4 h-4" />, enabled: true },
   ];
