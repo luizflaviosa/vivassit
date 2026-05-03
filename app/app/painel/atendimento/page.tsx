@@ -25,8 +25,9 @@ function AtendimentoInner() {
   if (!me) return null;
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+    // nav=68px + main pt=32px + main pb=80px = 180px consumed by layout
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 180px)' }}>
+      <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 pb-4">
         <div>
           <p className="text-[12px] uppercase tracking-[0.12em] font-semibold mb-2" style={{ color: ACCENT_DEEP }}>
             Atendimento
@@ -50,24 +51,18 @@ function AtendimentoInner() {
             Abrir em nova aba
           </a>
         )}
-      </header>
+      </div>
 
       {chatwootUrl ? (
         <div
-          className="overflow-hidden rounded-xl border border-black/[0.07] bg-white"
+          className="flex-1 min-h-0 overflow-hidden rounded-xl border border-black/[0.07] bg-white"
           style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 8px 24px -12px rgba(15,15,30,0.08)' }}
         >
           <iframe
             src={chatwootUrl}
             title="Atendimento Chatwoot"
             sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
-            style={{
-              width: '100%',
-              height: 'calc(100vh - 200px)',
-              minHeight: '560px',
-              border: 'none',
-              display: 'block',
-            }}
+            style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
           />
         </div>
       ) : (
