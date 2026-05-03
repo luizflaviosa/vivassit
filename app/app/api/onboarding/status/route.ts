@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('tenants')
-    .select('evolution_status, evolution_pairing_code, evolution_qr_code')
+    .select('evolution_status, evolution_pairing_code, evolution_qr_code, evolution_qr_string, evolution_phone_number, doctor_name, clinic_name')
     .eq('tenant_id', tenantId)
     .single();
 
@@ -27,7 +27,11 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     evolution_status: data.evolution_status ?? 'unknown',
-    has_pairing_code: !!data.evolution_pairing_code,
-    has_qr_code: !!data.evolution_qr_code,
+    evolution_pairing_code: data.evolution_pairing_code ?? null,
+    evolution_qr_code: data.evolution_qr_code ?? null,
+    evolution_qr_string: data.evolution_qr_string ?? null,
+    evolution_phone_number: data.evolution_phone_number ?? null,
+    doctor_name: data.doctor_name ?? null,
+    clinic_name: data.clinic_name ?? null,
   });
 }

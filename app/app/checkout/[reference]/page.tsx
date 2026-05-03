@@ -52,6 +52,7 @@ export default async function CheckoutPage({ params }: PageProps) {
   return (
     <CheckoutClient
       reference={order.external_reference}
+      tenantId={order.tenant_id}
       planType={order.plan_type}
       clinicName={order.clinic_name}
       amount={Number(order.amount)}

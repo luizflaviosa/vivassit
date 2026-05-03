@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   ShieldCheck,
 } from 'lucide-react';
+import { WhatsAppConnect } from '@/app/onboarding/components/WhatsAppConnect';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -27,6 +28,7 @@ type Method = 'CREDIT_CARD' | 'PIX' | 'BOLETO';
 
 interface Props {
   reference: string;
+  tenantId: string | null;
   planType: string;
   clinicName: string;
   amount: number;
@@ -40,6 +42,13 @@ interface Props {
     email: string;
     phone: string;
   };
+}
+
+interface WaSetupData {
+  evolution_pairing_code: string | null;
+  evolution_qr_code: string | null;
+  evolution_phone_number: string | null;
+  doctor_name: string | null;
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -97,6 +106,7 @@ function trialDaysLeft(trialEndsAt: string | null): number | null {
 
 export default function CheckoutClient({
   reference,
+  tenantId,
   planType,
   clinicName,
   amount,
@@ -112,6 +122,32 @@ export default function CheckoutClient({
   const method: Method = 'CREDIT_CARD';
   const [submitting, setSubmitting] = useState(false);
   const [paid, setPaid] = useState(paymentStatus === 'paid' || paymentStatus === 'subscribed');
+  const [waSetup, setWaSetup] = useState<WaSetupData | null>(null);
+  const [waConnected, setWaConnected] = useState(false);
+
+  // Pos-pagamento: busca pair code / QR / nome do tenant pra setup do WhatsApp
+  useEffect(() => {
+    if (!paid || !tenantId) return;
+    let cancelled = false;
+    fetch(`/api/onboarding/status?tenant_id=${encodeURIComponent(tenantId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (cancelled || !json) return;
+        setWaSetup({
+          evolution_pairing_code: json.evolution_pairing_code ?? null,
+          evolution_qr_code: json.evolution_qr_code ?? null,
+          evolution_phone_number: json.evolution_phone_number ?? null,
+          doctor_name: json.doctor_name ?? null,
+        });
+        if (json.evolution_status === 'open' || json.evolution_status === 'connected') {
+          setWaConnected(true);
+        }
+      })
+      .catch(() => { /* silent */ });
+    return () => {
+      cancelled = true;
+    };
+  }, [paid, tenantId]);
 
   // Payer
   const [payerName, setPayerName] = useState(defaultPayer.name);
@@ -202,10 +238,7 @@ export default function CheckoutClient({
       // Tenant entra em trial ate primeira cobranca; webhook confirma depois
       setPaid(true);
       toast.success(data.message || 'Cartão confirmado!');
-      setTimeout(
-        () => router.push('/painel'),
-        1500
-      );
+      // Sem auto-redirect — deixa cliente conectar WhatsApp e clicar manual
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro inesperado');
     } finally {
@@ -216,26 +249,81 @@ export default function CheckoutClient({
   // ── UI ─────────────────────────────────────────────────────────────────────
 
   if (paid) {
+    const hasWaSetup = !!(waSetup?.evolution_pairing_code || waSetup?.evolution_qr_code);
     return (
-      <div className="min-h-screen bg-[#FAFAF7] flex items-center justify-center p-5">
-        <motion.div
-          initial={{ opacity: 0, y: 8, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="max-w-md w-full text-center"
-        >
-          <div
-            className="inline-flex h-16 w-16 items-center justify-center rounded-full text-white mb-6 shadow-[0_8px_24px_-8px_rgba(110,86,207,0.6)]"
-            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+      <div className="min-h-screen bg-[#FAFAF7] py-12 sm:py-20 px-5">
+        <div className="max-w-xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="text-center mb-10 sm:mb-12"
           >
-            <Check className="w-7 h-7" strokeWidth={3} />
-          </div>
-          <h1 className="text-[32px] sm:text-[36px] leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900 mb-3">
-            <span className="font-serif italic font-normal text-zinc-700">Pago.</span>{' '}
-            Bem-vindo(a) à Singulare.
-          </h1>
-          <p className="text-zinc-500 text-[15px]">Redirecionando…</p>
-        </motion.div>
+            <motion.div
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, type: 'spring', stiffness: 220, damping: 18 }}
+              className="inline-flex h-14 w-14 items-center justify-center rounded-full text-white mb-6 shadow-[0_8px_24px_-8px_rgba(110,86,207,0.6)]"
+              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+            >
+              <Check className="w-7 h-7" strokeWidth={3} />
+            </motion.div>
+            <h1 className="text-[28px] sm:text-[36px] leading-[1.08] tracking-[-0.025em] font-medium text-zinc-900 mb-2">
+              <span className="font-serif italic font-normal text-zinc-700">Pago.</span>{' '}
+              {hasWaSetup ? 'Falta um passo.' : 'Bem-vindo(a) à Singulare.'}
+            </h1>
+            <p className="text-zinc-500 text-[14px] sm:text-[15px] leading-relaxed">
+              {hasWaSetup
+                ? 'Conecte seu WhatsApp pra ativar a secretária IA.'
+                : 'Estamos preparando sua conta…'}
+            </p>
+          </motion.div>
+
+          {tenantId && hasWaSetup && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <WhatsAppConnect
+                tenantId={tenantId}
+                qrCodeBase64={waSetup?.evolution_qr_code}
+                pairingCode={waSetup?.evolution_pairing_code}
+                phoneNumber={waSetup?.evolution_phone_number}
+                onConnected={() => setWaConnected(true)}
+              />
+            </motion.div>
+          )}
+
+          {tenantId && !hasWaSetup && !waConnected && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+              className="rounded-2xl border border-black/[0.07] bg-white p-6 text-center"
+            >
+              <Loader2 className="w-5 h-5 mx-auto mb-3 animate-spin text-zinc-400" />
+              <p className="text-[13px] text-zinc-500">
+                Provisionando WhatsApp… isso leva alguns segundos.
+              </p>
+            </motion.div>
+          )}
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.55, duration: 0.5 }}
+            className="mt-8 text-center"
+          >
+            <button
+              onClick={() => router.push('/painel')}
+              className="inline-flex items-center gap-1.5 text-[13px] text-zinc-500 hover:text-zinc-900 transition-colors underline-offset-2 hover:underline"
+            >
+              {waConnected ? 'Ir pro painel' : 'Pular por enquanto'}
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        </div>
       </div>
     );
   }
