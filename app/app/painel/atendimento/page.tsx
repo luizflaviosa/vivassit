@@ -17,7 +17,7 @@ function buildChatwootUrl(rawUrl?: string | null, accountId?: string | number | 
 
 function AtendimentoInner() {
   const me = useMe();
-  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(true);
 
   const chatwootUrl = useMemo(
     () => buildChatwootUrl(me?.chatwoot_url, me?.chatwoot_account_id),
@@ -28,7 +28,7 @@ function AtendimentoInner() {
 
   return (
     <>
-      {/* Normal layout */}
+      {/* Card view (minimized) */}
       <div className="flex flex-col" style={{ height: 'calc(100vh - 180px)' }}>
         <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 pb-4">
           <div>
@@ -44,56 +44,48 @@ function AtendimentoInner() {
           </div>
 
           {chatwootUrl && (
-            <a
-              href={chatwootUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[13px] font-medium border border-black/[0.08] bg-white text-zinc-700 hover:text-zinc-900 hover:border-black/[0.18] transition-colors self-start sm:self-end"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              Nova aba
-            </a>
+            <div className="flex items-center gap-2 self-start sm:self-end">
+              <button
+                type="button"
+                onClick={() => setFullscreen(true)}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[13px] font-medium border border-black/[0.08] bg-white text-zinc-700 hover:text-zinc-900 hover:border-black/[0.18] transition-colors"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                Expandir
+              </button>
+              <a
+                href={chatwootUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[13px] font-medium border border-black/[0.08] bg-white text-zinc-700 hover:text-zinc-900 hover:border-black/[0.18] transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Nova aba
+              </a>
+            </div>
           )}
         </div>
 
         {chatwootUrl ? (
-          <motion.div
-            layoutId="chatwoot-frame"
-            className="flex-1 min-h-0 overflow-hidden rounded-xl border border-black/[0.07] bg-white relative"
+          <div
+            className="flex-1 min-h-0 overflow-hidden rounded-xl border border-black/[0.07] bg-white"
             style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 8px 24px -12px rgba(15,15,30,0.08)' }}
-            transition={{ type: 'spring', stiffness: 280, damping: 30 }}
           >
-            <iframe
-              src={chatwootUrl}
-              title="Atendimento Chatwoot"
-              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
-              style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-            />
-            {/* Overlay intercepts clicks to trigger fullscreen */}
-            <motion.div
-              className="absolute inset-0 cursor-pointer flex items-center justify-center"
-              onClick={() => setFullscreen(true)}
-              whileHover={{ backgroundColor: 'rgba(0,0,0,0.03)' }}
-              transition={{ duration: 0.15 }}
-            >
-              <motion.div
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium text-zinc-500"
-                style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', boxShadow: '0 1px 8px rgba(0,0,0,0.10)' }}
-                initial={{ opacity: 0 }}
-                whileHover={{ opacity: 1 }}
-                transition={{ duration: 0.15 }}
-              >
-                <Maximize2 className="w-3 h-3" />
-                Clique para expandir
-              </motion.div>
-            </motion.div>
-          </motion.div>
+            {!fullscreen && (
+              <iframe
+                src={chatwootUrl}
+                title="Atendimento Chatwoot"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
+                style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+              />
+            )}
+          </div>
         ) : (
           <EmptyState />
         )}
       </div>
 
-      {/* Fullscreen overlay */}
+      {/* Fullscreen */}
       <AnimatePresence>
         {fullscreen && chatwootUrl && (
           <>
@@ -102,18 +94,20 @@ function AtendimentoInner() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.22 }}
             />
 
             <motion.div
-              layoutId="chatwoot-frame"
               className="fixed z-50 overflow-hidden bg-white"
               style={{
                 inset: '12px',
                 borderRadius: '16px',
                 boxShadow: '0 32px 80px -20px rgba(0,0,0,0.35)',
               }}
-              transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+              initial={{ opacity: 0, scale: 0.97, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 12 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 32 }}
             >
               <iframe
                 src={chatwootUrl}
@@ -125,7 +119,7 @@ function AtendimentoInner() {
               <motion.button
                 type="button"
                 onClick={() => setFullscreen(false)}
-                className="absolute top-3 right-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium text-zinc-700 transition-colors"
+                className="absolute top-3 right-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium text-zinc-700"
                 style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', boxShadow: '0 1px 8px rgba(0,0,0,0.12)' }}
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
