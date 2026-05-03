@@ -217,60 +217,77 @@ function AgendaInner() {
     setSelected(ev.raw);
   }, []);
 
+  const saveEventUpdate = useCallback(
+    async (
+      eventId: string,
+      prevEvent: AgendaEvent,
+      newStart: Date,
+      newEnd: Date,
+      allDay: boolean,
+    ) => {
+      const res = await fetch(`/api/painel/agenda/events/${eventId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start: newStart.toISOString(),
+          end: newEnd.toISOString(),
+          allDay,
+          doctorId: activeDoctor ?? undefined,
+        }),
+      });
+      const json = await res.json().catch(() => ({ success: false }));
+      if (!json.success) {
+        // Rollback optimistic update
+        setEvents((prev) =>
+          prev.map((e) => (e.id === eventId ? prevEvent : e)),
+        );
+        toast.error('Não foi possível salvar o reagendamento', {
+          description: json.message ?? 'Verifique sua conexão e tente novamente.',
+        });
+      }
+    },
+    [activeDoctor],
+  );
+
   const handleEventDrop = useCallback(
     (args: EventInteractionArgs<RBCEvent>) => {
-      // TODO: wire to PUT /api/painel/agenda/events/:id when backend write endpoint exists
-      // eslint-disable-next-line no-console
-      console.log('[agenda] event dropped', {
-        id: args.event.id,
-        title: args.event.title,
-        from: { start: args.event.start, end: args.event.end },
-        to: { start: args.start, end: args.end },
-        isAllDay: args.isAllDay,
-      });
-
-      // Optimistic UI: update local state so the move is visible immediately
-      const newStart =
-        typeof args.start === 'string' ? new Date(args.start) : args.start;
+      const newStart = typeof args.start === 'string' ? new Date(args.start) : args.start;
       const newEnd = typeof args.end === 'string' ? new Date(args.end) : args.end;
-      setEvents((prev) =>
-        prev.map((e) =>
+      const allDay = args.isAllDay ?? args.event.raw.all_day;
+      const prev = args.event.raw;
+
+      // Optimistic update
+      setEvents((prevEvents) =>
+        prevEvents.map((e) =>
           e.id === args.event.id
-            ? {
-                ...e,
-                start: newStart.toISOString(),
-                end: newEnd.toISOString(),
-                all_day: args.isAllDay ?? e.all_day,
-              }
+            ? { ...e, start: newStart.toISOString(), end: newEnd.toISOString(), all_day: allDay }
             : e,
         ),
       );
+
+      saveEventUpdate(args.event.id, prev, newStart, newEnd, allDay);
     },
-    [],
+    [saveEventUpdate],
   );
 
   const handleEventResize = useCallback(
     (args: EventInteractionArgs<RBCEvent>) => {
-      // TODO: wire to PUT /api/painel/agenda/events/:id when backend write endpoint exists
-      // eslint-disable-next-line no-console
-      console.log('[agenda] event resized', {
-        id: args.event.id,
-        title: args.event.title,
-        to: { start: args.start, end: args.end },
-      });
-
-      const newStart =
-        typeof args.start === 'string' ? new Date(args.start) : args.start;
+      const newStart = typeof args.start === 'string' ? new Date(args.start) : args.start;
       const newEnd = typeof args.end === 'string' ? new Date(args.end) : args.end;
-      setEvents((prev) =>
-        prev.map((e) =>
+      const prev = args.event.raw;
+
+      // Optimistic update
+      setEvents((prevEvents) =>
+        prevEvents.map((e) =>
           e.id === args.event.id
             ? { ...e, start: newStart.toISOString(), end: newEnd.toISOString() }
             : e,
         ),
       );
+
+      saveEventUpdate(args.event.id, prev, newStart, newEnd, prev.all_day);
     },
-    [],
+    [saveEventUpdate],
   );
 
   const eventPropGetter = useCallback((ev: RBCEvent) => {

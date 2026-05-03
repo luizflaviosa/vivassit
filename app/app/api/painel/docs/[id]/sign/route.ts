@@ -155,14 +155,13 @@ export async function POST(
           signed_by_user: auth.ctx.user.id,
         });
 
-        // Store TCN in a dedicated column without polluting form_data
-        await supabaseAdmin()
-          .from('medical_documents')
-          .update({ birdid_tcn: signResult.tcn })
-          .eq('id', docId)
-          .throwOnError()
-          .then(() => null)
-          .catch(() => null); // non-fatal if column doesn't exist yet
+        // Store TCN — non-fatal if column doesn't exist yet
+        try {
+          await supabaseAdmin()
+            .from('medical_documents')
+            .update({ birdid_tcn: signResult.tcn })
+            .eq('id', docId);
+        } catch { /* ignore */ }
 
         return NextResponse.json({
           success: true,
