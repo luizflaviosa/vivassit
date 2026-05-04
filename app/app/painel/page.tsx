@@ -390,10 +390,9 @@ function PainelInner() {
             desc="Veja histórico e contatos"
           />
           <QuickLink
-            href="#"
-            title="Ativar visibilidade"
-            desc="Tráfego pago e SEO (em breve)"
-            disabled
+            href="/painel/marketing"
+            title="Presença Digital"
+            desc="Score, posts automáticos e tráfego pago"
           />
         </div>
       </div>
