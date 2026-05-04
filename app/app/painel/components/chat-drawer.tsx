@@ -183,6 +183,7 @@ export default function ChatDrawer() {
       setInput('');
       setStreaming(true);
 
+      let acc = '';
       try {
         const res = await fetch('/api/interno/comando', {
           method: 'POST',
@@ -202,7 +203,6 @@ export default function ChatDrawer() {
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let acc = '';
 
         while (true) {
           const { done, value } = await reader.read();
