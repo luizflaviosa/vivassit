@@ -77,9 +77,10 @@ export async function POST(req: NextRequest) {
     void Promise.resolve(
       admin.from('tenant_activity_logs').insert({
         tenant_id: tenant.tenant_id,
-        user_id: user.id,
-        action: `agent_tool:${tool.name}:execute_via_chat`,
-        details: { params, ok: result.ok },
+        activity_type: `agent_tool:${tool.name}:execute_via_chat`,
+        activity_data: { params, ok: result.ok, user_id: user.id, role: member.role },
+        status: result.ok ? 'success' : 'failed',
+        error_message: result.error ?? null,
         created_at: new Date().toISOString(),
       })
     ).catch(() => {});
