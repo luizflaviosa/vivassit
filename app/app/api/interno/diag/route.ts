@@ -20,43 +20,51 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  const token = process.env.N8N_TO_VERCEL_TOKEN ?? '';
-  const url = process.env.N8N_INTERNAL_AGENT_URL ?? '';
+  const tokenRaw = process.env.N8N_TO_VERCEL_TOKEN ?? '';
+  const tokenTrimmed = tokenRaw.trim();
+  const url = (process.env.N8N_INTERNAL_AGENT_URL ?? '').trim();
 
   const tokenInfo = {
-    set: token.length > 0,
-    length: token.length,
-    prefix6: token.slice(0, 6),
-    last4: token.slice(-4),
+    raw_length: tokenRaw.length,
+    trimmed_length: tokenTrimmed.length,
+    has_trailing_whitespace: tokenRaw !== tokenTrimmed,
+    last4_trimmed: tokenTrimmed.slice(-4),
+    prefix6: tokenTrimmed.slice(0, 6),
   };
 
-  // Tenta hit no webhook com formato exato que /comando usa
-  let upstream: { status?: number; body_preview?: string; error?: string } = {};
-  if (url && token) {
+  // Tenta hit no webhook com TRIMMED + RAW pra comparar
+  async function ping(label: string, t: string) {
     try {
       const r = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${t}`,
         },
         body: JSON.stringify({ message: 'diag', history: [], tenant_id: 'demo-singulare', user_id: user.id, role: 'owner', clinic_name: 'Diag' }),
       });
       const txt = await r.text();
-      upstream = { status: r.status, body_preview: txt.slice(0, 200) };
+      return { label, status: r.status, body_preview: txt.slice(0, 100) };
     } catch (e) {
-      upstream = { error: (e as Error).message };
+      return { label, error: (e as Error).message };
     }
   }
+
+  const trimmed = url && tokenTrimmed ? await ping('with trimmed', tokenTrimmed) : null;
+  const raw = url && tokenRaw ? await ping('with raw', tokenRaw) : null;
 
   return NextResponse.json({
     n8n_url: url || '<NÃO CONFIGURADO>',
     token: tokenInfo,
-    upstream_with_bearer: upstream,
-    hint: upstream.status === 403
-      ? 'N8N rejeitou. Verifica que a credential do webhook tem header name=Authorization e header value EXATAMENTE = "Bearer " + ' + tokenInfo.prefix6 + '...' + tokenInfo.last4
-      : upstream.status === 200
-      ? 'Webhook aceitou! Se ainda dá erro no chat, é problema interno do workflow.'
-      : 'Status inesperado ou erro.',
+    test_trimmed: trimmed,
+    test_raw: raw,
+    diagnosis:
+      trimmed?.status === 200
+        ? '✓ trim resolveu — o env tem whitespace, mas trim() na app fixa. Ainda assim, edita o env no Vercel pra remover o whitespace.'
+        : trimmed?.status === 403 && tokenInfo.has_trailing_whitespace
+        ? '✗ trim NÃO resolveu — credential do N8N tem token DIFERENTE do env Vercel. Verifica no n8n a credential do webhook (Header Auth). Header name deve ser "Authorization" e value "Bearer ' + tokenInfo.prefix6 + '...' + tokenInfo.last4_trimmed + '" (sem espaços, sem newlines).'
+        : trimmed?.status === 403 && !tokenInfo.has_trailing_whitespace
+        ? '✗ Token sem whitespace mas N8N rejeita. Diferença entre env Vercel e credential N8N.'
+        : 'Status inesperado.',
   });
 }
