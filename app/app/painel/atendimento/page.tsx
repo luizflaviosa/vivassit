@@ -1,8 +1,9 @@
 'use client';
 
 import { Suspense, useMemo, useState, useEffect } from 'react';
-import { ExternalLink, Headphones, MessageCircle, Minimize2, Maximize2 } from 'lucide-react';
+import { ExternalLink, Headphones, MessageCircle, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { useMe } from '@/lib/painel-context';
 
 const ACCENT = '#6E56CF';
@@ -17,6 +18,7 @@ function buildChatwootUrl(rawUrl?: string | null, accountId?: string | number | 
 
 function AtendimentoInner() {
   const me = useMe();
+  const router = useRouter();
   const [fullscreen, setFullscreen] = useState(true);
 
   useEffect(() => {
@@ -24,6 +26,8 @@ function AtendimentoInner() {
     window.addEventListener('singulare:atendimento-focus', handler);
     return () => window.removeEventListener('singulare:atendimento-focus', handler);
   }, []);
+
+  const minimize = () => router.push('/painel');
 
   const chatwootUrl = useMemo(
     () => buildChatwootUrl(me?.chatwoot_url, me?.chatwoot_account_id),
@@ -126,7 +130,7 @@ function AtendimentoInner() {
               <div className="absolute inset-0 pointer-events-none flex items-end justify-end pb-16 pr-5">
                 <motion.button
                   type="button"
-                  onClick={() => setFullscreen(false)}
+                  onClick={minimize}
                   className="pointer-events-auto inline-flex items-center gap-1.5 h-8 px-4 rounded-full text-[12px] font-medium text-zinc-700"
                   style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(10px)', boxShadow: '0 2px 16px rgba(0,0,0,0.14)' }}
                   initial={{ opacity: 0, y: 6 }}
