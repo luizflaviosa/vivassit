@@ -74,17 +74,15 @@ export async function POST(req: NextRequest) {
 
     // Audit log
     const admin = supabaseAdmin();
-    admin
-      .from('tenant_activity_logs')
-      .insert({
+    void Promise.resolve(
+      admin.from('tenant_activity_logs').insert({
         tenant_id: tenant.tenant_id,
         user_id: user.id,
         action: `agent_tool:${tool.name}:execute_via_chat`,
         details: { params, ok: result.ok },
         created_at: new Date().toISOString(),
       })
-      .then(() => {})
-      .catch(() => {});
+    ).catch(() => {});
 
     return NextResponse.json({
       ok: result.ok,
