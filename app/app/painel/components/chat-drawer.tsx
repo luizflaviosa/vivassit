@@ -11,11 +11,48 @@ const ACCENT_SOFT = '#F5F3FF';
 const STORAGE_KEY = 'vivassit_chat_history_v1';
 const MAX_HISTORY = 30;
 
+interface ActionCard {
+  tool: string;
+  params: Record<string, unknown>;
+  summary: string;
+  detail?: string;
+  confirm_label?: string;
+  cancel_label?: string;
+}
+
 interface Msg {
   id: string;
   role: 'user' | 'ai' | 'system';
   text: string;
   timestamp: number;
+  cards?: ActionCard[];
+  cardStatus?: Record<number, 'pending' | 'executing' | 'done' | 'cancelled'>;
+}
+
+const CARD_RE = /\[\[CARD\]\]([\s\S]*?)\[\[\/CARD\]\]/g;
+
+function extractCards(raw: string): { text: string; cards: ActionCard[] } {
+  const cards: ActionCard[] = [];
+  const text = raw.replace(CARD_RE, (_, json) => {
+    try {
+      const parsed = JSON.parse(json);
+      if (parsed && parsed.tool && parsed.summary) {
+        cards.push({
+          tool: String(parsed.tool),
+          params: (parsed.params as Record<string, unknown>) ?? {},
+          summary: String(parsed.summary),
+          detail: parsed.detail ? String(parsed.detail) : undefined,
+          confirm_label: parsed.confirm_label ? String(parsed.confirm_label) : 'Confirmar',
+          cancel_label: parsed.cancel_label ? String(parsed.cancel_label) : 'Cancelar',
+        });
+        return '';
+      }
+    } catch {
+      /* ignore malformed */
+    }
+    return '';
+  }).trim();
+  return { text, cards };
 }
 
 const SUGGESTIONS = [
@@ -235,9 +272,76 @@ export default function ChatDrawer() {
 
   const updateAiMsg = (id: string, text: string) => {
     setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, text } : m))
+      prev.map((m) => {
+        if (m.id !== id) return m;
+        // Durante streaming, ainda mostra texto bruto. Quando contém marker fechado, extrai cards.
+        if (text.includes('[[/CARD]]')) {
+          const { text: clean, cards } = extractCards(text);
+          return { ...m, text: clean, cards: cards.length ? cards : m.cards };
+        }
+        return { ...m, text };
+      })
     );
   };
+
+  const handleCardAction = useCallback(
+    async (msgId: string, cardIndex: number, card: ActionCard, confirm: boolean) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId
+            ? {
+                ...m,
+                cardStatus: { ...(m.cardStatus ?? {}), [cardIndex]: confirm ? 'executing' : 'cancelled' },
+              }
+            : m
+        )
+      );
+      if (!confirm) return;
+      try {
+        const r = await fetch('/api/interno/tools/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tool: card.tool, params: card.params }),
+        });
+        const j = await r.json().catch(() => ({}));
+        const finalStatus: 'done' | 'pending' = r.ok && j.ok ? 'done' : 'pending';
+        const note: Msg = {
+          id: 's-' + Date.now(),
+          role: 'system',
+          text: j.summary ?? (j.ok ? 'Pronto.' : `Falhou: ${j.error ?? 'desconhecido'}`),
+          timestamp: Date.now(),
+        };
+        // Se a action retornou redirect, navega
+        if (j.data?.redirect && typeof j.data.redirect === 'string') {
+          window.location.href = j.data.redirect;
+        }
+        setMessages((prev) => [
+          ...prev.map((m) =>
+            m.id === msgId
+              ? { ...m, cardStatus: { ...(m.cardStatus ?? {}), [cardIndex]: finalStatus } }
+              : m
+          ),
+          note,
+        ]);
+      } catch (e) {
+        setMessages((prev) => [
+          ...prev.map((m) =>
+            m.id === msgId
+              ? { ...m, cardStatus: { ...(m.cardStatus ?? {}), [cardIndex]: 'pending' } }
+              : m
+          ),
+          {
+            id: 's-' + Date.now(),
+            role: 'system',
+            text: 'Sem conexão. Tenta de novo.',
+            timestamp: Date.now(),
+          },
+        ]);
+        console.error('[card] erro:', e);
+      }
+    },
+    []
+  );
 
   const toggleVoice = () => {
     if (recording) {
@@ -459,6 +563,7 @@ export default function ChatDrawer() {
                       key={m.id}
                       msg={m}
                       isFirst={i === 0 || messages[i - 1].role !== m.role}
+                      onCardAction={handleCardAction}
                     />
                   ))
                 )}
@@ -564,26 +669,118 @@ export default function ChatDrawer() {
   );
 }
 
-function Bubble({ msg, isFirst }: { msg: Msg; isFirst: boolean }) {
+function Bubble({
+  msg,
+  isFirst,
+  onCardAction,
+}: {
+  msg: Msg;
+  isFirst: boolean;
+  onCardAction?: (msgId: string, cardIndex: number, card: ActionCard, confirm: boolean) => void;
+}) {
   const isUser = msg.role === 'user';
+  const isSystem = msg.role === 'system';
+  if (isSystem) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex justify-center"
+      >
+        <div className="text-[12px] text-zinc-500 bg-zinc-100/70 rounded-full px-3 py-1">
+          {msg.text}
+        </div>
+      </motion.div>
+    );
+  }
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
-      className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+      className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} gap-2`}
+    >
+      {(msg.text || !msg.cards?.length) && (
+        <div
+          className={`max-w-[82%] px-3.5 py-2 text-[15px] sm:text-[14px] leading-[1.4] whitespace-pre-wrap break-words ${
+            isUser
+              ? `text-white rounded-[20px] ${isFirst ? '' : 'rounded-tr-md'} rounded-br-md`
+              : `bg-white border border-black/[0.05] text-zinc-900 rounded-[20px] ${isFirst ? '' : 'rounded-tl-md'} rounded-bl-md shadow-[0_1px_2px_rgba(0,0,0,0.03)]`
+          }`}
+          style={isUser ? { background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` } : undefined}
+        >
+          {msg.text || <span className="opacity-40">…</span>}
+        </div>
+      )}
+      {msg.cards?.map((card, idx) => (
+        <ActionCardView
+          key={idx}
+          card={card}
+          status={msg.cardStatus?.[idx] ?? 'pending'}
+          onConfirm={() => onCardAction?.(msg.id, idx, card, true)}
+          onCancel={() => onCardAction?.(msg.id, idx, card, false)}
+        />
+      ))}
+    </motion.div>
+  );
+}
+
+function ActionCardView({
+  card,
+  status,
+  onConfirm,
+  onCancel,
+}: {
+  card: ActionCard;
+  status: 'pending' | 'executing' | 'done' | 'cancelled';
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const isDone = status === 'done';
+  const isCancelled = status === 'cancelled';
+  const isExec = status === 'executing';
+  return (
+    <div
+      className="max-w-[88%] w-full rounded-2xl border bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] overflow-hidden"
+      style={{ borderColor: isDone ? '#22c55e33' : isCancelled ? '#a1a1aa33' : '#6E56CF33' }}
     >
       <div
-        className={`max-w-[82%] px-3.5 py-2 text-[15px] sm:text-[14px] leading-[1.4] whitespace-pre-wrap break-words ${
-          isUser
-            ? `text-white rounded-[20px] ${isFirst ? '' : 'rounded-tr-md'} rounded-br-md`
-            : `bg-white border border-black/[0.05] text-zinc-900 rounded-[20px] ${isFirst ? '' : 'rounded-tl-md'} rounded-bl-md shadow-[0_1px_2px_rgba(0,0,0,0.03)]`
-        }`}
-        style={isUser ? { background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` } : undefined}
+        className="px-4 py-3 border-b"
+        style={{ borderColor: '#0000000A', background: ACCENT_SOFT }}
       >
-        {msg.text || <span className="opacity-40">…</span>}
+        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: ACCENT_DEEP }}>
+          <Sparkles className="w-3 h-3" />
+          {isDone ? 'Executado' : isCancelled ? 'Cancelado' : isExec ? 'Executando…' : 'Confirmar ação'}
+        </div>
+        <div className="text-[14px] font-semibold text-zinc-900 mt-1">{card.summary}</div>
       </div>
-    </motion.div>
+      {card.detail && (
+        <div className="px-4 py-3 text-[13px] text-zinc-700 whitespace-pre-wrap leading-relaxed">
+          {card.detail}
+        </div>
+      )}
+      {!isDone && !isCancelled && (
+        <div className="px-4 py-3 border-t flex gap-2" style={{ borderColor: '#0000000A' }}>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isExec}
+            className="flex-1 h-9 rounded-lg text-[13px] font-semibold text-white disabled:opacity-60 transition-all hover:brightness-110"
+            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+          >
+            {isExec ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (card.confirm_label ?? 'Confirmar')}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isExec}
+            className="h-9 px-4 rounded-lg text-[13px] font-medium text-zinc-700 hover:bg-black/[0.04] disabled:opacity-60 transition-colors"
+          >
+            {card.cancel_label ?? 'Cancelar'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
