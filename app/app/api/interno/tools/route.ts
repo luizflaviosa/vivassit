@@ -34,9 +34,10 @@ export const runtime = 'nodejs'; // precisa de pg / supabase admin
 export const dynamic = 'force-dynamic';
 
 function verifyAuth(req: NextRequest): boolean {
-  const expected = process.env.N8N_TO_VERCEL_TOKEN;
+  // .trim() defensivo: env var pode ter \n no fim por copy-paste no Vercel.
+  const expected = process.env.N8N_TO_VERCEL_TOKEN?.trim();
   if (!expected) return false;
-  const auth = req.headers.get('authorization') ?? '';
+  const auth = (req.headers.get('authorization') ?? '').trim();
   return auth === `Bearer ${expected}`;
 }
 
