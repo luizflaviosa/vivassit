@@ -291,7 +291,7 @@ export default function ChatDrawer() {
           m.id === msgId
             ? {
                 ...m,
-                cardStatus: { ...(m.cardStatus ?? {}), [cardIndex]: confirm ? 'executing' : 'cancelled' },
+                cardStatus: { ...(m.cardStatus ?? {}), [cardIndex]: (confirm ? 'executing' : 'cancelled') as 'executing' | 'cancelled' },
               }
             : m
         )
@@ -327,7 +327,7 @@ export default function ChatDrawer() {
         setMessages((prev) => [
           ...prev.map((m) =>
             m.id === msgId
-              ? { ...m, cardStatus: { ...(m.cardStatus ?? {}), [cardIndex]: 'pending' } }
+              ? { ...m, cardStatus: { ...(m.cardStatus ?? {}), [cardIndex]: 'pending' as const } }
               : m
           ),
           {
