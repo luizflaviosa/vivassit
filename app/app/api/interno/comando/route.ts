@@ -146,7 +146,8 @@ export async function POST(req: NextRequest) {
 
   // Tenta streaming response do N8N. Fallback: response completa.
   // Webhook v3 (singulare-internal-chat) requer headerAuth com mesmo token N8N_TO_VERCEL_TOKEN.
-  const n8nToken = process.env.N8N_TO_VERCEL_TOKEN;
+  // .trim() defensivo: env var pode ter \n no fim por copy-paste no Vercel.
+  const n8nToken = process.env.N8N_TO_VERCEL_TOKEN?.trim();
   try {
     const upstream = await fetch(n8nUrl, {
       method: 'POST',
