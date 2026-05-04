@@ -131,6 +131,8 @@ export async function POST(req: NextRequest) {
   };
 
   // Tenta streaming response do N8N. Fallback: response completa.
+  // Webhook v3 (singulare-internal-chat) requer headerAuth com mesmo token N8N_TO_VERCEL_TOKEN.
+  const n8nToken = process.env.N8N_TO_VERCEL_TOKEN;
   try {
     const upstream = await fetch(n8nUrl, {
       method: 'POST',
@@ -139,6 +141,7 @@ export async function POST(req: NextRequest) {
         'Accept': 'text/event-stream, application/json',
         'X-Vivassit-Source': 'web',
         'X-Vivassit-Tenant': tenant.tenant_id,
+        ...(n8nToken ? { Authorization: `Bearer ${n8nToken}` } : {}),
       },
       body: JSON.stringify(payload),
     });
