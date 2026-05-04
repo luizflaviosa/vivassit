@@ -145,17 +145,15 @@ export async function POST(req: NextRequest) {
           : await wh.propose(params, { tenant_id, user_id, role });
 
       // Audit log
-      admin
-        .from('tenant_activity_logs')
-        .insert({
+      void Promise.resolve(
+        admin.from('tenant_activity_logs').insert({
           tenant_id,
           user_id,
           action: `agent_tool:${tool.name}:${mode}`,
           details: { params, ok: result.ok },
           created_at: new Date().toISOString(),
         })
-        .then(() => {})
-        .catch(() => {});
+      ).catch(() => {});
 
       return NextResponse.json({
         ok: result.ok,
@@ -176,17 +174,15 @@ export async function POST(req: NextRequest) {
     }
     const result = await handler(params, { tenant_id, user_id, role });
 
-    admin
-      .from('tenant_activity_logs')
-      .insert({
+    void Promise.resolve(
+      admin.from('tenant_activity_logs').insert({
         tenant_id,
         user_id,
         action: `agent_tool:${tool.name}`,
         details: { params, ok: result.ok },
         created_at: new Date().toISOString(),
       })
-      .then(() => {})
-      .catch(() => {});
+    ).catch(() => {});
 
     return NextResponse.json({
       ok: result.ok,
