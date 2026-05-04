@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useEffect } from 'react';
 import { ExternalLink, Headphones, MessageCircle, Minimize2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useMe } from '@/lib/painel-context';
 
@@ -21,12 +21,10 @@ function AtendimentoInner() {
   const router = useRouter();
 
   useEffect(() => {
-    const handler = () => {}; // já está na página, não precisa fazer nada
+    const handler = () => {};
     window.addEventListener('singulare:atendimento-focus', handler);
     return () => window.removeEventListener('singulare:atendimento-focus', handler);
   }, []);
-
-  const minimize = () => router.push('/painel');
 
   const chatwootUrl = useMemo(
     () => buildChatwootUrl(me?.chatwoot_url, me?.chatwoot_account_id),
@@ -34,29 +32,28 @@ function AtendimentoInner() {
   );
 
   if (!me) return null;
-
   if (!chatwootUrl) return <EmptyState />;
 
   return (
-    <AnimatePresence>
+    <>
+      {/* Backdrop */}
       <motion.div
         className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.22 }}
+        transition={{ duration: 0.2 }}
       />
 
+      {/* Fullscreen container */}
       <motion.div
-        className="fixed z-50 overflow-hidden bg-white"
+        className="fixed z-50 bg-white overflow-hidden"
         style={{
-          inset: '12px',
-          borderRadius: '16px',
+          top: 12, right: 12, bottom: 12, left: 12,
+          borderRadius: 16,
           boxShadow: '0 32px 80px -20px rgba(0,0,0,0.35)',
         }}
         initial={{ opacity: 0, scale: 0.97, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.97, y: 12 }}
         transition={{ type: 'spring', stiffness: 320, damping: 32 }}
       >
         <iframe
@@ -66,16 +63,16 @@ function AtendimentoInner() {
           style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
         />
 
+        {/* Botão minimizar — pointer-events-none no wrapper para não bloquear iframe */}
         <div className="absolute inset-0 pointer-events-none flex items-end justify-end pb-16 pr-5">
           <motion.button
             type="button"
-            onClick={minimize}
+            onClick={() => router.push('/painel')}
             className="pointer-events-auto inline-flex items-center gap-1.5 h-8 px-4 rounded-full text-[12px] font-medium text-zinc-700"
             style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(10px)', boxShadow: '0 2px 16px rgba(0,0,0,0.14)' }}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            transition={{ delay: 0.2 }}
+            transition={{ delay: 0.25 }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -84,18 +81,19 @@ function AtendimentoInner() {
           </motion.button>
         </div>
 
+        {/* Link nova aba */}
         <a
           href={chatwootUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="absolute top-3 right-3 pointer-events-auto inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[11.5px] font-medium text-zinc-600"
+          className="absolute top-3 right-3 inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[11.5px] font-medium text-zinc-600"
           style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', boxShadow: '0 1px 8px rgba(0,0,0,0.10)' }}
         >
           <ExternalLink className="w-3 h-3" />
           Nova aba
         </a>
       </motion.div>
-    </AnimatePresence>
+    </>
   );
 }
 
