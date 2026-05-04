@@ -251,79 +251,77 @@ export default function CheckoutClient({
   if (paid) {
     const hasWaSetup = !!(waSetup?.evolution_pairing_code || waSetup?.evolution_qr_code);
     return (
-      <div className="min-h-screen bg-[#FAFAF7] py-12 sm:py-20 px-5">
-        <div className="max-w-xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="text-center mb-10 sm:mb-12"
+      <div className="min-h-svh bg-[#FAFAF7] flex flex-col px-5">
+        {/* Top: subtle "Pago" pill — confirma sem competir com a hero do WhatsAppConnect */}
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="pt-8 sm:pt-10 flex justify-center"
+        >
+          <div
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] sm:text-[12px] font-medium"
+            style={{ background: '#ECFDF5', color: '#047857' }}
           >
-            <motion.div
-              initial={{ scale: 0.6, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.1, type: 'spring', stiffness: 220, damping: 18 }}
-              className="inline-flex h-14 w-14 items-center justify-center rounded-full text-white mb-6 shadow-[0_8px_24px_-8px_rgba(110,86,207,0.6)]"
-              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
-            >
-              <Check className="w-7 h-7" strokeWidth={3} />
-            </motion.div>
-            <h1 className="text-[28px] sm:text-[36px] leading-[1.08] tracking-[-0.025em] font-medium text-zinc-900 mb-2">
-              <span className="font-serif italic font-normal text-zinc-700">Pago.</span>{' '}
-              {hasWaSetup ? 'Falta um passo.' : 'Bem-vindo(a) à Singulare.'}
-            </h1>
-            <p className="text-zinc-500 text-[14px] sm:text-[15px] leading-relaxed">
-              {hasWaSetup
-                ? 'Conecte seu WhatsApp pra ativar a secretária IA.'
-                : 'Estamos preparando sua conta…'}
-            </p>
-          </motion.div>
+            <Check className="h-3 w-3" strokeWidth={3} />
+            Pagamento confirmado
+          </div>
+        </motion.div>
 
-          {tenantId && hasWaSetup && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <WhatsAppConnect
-                tenantId={tenantId}
-                qrCodeBase64={waSetup?.evolution_qr_code}
-                pairingCode={waSetup?.evolution_pairing_code}
-                phoneNumber={waSetup?.evolution_phone_number}
-                onConnected={() => setWaConnected(true)}
-              />
-            </motion.div>
-          )}
+        {/* Center: WhatsAppConnect hero — palco principal */}
+        <main className="flex-1 flex items-center justify-center py-10 sm:py-14">
+          <div className="w-full max-w-xl">
+            {tenantId && hasWaSetup && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <WhatsAppConnect
+                  tenantId={tenantId}
+                  qrCodeBase64={waSetup?.evolution_qr_code}
+                  pairingCode={waSetup?.evolution_pairing_code}
+                  phoneNumber={waSetup?.evolution_phone_number}
+                  onConnected={() => setWaConnected(true)}
+                />
+              </motion.div>
+            )}
 
-          {tenantId && !hasWaSetup && !waConnected && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4, duration: 0.5 }}
-              className="rounded-2xl border border-black/[0.07] bg-white p-6 text-center"
-            >
-              <Loader2 className="w-5 h-5 mx-auto mb-3 animate-spin text-zinc-400" />
-              <p className="text-[13px] text-zinc-500">
-                Provisionando WhatsApp… isso leva alguns segundos.
-              </p>
-            </motion.div>
-          )}
+            {tenantId && !hasWaSetup && !waConnected && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+                className="text-center"
+              >
+                <Loader2 className="h-6 w-6 mx-auto mb-4 animate-spin text-zinc-400" />
+                <h2 className="text-[clamp(22px,4.5vw,30px)] tracking-[-0.02em] font-medium text-zinc-900 mb-2">
+                  <span className="font-serif italic font-normal text-zinc-600">Quase lá.</span>{' '}
+                  Configurando sua clínica.
+                </h2>
+                <p className="text-[14px] text-zinc-500 max-w-sm mx-auto">
+                  Estamos criando sua agenda, conta de WhatsApp e área do paciente.
+                </p>
+              </motion.div>
+            )}
+          </div>
+        </main>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.55, duration: 0.5 }}
-            className="mt-8 text-center"
+        {/* Bottom: skip / continue */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+          className="pb-10 sm:pb-12 flex justify-center"
+        >
+          <button
+            onClick={() => router.push('/painel')}
+            className="inline-flex items-center gap-1.5 text-[13px] text-zinc-500 hover:text-zinc-900 transition-colors underline-offset-4 hover:underline focus-visible:outline-none focus-visible:underline"
           >
-            <button
-              onClick={() => router.push('/painel')}
-              className="inline-flex items-center gap-1.5 text-[13px] text-zinc-500 hover:text-zinc-900 transition-colors underline-offset-2 hover:underline"
-            >
-              {waConnected ? 'Ir pro painel' : 'Pular por enquanto'}
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </motion.div>
-        </div>
+            {waConnected ? 'Ir pro painel' : 'Pular por enquanto'}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+        </motion.div>
       </div>
     );
   }
