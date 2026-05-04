@@ -27,7 +27,7 @@ import {
   roleHasAccess,
   type AgentRole,
 } from '@/lib/internal-agent-tools';
-import { getHandler } from '@/lib/internal-agent-handlers';
+import { getHandler, getWriteHandler } from '@/lib/internal-agent-handlers';
 import { supabaseAdmin } from '@/lib/supabase';
 
 export const runtime = 'nodejs'; // precisa de pg / supabase admin
@@ -64,6 +64,13 @@ interface ExecuteBody {
   tenant_id?: string;
   user_id?: string;
   role?: AgentRole;
+  /**
+   * Para tools mode='write':
+   *   - 'propose' (default) → retorna ActionCard, sem mutação
+   *   - 'execute' → executa a mutação. Frontend só usa após user clicar Confirmar.
+   * Reads ignoram este flag.
+   */
+  mode?: 'propose' | 'execute';
 }
 
 export async function POST(req: NextRequest) {
@@ -123,25 +130,52 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'invalid_params', message: paramErr }, { status: 400 });
   }
 
-  // Sprint 2 placeholder: writes ainda não implementados
-  if (tool.mode === 'write') {
-    return NextResponse.json({
-      ok: false,
-      error: 'not_implemented',
-      message: `Tool de escrita '${tool.name}' será disponibilizada na próxima sprint. Por enquanto, faça pelo painel.`,
-    }, { status: 501 });
-  }
-
-  // Dispatch read handler
-  const handler = getHandler(tool.name);
-  if (!handler) {
-    return NextResponse.json({ ok: false, error: 'handler_missing' }, { status: 500 });
-  }
+  const mode = body.mode ?? 'propose';
 
   try {
+    // ── WRITE: propose vs execute ────────────────────────────
+    if (tool.mode === 'write') {
+      const wh = getWriteHandler(tool.name);
+      if (!wh) {
+        return NextResponse.json({ ok: false, error: 'handler_missing' }, { status: 500 });
+      }
+      const result =
+        mode === 'execute'
+          ? await wh.execute(params, { tenant_id, user_id, role })
+          : await wh.propose(params, { tenant_id, user_id, role });
+
+      // Audit log
+      admin
+        .from('tenant_activity_logs')
+        .insert({
+          tenant_id,
+          user_id,
+          action: `agent_tool:${tool.name}:${mode}`,
+          details: { params, ok: result.ok },
+          created_at: new Date().toISOString(),
+        })
+        .then(() => {})
+        .catch(() => {});
+
+      return NextResponse.json({
+        ok: result.ok,
+        tool: tool.name,
+        mode,
+        type: mode === 'propose' && (result as { card?: unknown }).card ? 'action_proposal' : 'action_result',
+        summary: result.summary,
+        data: result.data,
+        card: (result as { card?: unknown }).card,
+        error: result.error,
+      });
+    }
+
+    // ── READ ────────────────────────────────────────────────
+    const handler = getHandler(tool.name);
+    if (!handler) {
+      return NextResponse.json({ ok: false, error: 'handler_missing' }, { status: 500 });
+    }
     const result = await handler(params, { tenant_id, user_id, role });
 
-    // Audit log (opcional, best-effort)
     admin
       .from('tenant_activity_logs')
       .insert({
@@ -152,7 +186,7 @@ export async function POST(req: NextRequest) {
         created_at: new Date().toISOString(),
       })
       .then(() => {})
-      .catch(() => {}); // ignore log errors
+      .catch(() => {});
 
     return NextResponse.json({
       ok: result.ok,

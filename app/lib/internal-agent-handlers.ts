@@ -419,6 +419,307 @@ const documentosListar: Handler = async (params, ctx) => {
 };
 
 // ──────────────────────────────────────────────────────────────────────
+// WRITE HANDLERS (Sprint 2)
+// Cada write tem .propose() (preview, sem mutação) e .execute() (mutação real).
+// Dispatch decide qual chamar via mode='propose'|'execute'.
+// ──────────────────────────────────────────────────────────────────────
+
+export interface ProposalCard {
+  summary: string;
+  detail?: string;
+  confirm_label?: string;
+  cancel_label?: string;
+  action: { tool: string; params: Record<string, unknown> };
+}
+
+export interface WriteHandler {
+  propose: (params: Record<string, unknown>, ctx: ToolContext) => Promise<ToolResult & { card?: ProposalCard }>;
+  execute: (params: Record<string, unknown>, ctx: ToolContext) => Promise<ToolResult>;
+}
+
+// ── consulta_reagendar ─────────────────────────────────────────
+const consultaReagendar: WriteHandler = {
+  async propose(params, ctx) {
+    const apptId = String(params.appointment_id);
+    const newDate = String(params.new_date);
+    const admin = supabaseAdmin();
+    const { data: appt, error } = await admin
+      .from('appointments')
+      .select('id, appointment_date, status, patient_id, doctor_id')
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('id', apptId)
+      .maybeSingle();
+    if (error || !appt) {
+      return { ok: false, summary: 'Consulta não encontrada', error: 'not_found' };
+    }
+    if (appt.status === 'cancelled') {
+      return { ok: false, summary: 'Consulta já está cancelada — não dá pra reagendar.' };
+    }
+    const oldFmt = fmtDate(appt.appointment_date);
+    const newFmt = fmtDate(newDate);
+    return {
+      ok: true,
+      summary: `Reagendar de ${oldFmt} → ${newFmt}?`,
+      card: {
+        summary: `Reagendar consulta`,
+        detail: `De ${oldFmt} para ${newFmt}`,
+        confirm_label: 'Confirmar reagendamento',
+        cancel_label: 'Voltar',
+        action: { tool: 'consulta_reagendar', params: { appointment_id: apptId, new_date: newDate } },
+      },
+      data: { appointment: appt, new_date: newDate },
+    };
+  },
+  async execute(params, ctx) {
+    const apptId = String(params.appointment_id);
+    const newDate = String(params.new_date);
+    const admin = supabaseAdmin();
+    const { data, error } = await admin
+      .from('appointments')
+      .update({ appointment_date: newDate, updated_at: new Date().toISOString() })
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('id', apptId)
+      .select('id, appointment_date, status')
+      .maybeSingle();
+    if (error) return { ok: false, summary: 'Falha ao reagendar', error: error.message };
+    if (!data) return { ok: false, summary: 'Consulta não encontrada', error: 'not_found' };
+    return {
+      ok: true,
+      summary: `Reagendado pra ${fmtDate(data.appointment_date)}.`,
+      data: { appointment: data },
+    };
+  },
+};
+
+// ── consulta_cancelar ──────────────────────────────────────────
+const consultaCancelar: WriteHandler = {
+  async propose(params, ctx) {
+    const apptId = String(params.appointment_id);
+    const reason = params.reason ? String(params.reason) : null;
+    const admin = supabaseAdmin();
+    const { data: appt } = await admin
+      .from('appointments')
+      .select('id, appointment_date, status, description')
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('id', apptId)
+      .maybeSingle();
+    if (!appt) return { ok: false, summary: 'Consulta não encontrada', error: 'not_found' };
+    if (appt.status === 'cancelled') return { ok: false, summary: 'Consulta já cancelada.' };
+    return {
+      ok: true,
+      summary: `Cancelar consulta de ${fmtDate(appt.appointment_date)}?`,
+      card: {
+        summary: 'Cancelar consulta',
+        detail: `${appt.description ?? 'Consulta'} — ${fmtDate(appt.appointment_date)}${reason ? `\nMotivo: ${reason}` : ''}`,
+        confirm_label: 'Sim, cancelar',
+        cancel_label: 'Voltar',
+        action: { tool: 'consulta_cancelar', params: { appointment_id: apptId, reason } },
+      },
+      data: { appointment: appt },
+    };
+  },
+  async execute(params, ctx) {
+    const apptId = String(params.appointment_id);
+    const reason = params.reason ? String(params.reason) : null;
+    const admin = supabaseAdmin();
+    const { data, error } = await admin
+      .from('appointments')
+      .update({
+        status: 'cancelled',
+        description: reason ? `[CANCELADO] ${reason}` : undefined,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('id', apptId)
+      .select('id, status, appointment_date')
+      .maybeSingle();
+    if (error) return { ok: false, summary: 'Falha ao cancelar', error: error.message };
+    if (!data) return { ok: false, summary: 'Consulta não encontrada', error: 'not_found' };
+    return { ok: true, summary: 'Consulta cancelada.', data };
+  },
+};
+
+// ── paciente_criar ─────────────────────────────────────────────
+const pacienteCriar: WriteHandler = {
+  async propose(params, _ctx) {
+    const name = String(params.name ?? '').trim();
+    const phone = String(params.phone ?? '').trim();
+    const birthdate = params.birthdate ? String(params.birthdate) : null;
+    const email = params.email ? String(params.email) : null;
+    if (!name) return { ok: false, summary: 'Nome obrigatório.' };
+    if (!phone.match(/^\+\d{12,14}$/)) {
+      return { ok: false, summary: 'Telefone deve ser E.164 (ex: +5511999999999).' };
+    }
+    return {
+      ok: true,
+      summary: `Cadastrar ${name}?`,
+      card: {
+        summary: `Cadastrar paciente`,
+        detail: `Nome: ${name}\nTelefone: ${phone}${birthdate ? `\nNascimento: ${birthdate}` : ''}${email ? `\nEmail: ${email}` : ''}`,
+        confirm_label: 'Confirmar cadastro',
+        cancel_label: 'Voltar',
+        action: { tool: 'paciente_criar', params: { name, phone, birthdate, email } },
+      },
+      data: { name, phone, birthdate, email },
+    };
+  },
+  async execute(params, ctx) {
+    const admin = supabaseAdmin();
+    // Verifica duplicidade por phone+tenant
+    const { data: existing } = await admin
+      .from('patients')
+      .select('id, name')
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('phone', String(params.phone))
+      .maybeSingle();
+    if (existing) {
+      return {
+        ok: false,
+        summary: `Já existe paciente com esse telefone: ${existing.name}.`,
+        error: 'duplicate',
+      };
+    }
+    const { data, error } = await admin
+      .from('patients')
+      .insert({
+        tenant_id: ctx.tenant_id,
+        name: String(params.name),
+        phone: String(params.phone),
+        birthdate: params.birthdate ? String(params.birthdate) : null,
+        email: params.email ? String(params.email) : null,
+        notes: 'Criado via agente interno',
+        tags: [],
+      })
+      .select('id, name, phone')
+      .maybeSingle();
+    if (error) return { ok: false, summary: 'Falha ao cadastrar', error: error.message };
+    return { ok: true, summary: `Paciente ${data?.name} cadastrado.`, data };
+  },
+};
+
+// ── cobranca_avulsa ────────────────────────────────────────────
+// Sprint 2 stub: propose mostra preview, execute delega pra /api/painel/cobrancas
+// (que já tem integração Asaas validada).
+const cobrancaAvulsa: WriteHandler = {
+  async propose(params, ctx) {
+    const pacienteId = String(params.paciente_id);
+    const valor = Number(params.valor);
+    const desc = String(params.descricao ?? 'Consulta');
+    const metodo = String(params.metodo ?? 'pix');
+    if (!pacienteId || valor <= 0) {
+      return { ok: false, summary: 'Paciente e valor obrigatórios.' };
+    }
+    const admin = supabaseAdmin();
+    const { data: paciente } = await admin
+      .from('users')
+      .select('id, name, phone, email')
+      .eq('id', pacienteId)
+      .maybeSingle();
+    if (!paciente) return { ok: false, summary: 'Paciente não encontrado.' };
+    return {
+      ok: true,
+      summary: `Cobrar ${fmtBRL(valor)} de ${paciente.name}?`,
+      card: {
+        summary: `Gerar cobrança Asaas`,
+        detail: `Para: ${paciente.name}\nValor: ${fmtBRL(valor)}\nMétodo: ${metodo.toUpperCase()}\nDescrição: ${desc}`,
+        confirm_label: 'Gerar cobrança',
+        cancel_label: 'Voltar',
+        action: { tool: 'cobranca_avulsa', params: { paciente_id: pacienteId, valor, descricao: desc, metodo } },
+      },
+      data: { paciente, valor, metodo, desc },
+    };
+  },
+  async execute(params, ctx) {
+    // Delega pro endpoint existente que já cuida de Asaas + persistência
+    const url = `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.singulare.org'}/api/marketplace/charge`;
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.N8N_TO_VERCEL_TOKEN}`,
+      },
+      body: JSON.stringify({
+        tenant_id: ctx.tenant_id,
+        patient_id: params.paciente_id,
+        value: params.valor,
+        description: params.descricao,
+        method: params.metodo,
+        source: 'internal_agent',
+      }),
+    });
+    if (!r.ok) {
+      return { ok: false, summary: `Falha Asaas: HTTP ${r.status}`, error: await r.text() };
+    }
+    const j = await r.json().catch(() => ({}));
+    return { ok: true, summary: 'Cobrança gerada. Link enviado.', data: j };
+  },
+};
+
+// ── documento_gerar / documento_assinar ────────────────────────
+// Sprint 2 stub: propose preview; execute sinaliza handoff p/ UI do painel
+// (gerar/assinar docs requer template editor + BirdID modal — UX visual essencial)
+const documentoGerar: WriteHandler = {
+  async propose(params, _ctx) {
+    return {
+      ok: true,
+      summary: 'Gerar documento (precisa do painel pra preencher campos).',
+      card: {
+        summary: 'Gerar documento',
+        detail: `Template: ${params.template_id}\nPaciente: ${params.paciente_id}\nVou abrir o editor de documentos pra você preencher e revisar antes de enviar.`,
+        confirm_label: 'Abrir editor',
+        cancel_label: 'Voltar',
+        action: { tool: 'documento_gerar', params },
+      },
+    };
+  },
+  async execute(params, _ctx) {
+    return {
+      ok: true,
+      summary: 'Abre o editor pra finalizar.',
+      data: {
+        redirect: `/painel/docs?action=new&template=${params.template_id}&paciente=${params.paciente_id}`,
+      },
+    };
+  },
+};
+
+const documentoAssinar: WriteHandler = {
+  async propose(params, ctx) {
+    const docId = Number(params.documento_id);
+    const admin = supabaseAdmin();
+    const { data: doc } = await admin
+      .from('medical_documents')
+      .select('id, doc_type, status, patient_id')
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('id', docId)
+      .maybeSingle();
+    if (!doc) return { ok: false, summary: 'Documento não encontrado.' };
+    if (doc.status === 'signed') return { ok: false, summary: 'Documento já assinado.' };
+    return {
+      ok: true,
+      summary: `Enviar pra assinatura via BirdID?`,
+      card: {
+        summary: 'Enviar pra assinatura',
+        detail: `Documento: ${doc.doc_type}\nVai abrir BirdID pra assinatura digital.`,
+        confirm_label: 'Enviar pra BirdID',
+        cancel_label: 'Voltar',
+        action: { tool: 'documento_assinar', params: { documento_id: docId } },
+      },
+      data: { doc },
+    };
+  },
+  async execute(params, _ctx) {
+    return {
+      ok: true,
+      summary: 'Abrindo fluxo BirdID...',
+      data: {
+        redirect: `/painel/docs?action=sign&id=${params.documento_id}`,
+      },
+    };
+  },
+};
+
+// ──────────────────────────────────────────────────────────────────────
 // Registry
 // ──────────────────────────────────────────────────────────────────────
 
@@ -434,6 +735,19 @@ export const HANDLERS: Record<string, Handler> = {
   documentos_listar: documentosListar,
 };
 
+export const WRITE_HANDLERS: Record<string, WriteHandler> = {
+  consulta_reagendar: consultaReagendar,
+  consulta_cancelar: consultaCancelar,
+  paciente_criar: pacienteCriar,
+  cobranca_avulsa: cobrancaAvulsa,
+  documento_gerar: documentoGerar,
+  documento_assinar: documentoAssinar,
+};
+
 export function getHandler(name: string): Handler | null {
   return HANDLERS[name] ?? null;
+}
+
+export function getWriteHandler(name: string): WriteHandler | null {
+  return WRITE_HANDLERS[name] ?? null;
 }
