@@ -57,30 +57,37 @@ export async function POST(req: NextRequest) {
 
   const preferredTenantId = req.cookies.get('singulare_active_tenant')?.value;
   let tenant: { tenant_id: string; clinic_name: string; admin_email: string | null } | null = null;
-  type Row = { tenant: { tenant_id: string; clinic_name: string; admin_email: string | null } | null };
+  let role: string = 'owner'; // default p/ legacy fallback (sem tenant_member)
+  type Row = { role: string; tenant: { tenant_id: string; clinic_name: string; admin_email: string | null } | null };
 
   if (preferredTenantId) {
     const { data } = await admin
       .from('tenant_members')
-      .select('tenant:tenants!inner(tenant_id, clinic_name, admin_email)')
+      .select('role, tenant:tenants!inner(tenant_id, clinic_name, admin_email)')
       .eq('user_id', user.id)
       .eq('tenant_id', preferredTenantId)
       .eq('status', 'active')
       .maybeSingle<Row>();
-    if (data?.tenant) tenant = data.tenant;
+    if (data?.tenant) {
+      tenant = data.tenant;
+      role = data.role || 'owner';
+    }
   }
 
   if (!tenant) {
     const { data } = await admin
       .from('tenant_members')
-      .select('tenant:tenants!inner(tenant_id, clinic_name, admin_email, status)')
+      .select('role, tenant:tenants!inner(tenant_id, clinic_name, admin_email, status)')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .eq('tenant.status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle<Row>();
-    if (data?.tenant) tenant = data.tenant;
+    if (data?.tenant) {
+      tenant = data.tenant;
+      role = data.role || 'owner';
+    }
   }
 
   // Fallback transição (legacy admin_user_id/admin_email)
@@ -109,13 +116,14 @@ export async function POST(req: NextRequest) {
     return streamText(fallbackText);
   }
 
-  // Prepara payload pro N8N
+  // Prepara payload pro N8N (workflow v3 espera role pra RBAC nas tools)
   const payload = {
     source: 'web',
     tenant_id: tenant.tenant_id,
     clinic_name: tenant.clinic_name,
     user_email: user.email,
     user_id: user.id,
+    role,
     doctor_id: body.doctor_id ?? null,
     message: body.message.trim(),
     history: (body.history ?? []).slice(-10),
