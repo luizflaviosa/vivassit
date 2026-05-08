@@ -83,7 +83,10 @@ export async function GET() {
   const stateName = (tenantRes.data?.state as string | null | undefined) || 'SP';
   const specialty = doctorRes.data?.specialty as string | null | undefined;
 
+  console.log('[region-demand] tenant=%s city=%s state=%s specialty=%s', tenantId, city, stateName, specialty);
+
   if (!specialty || !city) {
+    console.log('[region-demand] missing data, returning 404');
     return NextResponse.json(
       { success: false, message: 'Tenant sem specialty (tenant_doctors) ou city (tenants) configurados' },
       { status: 404 }
@@ -94,8 +97,11 @@ export async function GET() {
   const password = process.env.DATAFORSEO_PASSWORD;
 
   if (!login || !password) {
-    return NextResponse.json(mockResponse(specialty, city, stateName));
+    const mock = mockResponse(specialty, city, stateName);
+    console.log('[region-demand] no creds → mock total=%s', mock.total_monthly_volume);
+    return NextResponse.json(mock);
   }
+  console.log('[region-demand] using real DataForSEO base=%s', process.env.DATAFORSEO_BASE_URL || 'default');
 
   const keywords = [
     `${specialty} ${city}`,
@@ -160,5 +166,6 @@ export async function GET() {
     collected_at: new Date().toISOString(),
   };
 
+  console.log('[region-demand] real response total=%s keywords=%s', payload.total_monthly_volume, payload.keywords.length);
   return NextResponse.json(payload);
 }

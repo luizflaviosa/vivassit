@@ -573,9 +573,7 @@ function MarketingInner() {
           )}
 
           {/* Bloco 3 — Oportunidade na região */}
-          {regionDemand && regionDemand.total_monthly_volume > 0 && (
-            <RegionDemandCard d={regionDemand} />
-          )}
+          {regionDemand && <RegionDemandCard d={regionDemand} />}
 
           {/* Bloco 4 — Ativar agora */}
           <motion.div variants={fadeUp}>
