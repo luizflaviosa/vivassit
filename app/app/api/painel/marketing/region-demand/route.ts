@@ -103,14 +103,17 @@ export async function GET() {
   }
   console.log('[region-demand] using real DataForSEO base=%s', process.env.DATAFORSEO_BASE_URL || 'default');
 
+  const specialtyLower = specialty.toLowerCase();
+  // Mistura termos amplos (sempre têm volume) + locais (mais específicos)
+  // Locais com null viram 0 — os amplos garantem que o total não fique zerado
   const keywords = [
-    `${specialty} ${city}`,
-    `melhor ${specialty} ${city}`,
-    `${specialty} em ${city}`,
-    `clínica de ${specialty} ${city}`,
-    `${specialty} particular ${city}`,
-    `medico ${specialty} ${city}`,
-    `consulta ${specialty} ${city}`,
+    specialtyLower,
+    `${specialtyLower} ${city}`,
+    `melhor ${specialtyLower} ${city}`,
+    `${specialtyLower} em ${city}`,
+    `clínica de ${specialtyLower} ${city}`,
+    `${specialtyLower} particular ${city}`,
+    `medico ${specialtyLower} ${city}`,
   ];
 
   const baseUrl = process.env.DATAFORSEO_BASE_URL || 'https://api.dataforseo.com';
@@ -142,6 +145,15 @@ export async function GET() {
 
   const results = data.tasks?.[0]?.result ?? [];
   const totalVolume = results.reduce((sum, k) => sum + (k.search_volume ?? 0), 0);
+
+  // Se DataForSEO devolveu tudo nulo (caso comum em cidades pequenas com
+  // queries muito específicas), cai em mock pra não mostrar zerado pro cliente
+  if (totalVolume === 0) {
+    const mock = mockResponse(specialty, city, stateName);
+    console.log('[region-demand] real total=0 → fallback to mock total=%s', mock.total_monthly_volume);
+    return NextResponse.json(mock);
+  }
+
   const cpcValues = results.filter(k => k.cpc != null).map(k => Number(k.cpc));
   const avgCpc = cpcValues.length > 0 ? cpcValues.reduce((s, v) => s + v, 0) / cpcValues.length : null;
 
