@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2, TrendingUp, ChevronRight, ChevronDown,
   Sparkles, Star, Globe, MessageSquare, Megaphone,
-  CheckCircle, Layout, Settings, ExternalLink,
+  CheckCircle, Layout, Settings, ExternalLink, MapPin,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -53,6 +53,18 @@ interface Recommendation {
 interface Post {
   id: number; post_text: string; post_type: string;
   platform: string; status: string; hashtags: string[];
+}
+interface RegionDemand {
+  is_mock: boolean;
+  location: string;
+  specialty: string;
+  total_monthly_volume: number;
+  avg_cpc: number | null;
+  keywords: Array<{
+    keyword: string; volume: number;
+    competition_level: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+    cpc: number | null;
+  }>;
 }
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -282,6 +294,55 @@ function PostCard({ post, onApprove, onReject }: {
   );
 }
 
+// ─── RegionDemandCard ─────────────────────────────────────────────────────────
+function RegionDemandCard({ d }: { d: RegionDemand }) {
+  const captureRate = 0.02; // estimativa conservadora pra clínica sem presença forte
+  const onTable = Math.round(d.total_monthly_volume * (1 - captureRate));
+  const cpcText = d.avg_cpc != null ? `R$ ${d.avg_cpc.toFixed(2).replace('.', ',')}` : '—';
+
+  return (
+    <motion.div
+      variants={fadeUp}
+      className="rounded-2xl p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-5 items-center"
+      style={{
+        background: 'linear-gradient(180deg, #fefce8 0%, #ffffff 70%)',
+        border: '1px solid rgba(245, 158, 11, 0.25)',
+      }}
+    >
+      <div>
+        <p className="text-[10px] font-bold tracking-[0.12em] uppercase mb-2" style={{ color: '#b45309' }}>
+          <MapPin className="inline w-3 h-3 mr-1.5 -mt-0.5" />
+          Oportunidade · {d.location}
+          {d.is_mock && <span className="ml-2 text-[9px] font-medium normal-case tracking-normal text-amber-700/60">(estimativa preliminar)</span>}
+        </p>
+        <p className="text-[17px] sm:text-[18px] font-medium leading-[1.35] tracking-[-0.015em] text-zinc-900">
+          Pacientes buscam <em className="not-italic font-semibold" style={{ color: '#b45309' }}>&ldquo;{d.specialty} {d.location.split(',')[0]}&rdquo;</em>{' '}
+          <span className="tabular-nums">{d.total_monthly_volume.toLocaleString('pt-BR')}</span> vezes por mês.
+          Sua clínica capta menos de {Math.round(captureRate * 100)}% disso hoje.
+        </p>
+        <p className="text-[12px] text-zinc-500 mt-2">
+          Estimativa baseada em volume de buscas Google + sua posição atual nos resultados locais
+          {d.avg_cpc != null && ` · CPC médio dos termos: ${cpcText}`}.
+        </p>
+      </div>
+      <div className="flex gap-5 sm:gap-6 flex-shrink-0">
+        <div className="text-left sm:text-right">
+          <p className="text-[22px] font-semibold tracking-[-0.02em] tabular-nums leading-none text-zinc-900">
+            {d.total_monthly_volume.toLocaleString('pt-BR')}
+          </p>
+          <p className="text-[10px] text-zinc-500 mt-1.5 tracking-[0.08em] uppercase">buscas/mês</p>
+        </div>
+        <div className="text-left sm:text-right">
+          <p className="text-[22px] font-semibold tracking-[-0.02em] tabular-nums leading-none" style={{ color: '#b45309' }}>
+            ~{onTable.toLocaleString('pt-BR')}
+          </p>
+          <p className="text-[10px] text-zinc-500 mt-1.5 tracking-[0.08em] uppercase">pacientes na mesa</p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── DadosCompletos ───────────────────────────────────────────────────────────
 function DadosCompletos({ d }: { d: ScoreData }) {
   const [open, setOpen] = useState(false);
@@ -392,20 +453,23 @@ function MarketingInner() {
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [eligibleReviews, setEligibleReviews] = useState(0);
+  const [regionDemand, setRegionDemand] = useState<RegionDemand | null>(null);
   const [loading, setLoading] = useState(true);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewDone, setReviewDone] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [sRes, pRes, rRes] = await Promise.all([
+      const [sRes, pRes, rRes, dRes] = await Promise.all([
         fetch('/api/painel/marketing/score'),
         fetch('/api/painel/marketing/posts?status=pending_approval&limit=6'),
         fetch('/api/painel/marketing/reviews'),
+        fetch('/api/painel/marketing/region-demand'),
       ]);
       if (sRes.ok) { const d = await sRes.json(); setScoreData(d.current); setRecs(d.recommendations || []); }
       if (pRes.ok) { const d = await pRes.json(); setPosts(d.posts || []); }
       if (rRes.ok) { const d = await rRes.json(); setEligibleReviews(d.eligible || 0); }
+      if (dRes.ok) { const d = await dRes.json(); if (d.success) setRegionDemand(d); }
     } catch (e) {
       console.error(e);
     } finally {
@@ -508,7 +572,12 @@ function MarketingInner() {
             </motion.div>
           )}
 
-          {/* Bloco 3 — Ativar agora */}
+          {/* Bloco 3 — Oportunidade na região */}
+          {regionDemand && regionDemand.total_monthly_volume > 0 && (
+            <RegionDemandCard d={regionDemand} />
+          )}
+
+          {/* Bloco 4 — Ativar agora */}
           <motion.div variants={fadeUp}>
             <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-zinc-400 mb-3">Ativar agora</p>
             <motion.div className="grid grid-cols-1 sm:grid-cols-2 gap-3" variants={stagger} initial="hidden" animate="show">
