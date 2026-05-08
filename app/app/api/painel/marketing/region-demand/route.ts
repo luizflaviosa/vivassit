@@ -63,23 +63,32 @@ export async function GET() {
   const tenantId = auth.ctx.tenant.tenant_id;
 
   const supabase = supabaseAdmin();
-  const { data: profile } = await supabase
-    .from('vitrine_profiles')
-    .select('specialty, city, state')
-    .eq('tenant_id', tenantId)
-    .order('id', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const [tenantRes, doctorRes] = await Promise.all([
+    supabase
+      .from('tenants')
+      .select('city, state')
+      .eq('tenant_id', tenantId)
+      .maybeSingle(),
+    supabase
+      .from('tenant_doctors')
+      .select('specialty')
+      .eq('tenant_id', tenantId)
+      .not('specialty', 'is', null)
+      .order('id', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  if (!profile?.specialty || !profile?.city) {
+  const city = tenantRes.data?.city as string | null | undefined;
+  const stateName = (tenantRes.data?.state as string | null | undefined) || 'SP';
+  const specialty = doctorRes.data?.specialty as string | null | undefined;
+
+  if (!specialty || !city) {
     return NextResponse.json(
-      { success: false, message: 'Vitrine sem specialty/city configurados' },
+      { success: false, message: 'Tenant sem specialty (tenant_doctors) ou city (tenants) configurados' },
       { status: 404 }
     );
   }
-
-  const { specialty, city, state } = profile as { specialty: string; city: string; state: string };
-  const stateName = state || 'São Paulo';
 
   const login = process.env.DATAFORSEO_LOGIN;
   const password = process.env.DATAFORSEO_PASSWORD;
