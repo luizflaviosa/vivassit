@@ -60,7 +60,7 @@ function verifyAuth(req: NextRequest): boolean {
   return ok;
 }
 
-function authDiag(req: NextRequest) {
+async function authDiag(req: NextRequest) {
   const expected = process.env.N8N_TO_VERCEL_TOKEN?.trim();
   const auth = (req.headers.get('authorization') ?? '').trim();
   const d = {
@@ -72,10 +72,8 @@ function authDiag(req: NextRequest) {
     received_len: auth.length,
     starts_with_bearer: auth.startsWith('Bearer '),
   };
-  // Persiste em tabela pra leitura via SQL (vence truncamento de logs Vercel)
   try {
-    const { supabaseAdmin } = require('@/lib/supabase');
-    void Promise.resolve(supabaseAdmin().from('auth_diag_log').insert(d)).catch(() => {});
+    await supabaseAdmin().from('auth_diag_log').insert(d);
   } catch {}
   return d;
 }
@@ -83,7 +81,7 @@ function authDiag(req: NextRequest) {
 // ── GET → manifest ───────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   if (!verifyAuth(req)) {
-    return NextResponse.json({ ok: false, error: 'unauthorized', diag: authDiag(req) }, { status: 401 });
+    return NextResponse.json({ ok: false, error: 'unauthorized', diag: await authDiag(req) }, { status: 401 });
   }
   return NextResponse.json({
     ok: true,
@@ -115,7 +113,7 @@ interface ExecuteBody {
 
 export async function POST(req: NextRequest) {
   if (!verifyAuth(req)) {
-    return NextResponse.json({ ok: false, error: 'unauthorized', diag: authDiag(req) }, { status: 401 });
+    return NextResponse.json({ ok: false, error: 'unauthorized', diag: await authDiag(req) }, { status: 401 });
   }
 
   let body: ExecuteBody;
