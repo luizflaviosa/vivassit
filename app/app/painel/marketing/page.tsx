@@ -305,7 +305,7 @@ function PostCard({ post, onApprove, onReject }: {
 }
 
 // ─── RegionDemandCard ─────────────────────────────────────────────────────────
-function RegionDemandCard({ d }: { d: RegionDemand }) {
+function RegionDemandCard({ d, refreshing, onRefresh }: { d: RegionDemand; refreshing: boolean; onRefresh: () => void }) {
   const captureRate = 0.02;
   const onTable = Math.round(d.total_monthly_volume * (1 - captureRate));
   const cpcText = d.avg_cpc != null ? `R$ ${d.avg_cpc.toFixed(2).replace('.', ',')}` : '—';
@@ -320,10 +320,28 @@ function RegionDemandCard({ d }: { d: RegionDemand }) {
         }}
       >
         <div>
-          <p className="text-[10px] font-bold tracking-[0.12em] uppercase mb-2" style={{ color: '#b45309' }}>
-            <MapPin className="inline w-3 h-3 mr-1.5 -mt-0.5" />
-            Oportunidade · {d.location}
-            {d.is_mock && <span className="ml-2 text-[9px] font-medium normal-case tracking-normal text-amber-700/60">(estimativa preliminar)</span>}
+          <p className="text-[10px] font-bold tracking-[0.12em] uppercase mb-2 flex items-center gap-2" style={{ color: '#b45309' }}>
+            <MapPin className="inline w-3 h-3 -mt-0.5" />
+            <span>Oportunidade · {d.location}</span>
+            {refreshing && (
+              <span className="inline-flex items-center gap-1 text-amber-700/70 normal-case tracking-normal text-[10px] font-medium">
+                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                buscando dados reais…
+              </span>
+            )}
+            {!refreshing && d.is_mock && (
+              <span className="text-[9px] font-medium normal-case tracking-normal text-amber-700/60">(estimativa preliminar)</span>
+            )}
+            {!refreshing && !d.is_mock && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                className="ml-auto text-[10px] font-medium normal-case tracking-normal text-amber-700/60 hover:text-amber-800"
+                aria-label="Atualizar dados de mercado"
+              >
+                atualizar
+              </button>
+            )}
           </p>
           <p className="text-[17px] sm:text-[18px] font-medium leading-[1.35] tracking-[-0.015em] text-zinc-900">
             Pacientes buscam <em className="not-italic font-semibold" style={{ color: '#b45309' }}>&ldquo;{d.specialty} {d.location.split(',')[0]}&rdquo;</em>{' '}
@@ -500,6 +518,7 @@ function MarketingInner() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [eligibleReviews, setEligibleReviews] = useState(0);
   const [regionDemand, setRegionDemand] = useState<RegionDemand | null>(null);
+  const [regionRefreshing, setRegionRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewDone, setReviewDone] = useState(false);
@@ -515,11 +534,38 @@ function MarketingInner() {
       if (sRes.ok) { const d = await sRes.json(); setScoreData(d.current); setRecs(d.recommendations || []); }
       if (pRes.ok) { const d = await pRes.json(); setPosts(d.posts || []); }
       if (rRes.ok) { const d = await rRes.json(); setEligibleReviews(d.eligible || 0); }
-      if (dRes.ok) { const d = await dRes.json(); if (d.success) setRegionDemand(d); }
+      if (dRes.ok) {
+        const d = await dRes.json();
+        if (d.success) {
+          setRegionDemand(d);
+          // Auto-bootstrap: cache vazio (is_cached !== true) → tenta refresh real em background
+          if (!d.is_cached) {
+            setRegionRefreshing(true);
+            fetch('/api/painel/marketing/region-demand-refresh', { method: 'POST' })
+              .then(r => r.ok ? r.json() : null)
+              .then(j => { if (j?.payload) setRegionDemand(j.payload); })
+              .catch(() => { /* mantém mock se falhar */ })
+              .finally(() => setRegionRefreshing(false));
+          }
+        }
+      }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const refreshRegionDemand = useCallback(async () => {
+    setRegionRefreshing(true);
+    try {
+      const r = await fetch('/api/painel/marketing/region-demand-refresh', { method: 'POST' });
+      if (r.ok) {
+        const j = await r.json();
+        if (j?.payload) setRegionDemand(j.payload);
+      }
+    } finally {
+      setRegionRefreshing(false);
     }
   }, []);
 
@@ -619,7 +665,9 @@ function MarketingInner() {
           )}
 
           {/* Bloco 3 — Oportunidade na região */}
-          {regionDemand && <RegionDemandCard d={regionDemand} />}
+          {regionDemand && (
+            <RegionDemandCard d={regionDemand} refreshing={regionRefreshing} onRefresh={refreshRegionDemand} />
+          )}
 
           {/* Bloco 4 — Ativar agora */}
           <motion.div variants={fadeUp}>
