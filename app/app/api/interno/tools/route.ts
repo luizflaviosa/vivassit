@@ -36,52 +36,15 @@ export const dynamic = 'force-dynamic';
 function verifyAuth(req: NextRequest): boolean {
   // .trim() defensivo: env var pode ter \n no fim por copy-paste no Vercel.
   const expected = process.env.N8N_TO_VERCEL_TOKEN?.trim();
-  if (!expected) {
-    console.log('[verifyAuth] env N8N_TO_VERCEL_TOKEN not set');
-    return false;
-  }
+  if (!expected) return false;
   const auth = (req.headers.get('authorization') ?? '').trim();
-  const expectedFull = `Bearer ${expected}`;
-  const ok = auth === expectedFull;
-  if (!ok) {
-    // Loga prefixos+sufixos pra comparar sem expor o token inteiro
-    console.log(
-      '[verifyAuth] MISMATCH',
-      JSON.stringify({
-        expected_prefix: expectedFull.slice(0, 12),
-        expected_suffix: expectedFull.slice(-6),
-        expected_len: expectedFull.length,
-        received_prefix: auth.slice(0, 12),
-        received_suffix: auth.slice(-6),
-        received_len: auth.length,
-      })
-    );
-  }
-  return ok;
-}
-
-async function authDiag(req: NextRequest) {
-  const expected = process.env.N8N_TO_VERCEL_TOKEN?.trim();
-  const auth = (req.headers.get('authorization') ?? '').trim();
-  const d = {
-    expected_prefix12: `Bearer ${expected}`.slice(0, 12),
-    expected_suffix6: `Bearer ${expected}`.slice(-6),
-    expected_len: `Bearer ${expected}`.length,
-    received_prefix12: auth.slice(0, 12),
-    received_suffix6: auth.slice(-6),
-    received_len: auth.length,
-    starts_with_bearer: auth.startsWith('Bearer '),
-  };
-  try {
-    await supabaseAdmin().from('auth_diag_log').insert(d);
-  } catch {}
-  return d;
+  return auth === `Bearer ${expected}`;
 }
 
 // ── GET → manifest ───────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   if (!verifyAuth(req)) {
-    return NextResponse.json({ ok: false, error: 'unauthorized', diag: await authDiag(req) }, { status: 401 });
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
   return NextResponse.json({
     ok: true,
@@ -113,7 +76,7 @@ interface ExecuteBody {
 
 export async function POST(req: NextRequest) {
   if (!verifyAuth(req)) {
-    return NextResponse.json({ ok: false, error: 'unauthorized', diag: await authDiag(req) }, { status: 401 });
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 
   let body: ExecuteBody;
