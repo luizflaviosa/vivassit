@@ -36,9 +36,28 @@ export const dynamic = 'force-dynamic';
 function verifyAuth(req: NextRequest): boolean {
   // .trim() defensivo: env var pode ter \n no fim por copy-paste no Vercel.
   const expected = process.env.N8N_TO_VERCEL_TOKEN?.trim();
-  if (!expected) return false;
+  if (!expected) {
+    console.log('[verifyAuth] env N8N_TO_VERCEL_TOKEN not set');
+    return false;
+  }
   const auth = (req.headers.get('authorization') ?? '').trim();
-  return auth === `Bearer ${expected}`;
+  const expectedFull = `Bearer ${expected}`;
+  const ok = auth === expectedFull;
+  if (!ok) {
+    // Loga prefixos+sufixos pra comparar sem expor o token inteiro
+    console.log(
+      '[verifyAuth] MISMATCH',
+      JSON.stringify({
+        expected_prefix: expectedFull.slice(0, 12),
+        expected_suffix: expectedFull.slice(-6),
+        expected_len: expectedFull.length,
+        received_prefix: auth.slice(0, 12),
+        received_suffix: auth.slice(-6),
+        received_len: auth.length,
+      })
+    );
+  }
+  return ok;
 }
 
 // ── GET → manifest ───────────────────────────────────────────────────
