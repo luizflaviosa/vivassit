@@ -63,7 +63,7 @@ function verifyAuth(req: NextRequest): boolean {
 function authDiag(req: NextRequest) {
   const expected = process.env.N8N_TO_VERCEL_TOKEN?.trim();
   const auth = (req.headers.get('authorization') ?? '').trim();
-  return {
+  const d = {
     expected_prefix12: `Bearer ${expected}`.slice(0, 12),
     expected_suffix6: `Bearer ${expected}`.slice(-6),
     expected_len: `Bearer ${expected}`.length,
@@ -72,6 +72,12 @@ function authDiag(req: NextRequest) {
     received_len: auth.length,
     starts_with_bearer: auth.startsWith('Bearer '),
   };
+  // Persiste em tabela pra leitura via SQL (vence truncamento de logs Vercel)
+  try {
+    const { supabaseAdmin } = require('@/lib/supabase');
+    void Promise.resolve(supabaseAdmin().from('auth_diag_log').insert(d)).catch(() => {});
+  } catch {}
+  return d;
 }
 
 // ── GET → manifest ───────────────────────────────────────────────────
