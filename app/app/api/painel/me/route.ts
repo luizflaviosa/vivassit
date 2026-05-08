@@ -7,8 +7,10 @@ import { ACTIVE_TENANT_COOKIE } from '@/lib/auth-tenant';
 // Retorna o tenant ATIVO do usuario autenticado.
 // Resolução em ordem:
 //   1) Cookie singulare_active_tenant (se válido pro user)
-//   2) tenants.admin_user_id = user.id (mais recente, se múltiplos)
-//   3) tenants.admin_email = user.email (auto-link, mais recente)
+//      válido = admin_user_id, admin_email, OU tenant_members.user_id
+//   2) tenant_members.user_id = user.id (membership ativa, mais recente)
+//   3) tenants.admin_user_id = user.id (mais recente, se múltiplos)
+//   4) tenants.admin_email = user.email (auto-link, mais recente)
 
 export async function GET() {
   const supabase = createSupabaseServerClient();
@@ -37,6 +39,7 @@ export async function GET() {
 
   // 1. Cookie de tenant ativo (verifica autorização)
   if (preferredTenantId) {
+    // 1a. via admin_user_id ou admin_email
     const { data } = await admin
       .from('tenants')
       .select(TENANT_FIELDS)
@@ -44,9 +47,34 @@ export async function GET() {
       .or(`admin_user_id.eq.${user.id}${user.email ? `,admin_email.eq.${user.email}` : ''}`)
       .limit(1);
     if (data?.[0]) tenant = data[0];
+
+    // 1b. via tenant_members (member ativo do tenant escolhido no cookie)
+    if (!tenant) {
+      const { data: memberJoin } = await admin
+        .from('tenant_members')
+        .select(`tenant:tenants!inner(${TENANT_FIELDS})`)
+        .eq('tenant_id', preferredTenantId)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle<{ tenant: T }>();
+      if (memberJoin?.tenant) tenant = memberJoin.tenant;
+    }
   }
 
-  // 2. admin_user_id (com order + limit pra suportar múltiplos tenants no mesmo user)
+  // 2. tenant_members (membership ativa mais recente — alinhado com requireTenant)
+  if (!tenant) {
+    const { data: memberJoin } = await admin
+      .from('tenant_members')
+      .select(`tenant:tenants!inner(${TENANT_FIELDS})`)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle<{ tenant: T }>();
+    if (memberJoin?.tenant) tenant = memberJoin.tenant;
+  }
+
+  // 3. admin_user_id (com order + limit pra suportar múltiplos tenants no mesmo user)
   if (!tenant) {
     const { data } = await admin
       .from('tenants')
@@ -57,7 +85,7 @@ export async function GET() {
     if (data?.[0]) tenant = data[0];
   }
 
-  // 3. admin_email (auto-link)
+  // 4. admin_email (auto-link)
   if (!tenant && user.email) {
     const { data: byEmailList } = await admin
       .from('tenants')

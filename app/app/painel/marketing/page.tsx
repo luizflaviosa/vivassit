@@ -56,6 +56,7 @@ interface Post {
 }
 interface RegionDemand {
   is_mock: boolean;
+  is_cached?: boolean;
   location: string;
   specialty: string;
   total_monthly_volume: number;
@@ -65,6 +66,15 @@ interface RegionDemand {
     competition_level: 'LOW' | 'MEDIUM' | 'HIGH' | null;
     cpc: number | null;
   }>;
+  name_search: {
+    doctor_name: string;
+    total_volume: number;
+    keywords: Array<{
+      keyword: string; volume: number;
+      competition_level: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+      cpc: number | null;
+    }>;
+  } | null;
 }
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -296,49 +306,85 @@ function PostCard({ post, onApprove, onReject }: {
 
 // ─── RegionDemandCard ─────────────────────────────────────────────────────────
 function RegionDemandCard({ d }: { d: RegionDemand }) {
-  const captureRate = 0.02; // estimativa conservadora pra clínica sem presença forte
+  const captureRate = 0.02;
   const onTable = Math.round(d.total_monthly_volume * (1 - captureRate));
   const cpcText = d.avg_cpc != null ? `R$ ${d.avg_cpc.toFixed(2).replace('.', ',')}` : '—';
 
   return (
-    <motion.div
-      variants={fadeUp}
-      className="rounded-2xl p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-5 items-center"
-      style={{
-        background: 'linear-gradient(180deg, #fefce8 0%, #ffffff 70%)',
-        border: '1px solid rgba(245, 158, 11, 0.25)',
-      }}
-    >
-      <div>
-        <p className="text-[10px] font-bold tracking-[0.12em] uppercase mb-2" style={{ color: '#b45309' }}>
-          <MapPin className="inline w-3 h-3 mr-1.5 -mt-0.5" />
-          Oportunidade · {d.location}
-          {d.is_mock && <span className="ml-2 text-[9px] font-medium normal-case tracking-normal text-amber-700/60">(estimativa preliminar)</span>}
-        </p>
-        <p className="text-[17px] sm:text-[18px] font-medium leading-[1.35] tracking-[-0.015em] text-zinc-900">
-          Pacientes buscam <em className="not-italic font-semibold" style={{ color: '#b45309' }}>&ldquo;{d.specialty} {d.location.split(',')[0]}&rdquo;</em>{' '}
-          <span className="tabular-nums">{d.total_monthly_volume.toLocaleString('pt-BR')}</span> vezes por mês.
-          Sua clínica capta menos de {Math.round(captureRate * 100)}% disso hoje.
-        </p>
-        <p className="text-[12px] text-zinc-500 mt-2">
-          Estimativa baseada em volume de buscas Google + sua posição atual nos resultados locais
-          {d.avg_cpc != null && ` · CPC médio dos termos: ${cpcText}`}.
-        </p>
-      </div>
-      <div className="flex gap-5 sm:gap-6 flex-shrink-0">
-        <div className="text-left sm:text-right">
-          <p className="text-[22px] font-semibold tracking-[-0.02em] tabular-nums leading-none text-zinc-900">
-            {d.total_monthly_volume.toLocaleString('pt-BR')}
+    <motion.div variants={fadeUp} className="space-y-3">
+      <div
+        className="rounded-2xl p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-5 items-center"
+        style={{
+          background: 'linear-gradient(180deg, #fefce8 0%, #ffffff 70%)',
+          border: '1px solid rgba(245, 158, 11, 0.25)',
+        }}
+      >
+        <div>
+          <p className="text-[10px] font-bold tracking-[0.12em] uppercase mb-2" style={{ color: '#b45309' }}>
+            <MapPin className="inline w-3 h-3 mr-1.5 -mt-0.5" />
+            Oportunidade · {d.location}
+            {d.is_mock && <span className="ml-2 text-[9px] font-medium normal-case tracking-normal text-amber-700/60">(estimativa preliminar)</span>}
           </p>
-          <p className="text-[10px] text-zinc-500 mt-1.5 tracking-[0.08em] uppercase">buscas/mês</p>
-        </div>
-        <div className="text-left sm:text-right">
-          <p className="text-[22px] font-semibold tracking-[-0.02em] tabular-nums leading-none" style={{ color: '#b45309' }}>
-            ~{onTable.toLocaleString('pt-BR')}
+          <p className="text-[17px] sm:text-[18px] font-medium leading-[1.35] tracking-[-0.015em] text-zinc-900">
+            Pacientes buscam <em className="not-italic font-semibold" style={{ color: '#b45309' }}>&ldquo;{d.specialty} {d.location.split(',')[0]}&rdquo;</em>{' '}
+            <span className="tabular-nums">{d.total_monthly_volume.toLocaleString('pt-BR')}</span> vezes por mês.
+            Sua clínica capta menos de {Math.round(captureRate * 100)}% disso hoje.
           </p>
-          <p className="text-[10px] text-zinc-500 mt-1.5 tracking-[0.08em] uppercase">pacientes na mesa</p>
+          <p className="text-[12px] text-zinc-500 mt-2">
+            Estimativa baseada em volume de buscas Google + sua posição atual nos resultados locais
+            {d.avg_cpc != null && ` · CPC médio dos termos: ${cpcText}`}.
+          </p>
+        </div>
+        <div className="flex gap-5 sm:gap-6 flex-shrink-0">
+          <div className="text-left sm:text-right">
+            <p className="text-[22px] font-semibold tracking-[-0.02em] tabular-nums leading-none text-zinc-900">
+              {d.total_monthly_volume.toLocaleString('pt-BR')}
+            </p>
+            <p className="text-[10px] text-zinc-500 mt-1.5 tracking-[0.08em] uppercase">buscas/mês</p>
+          </div>
+          <div className="text-left sm:text-right">
+            <p className="text-[22px] font-semibold tracking-[-0.02em] tabular-nums leading-none" style={{ color: '#b45309' }}>
+              ~{onTable.toLocaleString('pt-BR')}
+            </p>
+            <p className="text-[10px] text-zinc-500 mt-1.5 tracking-[0.08em] uppercase">pacientes na mesa</p>
+          </div>
         </div>
       </div>
+
+      {d.name_search && (
+        <div
+          className="rounded-2xl p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4 items-center"
+          style={{
+            background: 'linear-gradient(180deg, #f5f3ff 0%, #ffffff 70%)',
+            border: '1px solid rgba(110, 86, 207, 0.18)',
+          }}
+        >
+          <div>
+            <p className="text-[10px] font-bold tracking-[0.12em] uppercase mb-2" style={{ color: ACCENT_DEEP }}>
+              Quanto você está sendo buscado pelo nome
+            </p>
+            <p className="text-[15px] font-medium leading-[1.4] text-zinc-900">
+              {d.name_search.total_volume > 0 ? (
+                <>
+                  Pacientes buscam <em className="not-italic font-semibold" style={{ color: ACCENT_DEEP }}>{d.name_search.doctor_name}</em>{' '}
+                  <span className="tabular-nums">{d.name_search.total_volume.toLocaleString('pt-BR')}</span> vezes por mês — você já tem reconhecimento de marca.
+                </>
+              ) : (
+                <>
+                  Ainda não há volume mensurável de buscas pelo nome <em className="not-italic font-semibold" style={{ color: ACCENT_DEEP }}>{d.name_search.doctor_name}</em>.
+                  Trabalhar reputação e SEO do seu nome é caminho rápido — branding tem tráfego mais barato.
+                </>
+              )}
+            </p>
+          </div>
+          <div className="text-left sm:text-right flex-shrink-0">
+            <p className="text-[20px] font-semibold tracking-[-0.02em] tabular-nums leading-none" style={{ color: ACCENT_DEEP }}>
+              {d.name_search.total_volume.toLocaleString('pt-BR')}
+            </p>
+            <p className="text-[10px] text-zinc-500 mt-1.5 tracking-[0.08em] uppercase">buscas pelo nome/mês</p>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
