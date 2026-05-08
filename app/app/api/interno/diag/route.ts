@@ -1,14 +1,54 @@
 /**
- * Self-test diag — confirma se /api/interno/tools aceita o token do env atual.
- * Útil pra isolar: env Vercel ok? backend ok? Aí o restante é problema do n8n.
+ * Diag — POST recebe Authorization e compara com env (sem expor token inteiro).
+ * Use isso pra apontar o singulare_dispatch do n8n PRA CÁ temporariamente
+ * e ver o JSON com prefix/suffix dos dois lados.
  *
- * Acesso: cookie auth.
+ * Sem auth porque o objetivo é diagnóstico — não revela token, só prefixos.
  */
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+export async function POST(req: NextRequest) {
+  const tokenRaw = process.env.N8N_TO_VERCEL_TOKEN ?? '';
+  const tokenTrimmed = tokenRaw.trim();
+  const expectedFull = `Bearer ${tokenTrimmed}`;
+  const auth = (req.headers.get('authorization') ?? '').trim();
+
+  return NextResponse.json({
+    env: {
+      raw_length: tokenRaw.length,
+      trimmed_length: tokenTrimmed.length,
+      has_trailing_ws: tokenRaw !== tokenTrimmed,
+      prefix6: tokenTrimmed.slice(0, 6),
+      last4: tokenTrimmed.slice(-4),
+    },
+    received: {
+      length: auth.length,
+      starts_with_bearer: auth.startsWith('Bearer '),
+      prefix12: auth.slice(0, 12),
+      suffix6: auth.slice(-6),
+    },
+    expected: {
+      prefix12: expectedFull.slice(0, 12),
+      suffix6: expectedFull.slice(-6),
+      length: expectedFull.length,
+    },
+    match: auth === expectedFull,
+    diagnosis:
+      auth === expectedFull
+        ? '✓ tokens batem'
+        : !auth
+        ? '✗ Authorization header ausente'
+        : !auth.startsWith('Bearer ')
+        ? '✗ header não começa com "Bearer " — credential do n8n provavelmente sem prefix'
+        : auth.length !== expectedFull.length
+        ? `✗ tamanhos diferentes (env=${expectedFull.length}, recv=${auth.length})`
+        : '✗ mesmo tamanho mas conteúdo diferente — tokens são diferentes',
+  });
+}
 
 export async function GET(req: Request) {
   const supabase = createSupabaseServerClient();
