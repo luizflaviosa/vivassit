@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { requireTenant } from '@/lib/auth-tenant';
 import { supabaseAdmin } from '@/lib/supabase';
-import { mockResponse, type RegionDemandPayload } from '@/lib/region-demand-fetcher';
+import { buildEphemeralPainelPayload, loadPainelPayload } from '@/lib/region-demand-fetcher';
 
-// CACHE-ONLY: nunca chama DataForSEO durante user request.
-// Atualização do cache é responsabilidade de /api/interno/region-demand-refresh
-// (acionado por cron mensal ou manualmente). Se o cache estiver vazio, devolve
-// mock (is_mock=true) — UI mostra estimativa preliminar.
+// CACHE-ONLY: nunca chama DataForSEO. Lê do tenant_region_demand_history
+// (latest snapshot + 5 anteriores pra trend).
+// Refresh é responsabilidade de:
+//  - /api/interno/region-demand-refresh (cron mensal)
+//  - /api/painel/marketing/region-demand-refresh (auto-bootstrap + botão manual)
 
 export const runtime = 'edge';
 
@@ -17,18 +18,10 @@ export async function GET() {
 
   const supabase = supabaseAdmin();
 
-  const { data: cached } = await supabase
-    .from('tenant_region_demand_cache')
-    .select('payload, collected_at')
-    .eq('tenant_id', tenantId)
-    .maybeSingle();
+  const cached = await loadPainelPayload(supabase, tenantId);
+  if (cached) return NextResponse.json(cached);
 
-  if (cached?.payload) {
-    const payload = { ...(cached.payload as RegionDemandPayload), is_cached: true };
-    return NextResponse.json(payload);
-  }
-
-  // Cache miss → busca specialty/city pra mock contextualizado
+  // Sem history → mock contextualizado
   const [tenantRes, doctorRes] = await Promise.all([
     supabase.from('tenants').select('city, state').eq('tenant_id', tenantId).maybeSingle(),
     supabase
@@ -53,5 +46,5 @@ export async function GET() {
     );
   }
 
-  return NextResponse.json(mockResponse(specialty, city, stateName, doctorName));
+  return NextResponse.json(buildEphemeralPainelPayload(specialty, city, stateName, doctorName));
 }

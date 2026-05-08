@@ -1,14 +1,19 @@
 /**
- * Helper compartilhado entre /api/painel/marketing/region-demand (GET cache-only)
- * e /api/interno/region-demand-refresh (POST/GET refreshes cache).
+ * Helper compartilhado entre os endpoints de region-demand.
  *
- * Resolve specialty/city/doctor_name de um tenant e chama o DataForSEO.
- * Retorna o payload no shape esperado pelo painel + escreve cache.
+ * Arquitetura:
+ *  - tenant_market_keywords: lista de keywords por tenant (auto-gerada na 1ª
+ *    coleta a partir de specialty/city/doctor_name; pode ser editada como
+ *    'custom' pra preservar customizações de cron subsequentes).
+ *  - tenant_region_demand_history: append-only, 1 linha por refresh. Permite
+ *    trends e comparação contra mês anterior.
+ *  - Refresh: lê keywords config → chama DataForSEO → INSERT em history.
+ *  - GET (cache-only): SELECT latest history row + previous (pra trend).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
+export const HISTORY_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
 export interface KeywordItem {
   keyword: string;
@@ -50,6 +55,41 @@ interface DfsResponse {
   tasks: Array<{ status_code: number; status_message: string; result: DfsKeywordResult[] | null }>;
 }
 
+interface KeywordConfig {
+  market_keywords: string[];
+  name_keywords: string[];
+  source: 'auto' | 'custom';
+  generated_from: { specialty: string; city: string; state: string; doctor_name: string | null } | null;
+}
+
+// ── Defaults pra keywords auto-geradas ────────────────────────────────────────
+
+function defaultMarketKeywords(specialty: string, city: string): string[] {
+  const s = specialty.toLowerCase();
+  return [
+    s,
+    `${s} ${city}`,
+    `melhor ${s} ${city}`,
+    `${s} em ${city}`,
+    `clínica de ${s} ${city}`,
+    `${s} particular ${city}`,
+    `medico ${s} ${city}`,
+  ];
+}
+
+function defaultNameKeywords(doctorName: string | null | undefined, specialty: string, city: string): string[] {
+  if (!doctorName) return [];
+  const clean = doctorName.replace(/^(Dr\.?|Dra\.?|Doutor|Doutora)\s*/i, '').trim().toLowerCase();
+  if (clean.length < 6) return [];
+  return [
+    clean,
+    `dra ${clean}`,
+    `dr ${clean}`,
+    `${clean} ${specialty.toLowerCase()}`,
+    `${clean} ${city}`,
+  ];
+}
+
 export function mockResponse(specialty: string, city: string, state: string, doctorName?: string | null): RegionDemandPayload {
   const cleanName = doctorName?.replace(/^(Dr\.?|Dra\.?|Doutor|Doutora)\s*/i, '').trim();
   const s = specialty.toLowerCase();
@@ -80,32 +120,141 @@ export function mockResponse(specialty: string, city: string, state: string, doc
   };
 }
 
-function buildMarketKeywords(specialty: string, city: string): string[] {
-  const s = specialty.toLowerCase();
-  return [
-    s,
-    `${s} ${city}`,
-    `melhor ${s} ${city}`,
-    `${s} em ${city}`,
-    `clínica de ${s} ${city}`,
-    `${s} particular ${city}`,
-    `medico ${s} ${city}`,
-  ];
+// ── Keyword config (auto-gera na 1ª, regenera se inputs mudam) ───────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SB = SupabaseClient<any, 'public', any>;
+
+async function getOrGenerateKeywords(
+  supabase: SB,
+  tenantId: string,
+  specialty: string,
+  city: string,
+  state: string,
+  doctorName: string | null | undefined
+): Promise<KeywordConfig> {
+  const { data: existing } = await supabase
+    .from('tenant_market_keywords')
+    .select('market_keywords, name_keywords, source, generated_from')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  const inputs = { specialty, city, state, doctor_name: doctorName ?? null };
+
+  // Custom: respeita edição manual independente de mudança nos inputs
+  if (existing?.source === 'custom' && existing.market_keywords?.length > 0) {
+    return {
+      market_keywords: existing.market_keywords,
+      name_keywords: existing.name_keywords ?? [],
+      source: 'custom',
+      generated_from: existing.generated_from as KeywordConfig['generated_from'] ?? null,
+    };
+  }
+
+  // Auto: regenera se não existe OU se os inputs mudaram
+  const inputsChanged =
+    !existing?.generated_from ||
+    JSON.stringify(existing.generated_from) !== JSON.stringify(inputs);
+
+  if (existing && !inputsChanged) {
+    return {
+      market_keywords: existing.market_keywords,
+      name_keywords: existing.name_keywords ?? [],
+      source: 'auto',
+      generated_from: existing.generated_from as KeywordConfig['generated_from'],
+    };
+  }
+
+  const market = defaultMarketKeywords(specialty, city);
+  const name = defaultNameKeywords(doctorName, specialty, city);
+
+  await supabase
+    .from('tenant_market_keywords')
+    .upsert({
+      tenant_id: tenantId,
+      market_keywords: market,
+      name_keywords: name,
+      source: 'auto',
+      generated_from: inputs,
+      updated_at: new Date().toISOString(),
+    });
+
+  return { market_keywords: market, name_keywords: name, source: 'auto', generated_from: inputs };
 }
 
-function buildNameKeywords(doctorName: string | null | undefined, specialty: string, city: string): string[] {
-  if (!doctorName) return [];
-  const clean = doctorName.replace(/^(Dr\.?|Dra\.?|Doutor|Doutora)\s*/i, '').trim().toLowerCase();
-  if (clean.length < 6) return [];
-  return [
-    clean,
-    `dra ${clean}`,
-    `dr ${clean}`,
-    `${clean} ${specialty.toLowerCase()}`,
-    `${clean} ${city}`,
-  ];
+// ── Trend & painel payload ───────────────────────────────────────────────────
+
+export interface TrendInfo {
+  previous_total_monthly_volume: number | null;
+  previous_total_name_volume: number | null;
+  previous_collected_at: string | null;
+  delta_market_pct: number | null;
+  delta_name_pct: number | null;
+  history_points: Array<{ collected_at: string; total_monthly_volume: number; total_name_volume: number }>;
 }
 
+export interface PainelPayload extends RegionDemandPayload {
+  trend: TrendInfo;
+}
+
+const EMPTY_TREND: TrendInfo = {
+  previous_total_monthly_volume: null,
+  previous_total_name_volume: null,
+  previous_collected_at: null,
+  delta_market_pct: null,
+  delta_name_pct: null,
+  history_points: [],
+};
+
+function pctDelta(current: number, previous: number): number | null {
+  if (previous === 0) return null;
+  return ((current - previous) / previous) * 100;
+}
+
+/**
+ * Carrega payload com trend pro painel. Lê últimos 6 snapshots da history.
+ * Se não há history, devolve null (caller deve fallback pra mock).
+ */
+export async function loadPainelPayload(supabase: SB, tenantId: string): Promise<PainelPayload | null> {
+  const { data: history } = await supabase
+    .from('tenant_region_demand_history')
+    .select('payload, collected_at')
+    .eq('tenant_id', tenantId)
+    .order('collected_at', { ascending: false })
+    .limit(6);
+
+  if (!history || history.length === 0) return null;
+
+  const current = history[0].payload as RegionDemandPayload;
+  const previous = history[1]?.payload as RegionDemandPayload | undefined;
+
+  const currentMarket = current.total_monthly_volume ?? 0;
+  const currentName = current.name_search?.total_volume ?? 0;
+  const previousMarket = previous?.total_monthly_volume ?? 0;
+  const previousName = previous?.name_search?.total_volume ?? 0;
+
+  const trend: TrendInfo = {
+    previous_total_monthly_volume: previous ? previousMarket : null,
+    previous_total_name_volume: previous ? previousName : null,
+    previous_collected_at: history[1]?.collected_at as string | undefined ?? null,
+    delta_market_pct: previous ? pctDelta(currentMarket, previousMarket) : null,
+    delta_name_pct: previous ? pctDelta(currentName, previousName) : null,
+    history_points: history
+      .map(h => ({
+        collected_at: h.collected_at as string,
+        total_monthly_volume: (h.payload as RegionDemandPayload).total_monthly_volume ?? 0,
+        total_name_volume: (h.payload as RegionDemandPayload).name_search?.total_volume ?? 0,
+      }))
+      .reverse(),
+  };
+
+  return { ...current, is_cached: true, trend };
+}
+
+export function buildEphemeralPainelPayload(specialty: string, city: string, state: string, doctorName?: string | null): PainelPayload {
+  return { ...mockResponse(specialty, city, state, doctorName), trend: EMPTY_TREND };
+}
+
+// ── Refresh ──────────────────────────────────────────────────────────────────
 export interface RefreshResult {
   tenant_id: string;
   status: 'ok' | 'skipped' | 'error';
@@ -115,13 +264,7 @@ export interface RefreshResult {
   total_name_volume?: number;
 }
 
-/**
- * Refresca o cache de region-demand pra UM tenant.
- * Chama DataForSEO se DFS env vars estiverem setadas; cai em mock se não.
- * Sempre escreve cache (mesmo mock — assim GET cache-only sempre tem algo).
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function refreshRegionDemandForTenant(supabase: SupabaseClient<any, 'public', any>, tenantId: string): Promise<RefreshResult> {
+export async function refreshRegionDemandForTenant(supabase: SB, tenantId: string): Promise<RefreshResult> {
   const [tenantRes, doctorRes] = await Promise.all([
     supabase.from('tenants').select('city, state').eq('tenant_id', tenantId).maybeSingle(),
     supabase
@@ -143,6 +286,9 @@ export async function refreshRegionDemandForTenant(supabase: SupabaseClient<any,
     return { tenant_id: tenantId, status: 'skipped', reason: 'missing city or specialty' };
   }
 
+  const config = await getOrGenerateKeywords(supabase, tenantId, specialty, city, stateName, doctorName);
+  const allKeywords = [...config.market_keywords, ...config.name_keywords];
+
   const login = process.env.DATAFORSEO_LOGIN;
   const password = process.env.DATAFORSEO_PASSWORD;
 
@@ -151,10 +297,6 @@ export async function refreshRegionDemandForTenant(supabase: SupabaseClient<any,
   if (!login || !password) {
     payload = mockResponse(specialty, city, stateName, doctorName);
   } else {
-    const marketKeywords = buildMarketKeywords(specialty, city);
-    const nameKeywords = buildNameKeywords(doctorName, specialty, city);
-    const allKeywords = [...marketKeywords, ...nameKeywords];
-
     const baseUrl = process.env.DATAFORSEO_BASE_URL || 'https://api.dataforseo.com';
 
     let dfsRes: Response;
@@ -187,8 +329,8 @@ export async function refreshRegionDemandForTenant(supabase: SupabaseClient<any,
         payload = mockResponse(specialty, city, stateName, doctorName);
       } else {
         const results = data.tasks?.[0]?.result ?? [];
-        const marketSet = new Set(marketKeywords);
-        const nameSet = new Set(nameKeywords);
+        const marketSet = new Set(config.market_keywords);
+        const nameSet = new Set(config.name_keywords);
         const marketResults = results.filter(k => marketSet.has(k.keyword));
         const nameResults = results.filter(k => nameSet.has(k.keyword));
 
@@ -233,17 +375,17 @@ export async function refreshRegionDemandForTenant(supabase: SupabaseClient<any,
     }
   }
 
-  const { error: cacheErr } = await supabase
-    .from('tenant_region_demand_cache')
-    .upsert({
+  // Append à history (não upsert — cada coleta vira 1 linha)
+  const { error: histErr } = await supabase
+    .from('tenant_region_demand_history')
+    .insert({
       tenant_id: tenantId,
       payload,
       collected_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     });
 
-  if (cacheErr) {
-    return { tenant_id: tenantId, status: 'error', reason: `cache write: ${cacheErr.message}` };
+  if (histErr) {
+    return { tenant_id: tenantId, status: 'error', reason: `history insert: ${histErr.message}` };
   }
 
   return {

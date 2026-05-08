@@ -75,6 +75,14 @@ interface RegionDemand {
       cpc: number | null;
     }>;
   } | null;
+  trend?: {
+    previous_total_monthly_volume: number | null;
+    previous_total_name_volume: number | null;
+    previous_collected_at: string | null;
+    delta_market_pct: number | null;
+    delta_name_pct: number | null;
+    history_points: Array<{ collected_at: string; total_monthly_volume: number; total_name_volume: number }>;
+  };
 }
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -304,6 +312,49 @@ function PostCard({ post, onApprove, onReject }: {
   );
 }
 
+// ─── DeltaBadge & Sparkline ───────────────────────────────────────────────────
+function DeltaBadge({ pct, color }: { pct: number | null; color: string }) {
+  if (pct == null) return null;
+  const positive = pct >= 0;
+  const arrow = positive ? '↑' : '↓';
+  const abs = Math.abs(pct);
+  const display = abs < 1 ? abs.toFixed(1) : Math.round(abs).toString();
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-md tabular-nums"
+      style={{ background: positive ? '#f0fdf4' : '#fef2f2', color: positive ? '#16a34a' : '#dc2626' }}
+      title={`vs mês anterior — ${color}`}
+    >
+      {arrow} {display}%
+    </span>
+  );
+}
+
+function Sparkline({ points, accentColor }: { points: number[]; accentColor: string }) {
+  if (points.length < 2) return null;
+  const w = 80, h = 24, p = 2;
+  const max = Math.max(...points);
+  const min = Math.min(...points);
+  const range = max - min || 1;
+  const xStep = (w - 2 * p) / (points.length - 1);
+  const path = points
+    .map((v, i) => {
+      const x = p + i * xStep;
+      const y = h - p - ((v - min) / range) * (h - 2 * p);
+      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(' ');
+  const last = points[points.length - 1];
+  const lastX = p + (points.length - 1) * xStep;
+  const lastY = h - p - ((last - min) / range) * (h - 2 * p);
+  return (
+    <svg width={w} height={h} className="inline-block">
+      <path d={path} fill="none" stroke={accentColor} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.6} />
+      <circle cx={lastX} cy={lastY} r={2} fill={accentColor} />
+    </svg>
+  );
+}
+
 // ─── RegionDemandCard ─────────────────────────────────────────────────────────
 function RegionDemandCard({ d, refreshing, onRefresh }: { d: RegionDemand; refreshing: boolean; onRefresh: () => void }) {
   const captureRate = 0.02;
@@ -355,10 +406,21 @@ function RegionDemandCard({ d, refreshing, onRefresh }: { d: RegionDemand; refre
         </div>
         <div className="flex gap-5 sm:gap-6 flex-shrink-0">
           <div className="text-left sm:text-right">
-            <p className="text-[22px] font-semibold tracking-[-0.02em] tabular-nums leading-none text-zinc-900">
-              {d.total_monthly_volume.toLocaleString('pt-BR')}
-            </p>
-            <p className="text-[10px] text-zinc-500 mt-1.5 tracking-[0.08em] uppercase">buscas/mês</p>
+            <div className="flex items-center sm:justify-end gap-2">
+              <p className="text-[22px] font-semibold tracking-[-0.02em] tabular-nums leading-none text-zinc-900">
+                {d.total_monthly_volume.toLocaleString('pt-BR')}
+              </p>
+              <DeltaBadge pct={d.trend?.delta_market_pct ?? null} color="#b45309" />
+            </div>
+            <div className="flex items-center sm:justify-end gap-1.5 mt-1.5">
+              <p className="text-[10px] text-zinc-500 tracking-[0.08em] uppercase">buscas/mês</p>
+              {d.trend && d.trend.history_points.length >= 2 && (
+                <Sparkline
+                  points={d.trend.history_points.map(p => p.total_monthly_volume)}
+                  accentColor="#b45309"
+                />
+              )}
+            </div>
           </div>
           <div className="text-left sm:text-right">
             <p className="text-[22px] font-semibold tracking-[-0.02em] tabular-nums leading-none" style={{ color: '#b45309' }}>
@@ -396,10 +458,21 @@ function RegionDemandCard({ d, refreshing, onRefresh }: { d: RegionDemand; refre
             </p>
           </div>
           <div className="text-left sm:text-right flex-shrink-0">
-            <p className="text-[20px] font-semibold tracking-[-0.02em] tabular-nums leading-none" style={{ color: ACCENT_DEEP }}>
-              {d.name_search.total_volume.toLocaleString('pt-BR')}
-            </p>
-            <p className="text-[10px] text-zinc-500 mt-1.5 tracking-[0.08em] uppercase">buscas pelo nome/mês</p>
+            <div className="flex items-center sm:justify-end gap-2">
+              <p className="text-[20px] font-semibold tracking-[-0.02em] tabular-nums leading-none" style={{ color: ACCENT_DEEP }}>
+                {d.name_search.total_volume.toLocaleString('pt-BR')}
+              </p>
+              <DeltaBadge pct={d.trend?.delta_name_pct ?? null} color={ACCENT_DEEP} />
+            </div>
+            <div className="flex items-center sm:justify-end gap-1.5 mt-1.5">
+              <p className="text-[10px] text-zinc-500 tracking-[0.08em] uppercase">buscas pelo nome/mês</p>
+              {d.trend && d.trend.history_points.length >= 2 && (
+                <Sparkline
+                  points={d.trend.history_points.map(p => p.total_name_volume)}
+                  accentColor={ACCENT_DEEP}
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
