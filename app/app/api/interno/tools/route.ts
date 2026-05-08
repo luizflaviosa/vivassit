@@ -60,10 +60,24 @@ function verifyAuth(req: NextRequest): boolean {
   return ok;
 }
 
+function authDiag(req: NextRequest) {
+  const expected = process.env.N8N_TO_VERCEL_TOKEN?.trim();
+  const auth = (req.headers.get('authorization') ?? '').trim();
+  return {
+    expected_prefix12: `Bearer ${expected}`.slice(0, 12),
+    expected_suffix6: `Bearer ${expected}`.slice(-6),
+    expected_len: `Bearer ${expected}`.length,
+    received_prefix12: auth.slice(0, 12),
+    received_suffix6: auth.slice(-6),
+    received_len: auth.length,
+    starts_with_bearer: auth.startsWith('Bearer '),
+  };
+}
+
 // ── GET → manifest ───────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   if (!verifyAuth(req)) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return NextResponse.json({ ok: false, error: 'unauthorized', diag: authDiag(req) }, { status: 401 });
   }
   return NextResponse.json({
     ok: true,
@@ -95,7 +109,7 @@ interface ExecuteBody {
 
 export async function POST(req: NextRequest) {
   if (!verifyAuth(req)) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return NextResponse.json({ ok: false, error: 'unauthorized', diag: authDiag(req) }, { status: 401 });
   }
 
   let body: ExecuteBody;
