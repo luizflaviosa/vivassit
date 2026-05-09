@@ -191,6 +191,63 @@ export async function listEvents(opts: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CREATE: cria novo evento no calendar (UI Agenda → "Novo evento")
+// ─────────────────────────────────────────────────────────────────────────────
+export async function createEvent(opts: {
+  calendarId: string;
+  summary: string;
+  description?: string;
+  start: Date;
+  end: Date;
+  allDay?: boolean;
+  location?: string;
+}): Promise<{ ok: true; event_id: string; link: string | null } | { error: string }> {
+  const sa = getServiceAccount();
+  if (!sa) return { error: 'GOOGLE_SERVICE_ACCOUNT_JSON não configurado' };
+
+  let token: string;
+  try {
+    token = await fetchAccessToken(sa);
+  } catch {
+    return { error: 'Falha ao autenticar service account' };
+  }
+
+  const fmt = (d: Date) => d.toISOString();
+  const fmtDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const body = {
+    summary: opts.summary,
+    description: opts.description ?? undefined,
+    location: opts.location ?? undefined,
+    ...(opts.allDay
+      ? { start: { date: fmtDate(opts.start) }, end: { date: fmtDate(opts.end) } }
+      : {
+          start: { dateTime: fmt(opts.start), timeZone: 'America/Sao_Paulo' },
+          end: { dateTime: fmt(opts.end), timeZone: 'America/Sao_Paulo' },
+        }),
+  };
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(opts.calendarId)}/events`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  );
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    console.error('[google-calendar] createEvent erro', res.status, txt.slice(0, 200));
+    return { error: `Google API erro ${res.status}: ${txt.slice(0, 100)}` };
+  }
+
+  const data = (await res.json()) as { id: string; htmlLink?: string };
+  return { ok: true, event_id: data.id, link: data.htmlLink ?? null };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // UPDATE: move/resize evento (drag-and-drop)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function updateEvent(opts: {

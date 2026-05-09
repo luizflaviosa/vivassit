@@ -13,6 +13,7 @@ import {
   Video,
   CheckCircle2,
   XCircle,
+  Plus,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import Link from 'next/link';
@@ -116,6 +117,16 @@ function fmtTime(d: Date) {
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+// <input type="datetime-local"> usa horário local sem timezone — converter ida/volta.
+function toLocalInputValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fromLocalInputValue(s: string): Date {
+  // s vem como "2026-05-09T14:30" — interpretar como local time
+  return new Date(s);
+}
+
 function isToday(d: Date) {
   const t = new Date();
   return (
@@ -150,6 +161,10 @@ function AgendaInner() {
   const [selected, setSelected] = useState<AgendaEvent | null>(null);
   const [doctors, setDoctors] = useState<DoctorOption[]>([]);
   const [activeDoctor, setActiveDoctor] = useState<string | null>(null);
+  // Drawer pra criar novo evento. Quando setado, abre painel lateral.
+  const [creating, setCreating] = useState<{ start: Date; end: Date; allDay: boolean } | null>(null);
+  const [createForm, setCreateForm] = useState({ title: '', description: '', location: '' });
+  const [createSaving, setCreateSaving] = useState(false);
 
   // Carrega lista de profissionais
   useEffect(() => {
@@ -216,6 +231,63 @@ function AgendaInner() {
   const handleSelectEvent = useCallback((ev: RBCEvent) => {
     setSelected(ev.raw);
   }, []);
+
+  // Clique em slot vazio (ou drag-select) → abre drawer de criação
+  const handleSelectSlot = useCallback(
+    (slot: { start: Date; end: Date; slots: Date[]; action: string }) => {
+      const start = typeof slot.start === 'string' ? new Date(slot.start) : slot.start;
+      let end = typeof slot.end === 'string' ? new Date(slot.end) : slot.end;
+      // No view 'month' o react-big-calendar passa slots de 1 dia inteiro;
+      // no day/week o end é o próximo slot. Garantimos pelo menos 30min default.
+      if (end.getTime() - start.getTime() < 30 * 60 * 1000) {
+        end = new Date(start.getTime() + 30 * 60 * 1000);
+      }
+      const allDay = slot.action === 'click' && view === 'month';
+      setCreating({ start, end, allDay });
+      setCreateForm({ title: '', description: '', location: '' });
+    },
+    [view],
+  );
+
+  const handleCreateEvent = useCallback(async () => {
+    if (!creating) return;
+    if (!createForm.title.trim()) {
+      toast.error('Título é obrigatório');
+      return;
+    }
+    setCreateSaving(true);
+    try {
+      const res = await fetch('/api/painel/agenda/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: createForm.title.trim(),
+          description: createForm.description.trim() || undefined,
+          location: createForm.location.trim() || undefined,
+          start: creating.start.toISOString(),
+          end: creating.end.toISOString(),
+          allDay: creating.allDay,
+          doctorId: activeDoctor ?? undefined,
+        }),
+      });
+      const json = await res.json().catch(() => ({ success: false, message: 'Erro ao parsear resposta' }));
+      if (!json.success) {
+        toast.error('Não foi possível criar o evento', {
+          description: json.message ?? 'Tenta de novo.',
+        });
+        return;
+      }
+      toast.success('Evento criado');
+      setCreating(null);
+      // Refetch — em ~5s o webhook do Google também sincroniza pro tenant_calendar_events
+      void fetchEvents(true);
+    } catch (e) {
+      toast.error('Erro de conexão', { description: (e as Error).message });
+    } finally {
+      setCreateSaving(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creating, createForm, activeDoctor]);
 
   const saveEventUpdate = useCallback(
     async (
@@ -341,6 +413,22 @@ function AgendaInner() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const start = new Date();
+              start.setMinutes(0, 0, 0);
+              start.setHours(start.getHours() + 1);
+              const end = new Date(start.getTime() + 60 * 60 * 1000);
+              setCreating({ start, end, allDay: false });
+              setCreateForm({ title: '', description: '', location: '' });
+            }}
+            disabled={!!setupIssue}
+            className="h-8 px-3 inline-flex items-center gap-1.5 rounded-md text-[12px] font-semibold text-white hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: ACCENT }}
+          >
+            <Plus className="w-3.5 h-3.5" /> Novo
+          </button>
           <button
             type="button"
             onClick={() => fetchEvents(true)}
@@ -562,32 +650,8 @@ function AgendaInner() {
         </div>
       )}
 
-      {!loading && !setupIssue && rbcEvents.length === 0 && (
-        <div className="rounded-2xl border border-black/[0.07] bg-white p-10 sm:p-14 text-center">
-          <div
-            className="inline-flex h-14 w-14 items-center justify-center rounded-full mb-5"
-            style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
-          >
-            <CalendarIcon className="w-6 h-6" />
-          </div>
-          <h2 className="text-[18px] font-semibold text-zinc-900 mb-2">
-            Sem eventos nos próximos 60 dias
-          </h2>
-          <p className="text-[14px] text-zinc-500 max-w-md mx-auto leading-relaxed">
-            Quando o agente IA marcar a primeira consulta no WhatsApp, ela aparece aqui em tempo
-            real. Você também pode arrastar eventos para reagendar.
-          </p>
-        </div>
-      )}
-
       {!loading && !setupIssue && (
-        <div
-          className={
-            rbcEvents.length === 0
-              ? 'hidden'
-              : 'singulare-calendar-wrap h-[calc(100vh-320px)] min-h-[640px]'
-          }
-        >
+        <div className="singulare-calendar-wrap h-[calc(100vh-320px)] min-h-[640px]">
           <DnDCalendar
             className="singulare-calendar"
             localizer={localizer}
@@ -615,6 +679,7 @@ function AgendaInner() {
             onEventDrop={handleEventDrop}
             onEventResize={handleEventResize}
             onSelectEvent={handleSelectEvent}
+            onSelectSlot={handleSelectSlot}
             eventPropGetter={eventPropGetter}
             components={components}
             style={{ height: '100%' }}
@@ -623,6 +688,153 @@ function AgendaInner() {
       )}
 
       <AnimatePresence>
+        {creating && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-40 bg-black/30"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !createSaving && setCreating(null)}
+            />
+            <motion.div
+              className="fixed top-0 right-0 bottom-0 z-50 w-full sm:w-[480px] bg-white p-6 overflow-y-auto"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+            >
+              <div className="flex items-start justify-between gap-3 mb-5">
+                <div
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg"
+                  style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
+                >
+                  <Plus className="w-4 h-4" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCreating(null)}
+                  disabled={createSaving}
+                  className="h-9 px-3 -mr-2 inline-flex items-center text-[13px] font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-md disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+              </div>
+              <h2 className="text-[22px] font-medium tracking-[-0.02em] text-zinc-900 mb-1.5 leading-snug">
+                Novo evento
+              </h2>
+              <p className="text-[13px] text-zinc-500 mb-5">
+                {creating.start.toLocaleDateString('pt-BR', {
+                  weekday: 'long',
+                  day: '2-digit',
+                  month: 'long',
+                })}
+                {!creating.allDay && (
+                  <>
+                    {' '}
+                    · {fmtTime(creating.start)} – {fmtTime(creating.end)}
+                  </>
+                )}
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-[0.08em] mb-1.5">
+                    Título
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={createForm.title}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, title: e.target.value }))}
+                    placeholder="Bloqueio almoço, Consulta João, Folga..."
+                    className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-[0.08em] mb-1.5">
+                    Início
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={toLocalInputValue(creating.start)}
+                    onChange={(e) =>
+                      setCreating((c) =>
+                        c ? { ...c, start: fromLocalInputValue(e.target.value) } : c,
+                      )
+                    }
+                    className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-[0.08em] mb-1.5">
+                    Fim
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={toLocalInputValue(creating.end)}
+                    onChange={(e) =>
+                      setCreating((c) =>
+                        c ? { ...c, end: fromLocalInputValue(e.target.value) } : c,
+                      )
+                    }
+                    className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-[0.08em] mb-1.5">
+                    Descrição (opcional)
+                  </label>
+                  <textarea
+                    value={createForm.description}
+                    onChange={(e) =>
+                      setCreateForm((f) => ({ ...f, description: e.target.value }))
+                    }
+                    rows={3}
+                    className="w-full px-3 py-2.5 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-[0.08em] mb-1.5">
+                    Local (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={createForm.location}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, location: e.target.value }))}
+                    placeholder="Sala 1, online, endereço..."
+                    className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCreateEvent}
+                disabled={createSaving || !createForm.title.trim()}
+                className="mt-6 w-full h-11 px-4 rounded-lg text-white text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: ACCENT }}
+              >
+                {createSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Criando...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" /> Criar evento
+                  </>
+                )}
+              </button>
+              <p className="text-[12px] text-zinc-400 mt-3 leading-relaxed">
+                Vai ser criado no Google Calendar do profissional. Em ~5s o sistema sincroniza
+                automaticamente — o assistente passa a respeitar o bloqueio.
+              </p>
+            </motion.div>
+          </>
+        )}
         {selected && (
           <>
             <motion.div

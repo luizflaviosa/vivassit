@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireTenant } from '@/lib/auth-tenant';
-import { listEvents, getServiceAccountEmail } from '@/lib/google-calendar';
+import { listEvents, createEvent, getServiceAccountEmail } from '@/lib/google-calendar';
 
 // Lista eventos do Google Calendar de UM doctor específico (ou primário do tenant).
 //
@@ -90,5 +90,90 @@ export async function GET(req: NextRequest) {
     events: result.events,
     doctor: { id: doctor.id, name: doctor.doctor_name, calendar_id: doctor.calendar_id },
     window: { from: timeMin, to: timeMax },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// POST → cria novo evento no Google Calendar (botão "Novo" / clique em slot vazio).
+// O webhook push de Google → /api/webhooks/google-calendar dispara em seguida e
+// popula tenant_calendar_events automaticamente, então o bot já passa a respeitar.
+// ─────────────────────────────────────────────────────────────────────
+export async function POST(req: NextRequest) {
+  const auth = await requireTenant();
+  if (!auth.ok) return auth.response;
+  const tenantId = auth.ctx.tenant.tenant_id;
+
+  let body: {
+    title?: string;
+    description?: string;
+    location?: string;
+    start?: string;
+    end?: string;
+    allDay?: boolean;
+    doctorId?: string;
+  };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ success: false, message: 'JSON inválido' }, { status: 400 });
+  }
+
+  if (!body.title?.trim()) {
+    return NextResponse.json({ success: false, message: 'Título obrigatório' }, { status: 400 });
+  }
+  if (!body.start || !body.end) {
+    return NextResponse.json({ success: false, message: 'start e end obrigatórios' }, { status: 400 });
+  }
+
+  const start = new Date(body.start);
+  const end = new Date(body.end);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    return NextResponse.json({ success: false, message: 'Datas inválidas' }, { status: 400 });
+  }
+  if (end <= start) {
+    return NextResponse.json({ success: false, message: 'end deve ser depois de start' }, { status: 400 });
+  }
+
+  // Resolve doctor → calendar_id
+  const supabase = supabaseAdmin();
+  let doctorQ = supabase
+    .from('tenant_doctors')
+    .select('id, doctor_name, calendar_id')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active');
+
+  if (body.doctorId) doctorQ = doctorQ.eq('id', body.doctorId);
+  else doctorQ = doctorQ.order('is_primary', { ascending: false });
+
+  const { data: doctors } = await doctorQ.limit(1);
+  const doctor = doctors?.[0];
+
+  if (!doctor?.calendar_id) {
+    return NextResponse.json(
+      { success: false, message: 'Profissional sem calendar_id configurado' },
+      { status: 422 },
+    );
+  }
+
+  const result = await createEvent({
+    calendarId: doctor.calendar_id,
+    summary: body.title.trim(),
+    description: body.description?.trim() || undefined,
+    location: body.location?.trim() || undefined,
+    start,
+    end,
+    allDay: body.allDay ?? false,
+  });
+
+  if ('error' in result) {
+    console.error('[agenda/events POST]', result.error);
+    return NextResponse.json({ success: false, message: result.error }, { status: 502 });
+  }
+
+  return NextResponse.json({
+    success: true,
+    event_id: result.event_id,
+    link: result.link,
+    doctor: { id: doctor.id, name: doctor.doctor_name },
   });
 }
