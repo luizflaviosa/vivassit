@@ -33,6 +33,7 @@ export interface RegionDemandPayload {
   is_mock: boolean;
   is_cached: boolean;
   location: string;
+  location_level?: 'city' | 'state' | 'country';
   specialty: string;
   total_monthly_volume: number;
   avg_cpc: number | null;
@@ -316,39 +317,74 @@ export async function refreshRegionDemandForTenant(supabase: SB, tenantId: strin
   }
 
   const baseUrl = process.env.DATAFORSEO_BASE_URL || 'https://api.dataforseo.com';
-  let dfsRes: Response;
-  try {
-    dfsRes = await fetch(
-      `${baseUrl}/v3/keywords_data/google_ads/search_volume/live`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${login}:${password}`).toString('base64')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([{
-          keywords: allKeywords,
-          location_name: `${city},${expandStateName(stateName)},Brazil`,
-          language_code: 'pt',
-          search_partners: false,
-        }]),
+  const expandedState = expandStateName(stateName);
+
+  // DataForSEO Google Ads tem cobertura limitada de cidades médias no BR.
+  // Cascata: cidade → estado → país. Marca o nível usado.
+  const locationCascade: Array<{ name: string; level: 'city' | 'state' | 'country' }> = [
+    { name: `${city},${expandedState},Brazil`, level: 'city' },
+    { name: `${expandedState},Brazil`, level: 'state' },
+    { name: 'Brazil', level: 'country' },
+  ];
+
+  async function callDfs(locationName: string): Promise<{ ok: true; data: DfsResponse } | { ok: false; reason: string }> {
+    try {
+      const res = await fetch(
+        `${baseUrl}/v3/keywords_data/google_ads/search_volume/live`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${Buffer.from(`${login}:${password}`).toString('base64')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify([{
+            keywords: allKeywords,
+            location_name: locationName,
+            language_code: 'pt',
+            search_partners: false,
+          }]),
+        }
+      );
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        return { ok: false, reason: `http ${res.status}: ${body.slice(0, 200)}` };
       }
-    );
-  } catch (e) {
-    console.log('[region-demand] tenant=%s ERROR dfs fetch: %s', tenantId, (e as Error).message);
-    return { tenant_id: tenantId, status: 'error', reason: `dfs fetch failed: ${(e as Error).message}` };
+      const data = (await res.json()) as DfsResponse;
+      if (data.status_code !== 20000) {
+        return { ok: false, reason: `status ${data.status_code}: ${data.status_message}` };
+      }
+      return { ok: true, data };
+    } catch (e) {
+      return { ok: false, reason: `fetch: ${(e as Error).message}` };
+    }
   }
 
-  if (!dfsRes.ok) {
-    const body = await dfsRes.text().catch(() => '');
-    console.log('[region-demand] tenant=%s ERROR dfs http=%s body=%s', tenantId, dfsRes.status, body.slice(0, 200));
-    return { tenant_id: tenantId, status: 'error', reason: `dfs http ${dfsRes.status}` };
+  let chosenLevel: 'city' | 'state' | 'country' = 'city';
+  let chosenLocation = locationCascade[0].name;
+  let data: DfsResponse | null = null;
+  const cascadeAttempts: Array<{ location: string; level: string; results: number; reason?: string }> = [];
+
+  for (const step of locationCascade) {
+    const r = await callDfs(step.name);
+    if (!r.ok) {
+      cascadeAttempts.push({ location: step.name, level: step.level, results: 0, reason: r.reason });
+      console.log('[region-demand] tenant=%s cascade %s FAIL: %s', tenantId, step.level, r.reason);
+      continue;
+    }
+    const cnt = r.data.tasks?.[0]?.result?.length ?? 0;
+    cascadeAttempts.push({ location: step.name, level: step.level, results: cnt });
+    if (cnt > 0) {
+      data = r.data;
+      chosenLevel = step.level;
+      chosenLocation = step.name;
+      console.log('[region-demand] tenant=%s cascade %s OK results=%s', tenantId, step.level, cnt);
+      break;
+    }
+    console.log('[region-demand] tenant=%s cascade %s empty, trying next', tenantId, step.level);
   }
 
-  const data = (await dfsRes.json()) as DfsResponse;
-  if (data.status_code !== 20000) {
-    console.log('[region-demand] tenant=%s ERROR dfs status_code=%s msg=%s', tenantId, data.status_code, data.status_message);
-    return { tenant_id: tenantId, status: 'error', reason: `dfs status ${data.status_code}: ${data.status_message}` };
+  if (!data) {
+    return { tenant_id: tenantId, status: 'error', reason: `dfs cascade exhausted: ${JSON.stringify(cascadeAttempts)}` };
   }
 
   // Sucesso — grava DADOS REAIS, mesmo que volumes sejam 0/null
@@ -388,11 +424,18 @@ export async function refreshRegionDemandForTenant(supabase: SB, tenantId: strin
         cpc: k.cpc,
       }));
 
+  const locationLabel = chosenLevel === 'city'
+    ? `${city}, ${stateName}, Brazil`
+    : chosenLevel === 'state'
+    ? `${expandedState}, Brazil (estado — cidade sem dados no Google Ads)`
+    : 'Brasil (estimativa nacional — região sem dados no Google Ads)';
+
   const payload: RegionDemandPayload & { _debug?: unknown } = {
     success: true,
     is_mock: false,
     is_cached: false,
-    location: `${city}, ${stateName}, Brazil`,
+    location: locationLabel,
+    location_level: chosenLevel,
     specialty,
     total_monthly_volume: totalMarket,
     avg_cpc: avgCpc,
@@ -404,7 +447,9 @@ export async function refreshRegionDemandForTenant(supabase: SB, tenantId: strin
     } : null,
     collected_at: new Date().toISOString(),
     _debug: {
-      location_name_sent: `${city},${expandStateName(stateName)},Brazil`,
+      location_used: chosenLocation,
+      location_level: chosenLevel,
+      cascade_attempts: cascadeAttempts,
       keywords_sent: allKeywords,
       results_returned: results.length,
       raw_sample: results.slice(0, 5).map(r => ({
