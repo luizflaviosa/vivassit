@@ -24,6 +24,7 @@ import {
   Loader2,
   Sun,
   Moon,
+  Activity,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { MeContext, type MeData } from '@/lib/painel-context';
@@ -71,6 +72,7 @@ const ROUTE_GROUP: Array<[string, SectionGroup]> = [
   ['/painel/profissionais', 'clinic'],
   ['/painel/equipe', 'clinic'],
   ['/painel/pagamentos', 'clinic'],
+  ['/painel/performance', 'growth'],
   ['/painel/feedback', 'growth'],
   ['/painel/marketing', 'growth'],
 ];
@@ -171,6 +173,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
         darkBg: 'rgba(225,29,72,0.12)', darkLabel: '#FB7185', darkActiveBg: 'rgba(225,29,72,0.28)', darkActiveFg: '#FDA4AF',
       },
       items: [
+        { href: '/painel/performance', label: 'Performance', icon: <Activity className="w-4 h-4" />, enabled: true },
         { href: '/painel/feedback', label: 'NPS / feedback', icon: <Star className="w-4 h-4" />, enabled: true },
         { href: '/painel/marketing', label: 'Marketing', icon: <Megaphone className="w-4 h-4" />, enabled: true },
       ],
