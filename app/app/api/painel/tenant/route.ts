@@ -10,7 +10,7 @@ export async function GET() {
   const { data: tenant, error } = await supabase
     .from('tenants')
     .select(
-      'tenant_id, clinic_name, cnpj, email, phone, real_phone, admin_email, accountant_email, address, doctor_name, doctor_crm, speciality, consultation_duration, establishment_type, chatwoot_type, plan_type, status, subscription_status, trial_ends_at, subscription_renews_at, assistant_prompt, rendered_prompt, internal_agent_capabilities, payment_info, calendar_config, evolution_phone_number, evolution_status, asaas_account_status, telegram_chat_id, telegram_bot_link, elevenlabs_voice_id, created_at'
+      'tenant_id, clinic_name, cnpj, email, phone, real_phone, admin_email, accountant_email, address, doctor_name, doctor_crm, speciality, consultation_duration, establishment_type, chatwoot_type, plan_type, status, subscription_status, trial_ends_at, subscription_renews_at, assistant_prompt, rendered_prompt, internal_agent_capabilities, payment_info, calendar_config, evolution_phone_number, evolution_status, asaas_account_status, telegram_chat_id, telegram_bot_link, elevenlabs_voice_id, instagram_username, facebook_page_url, website_url, google_place_id, created_at'
     )
     .eq('tenant_id', auth.ctx.tenant.tenant_id)
     .maybeSingle();
@@ -40,6 +40,10 @@ interface UpdateBody {
   establishment_type?: string;
   evolution_phone_number?: string;
   elevenlabs_voice_id?: string;
+  instagram_username?: string;
+  facebook_page_url?: string;
+  website_url?: string;
+  google_place_id?: string;
   payment_info?: Record<string, unknown>;
 }
 
@@ -56,6 +60,7 @@ export async function PATCH(req: NextRequest) {
     'email', 'phone', 'real_phone', 'admin_email', 'accountant_email', 'address',
     'doctor_name', 'doctor_crm', 'speciality', 'establishment_type',
     'evolution_phone_number', 'elevenlabs_voice_id',
+    'instagram_username', 'facebook_page_url', 'website_url', 'google_place_id',
   ];
   for (const f of stringFields) {
     const v = body[f];

@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   Sparkles, Save, Loader2, Building2, Bot, ChevronDown, ChevronUp,
-  Phone, MapPin, Receipt, MessageCircle, Music,
+  Phone, MapPin, Receipt, MessageCircle, Music, Globe, Instagram,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import BackToChecklist from '../components/back-to-checklist';
@@ -37,6 +37,10 @@ interface Tenant {
   assistant_prompt: string | null;
   internal_agent_capabilities: string | null;
   rendered_prompt: string | null;
+  instagram_username: string | null;
+  facebook_page_url: string | null;
+  website_url: string | null;
+  google_place_id: string | null;
 }
 
 interface FormData {
@@ -55,6 +59,10 @@ interface FormData {
   elevenlabs_voice_id: string;
   assistant_prompt: string;
   internal_agent_capabilities: string;
+  instagram_username: string;
+  facebook_page_url: string;
+  website_url: string;
+  google_place_id: string;
 }
 
 const EMPTY: FormData = {
@@ -63,6 +71,7 @@ const EMPTY: FormData = {
   doctor_name: '', doctor_crm: '', speciality: '',
   evolution_phone_number: '', elevenlabs_voice_id: '', assistant_prompt: '',
   internal_agent_capabilities: '',
+  instagram_username: '', facebook_page_url: '', website_url: '', google_place_id: '',
 };
 
 function ConfigInner() {
@@ -105,6 +114,10 @@ function ConfigInner() {
             elevenlabs_voice_id: t.elevenlabs_voice_id ?? '',
             assistant_prompt: t.assistant_prompt ?? '',
             internal_agent_capabilities: t.internal_agent_capabilities ?? '',
+            instagram_username: t.instagram_username ?? '',
+            facebook_page_url: t.facebook_page_url ?? '',
+            website_url: t.website_url ?? '',
+            google_place_id: t.google_place_id ?? '',
           });
         }
       } catch (e) {
@@ -252,6 +265,68 @@ function ConfigInner() {
           </div>
         </Card>
       )}
+
+      {/* Presença online */}
+      <Card
+        icon={<Globe className="w-4 h-4" />}
+        title="Presença online"
+        subtitle="Site, redes e perfil Google. Habilita SEO local + tracking de reviews."
+      >
+        <div className="space-y-3">
+          <Field
+            label="Site"
+            hint="URL completa, ex: https://drapaulafranzon.com.br"
+          >
+            <input
+              type="url"
+              value={form.website_url}
+              onChange={(e) => setField('website_url', e.target.value)}
+              placeholder="https://..."
+              className={inputClasses()}
+            />
+          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field
+              label="Instagram"
+              hint="Apenas o usuário, sem @. Ex: drapaulafranzon"
+            >
+              <input
+                value={form.instagram_username}
+                onChange={(e) => setField('instagram_username', e.target.value.replace(/^@/, ''))}
+                placeholder="seuhandle"
+                className={inputClasses()}
+              />
+            </Field>
+            <Field
+              label="Facebook (página)"
+              hint="URL completa da página"
+            >
+              <input
+                type="url"
+                value={form.facebook_page_url}
+                onChange={(e) => setField('facebook_page_url', e.target.value)}
+                placeholder="https://facebook.com/..."
+                className={inputClasses()}
+              />
+            </Field>
+          </div>
+          <Field
+            label="Google Place ID"
+            hint="Pega em google.com/business → Sobre a empresa → Place ID. Habilita o card de Reviews na Performance."
+          >
+            <input
+              value={form.google_place_id}
+              onChange={(e) => setField('google_place_id', e.target.value)}
+              placeholder="ChIJxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              className={inputClasses()}
+            />
+          </Field>
+          <p className="text-[11px] text-zinc-400 leading-relaxed">
+            Sem o Place ID, o card "Reviews Google" no painel Performance fica vazio. Não tem ainda?
+            Crie em <a href="https://business.google.com" target="_blank" rel="noopener noreferrer" className="text-violet-700 hover:underline">business.google.com</a>.
+          </p>
+        </div>
+      </Card>
 
       {/* Contato e canais */}
       <Card icon={<Phone className="w-4 h-4" />} title="Contato e canais" subtitle="Como pacientes e o agente se comunicam">
