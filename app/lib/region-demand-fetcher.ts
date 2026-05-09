@@ -79,7 +79,7 @@ function defaultMarketKeywords(specialty: string, city: string): string[] {
 
 function defaultNameKeywords(doctorName: string | null | undefined, specialty: string, city: string): string[] {
   if (!doctorName) return [];
-  const clean = doctorName.replace(/^(Dr\.?|Dra\.?|Doutor|Doutora)\s*/i, '').trim().toLowerCase();
+  const clean = doctorName.replace(/^(Doutora|Doutor|Dra\.?|Dr\.?)\s*\.?\s*/i, '').trim().toLowerCase();
   if (clean.length < 6) return [];
   return [
     clean,
@@ -91,7 +91,7 @@ function defaultNameKeywords(doctorName: string | null | undefined, specialty: s
 }
 
 export function mockResponse(specialty: string, city: string, state: string, doctorName?: string | null): RegionDemandPayload {
-  const cleanName = doctorName?.replace(/^(Dr\.?|Dra\.?|Doutor|Doutora)\s*/i, '').trim();
+  const cleanName = doctorName?.replace(/^(Doutora|Doutor|Dra\.?|Dr\.?)\s*\.?\s*/i, '').trim();
   const s = specialty.toLowerCase();
   return {
     success: true,
@@ -292,90 +292,91 @@ export async function refreshRegionDemandForTenant(supabase: SB, tenantId: strin
   const login = process.env.DATAFORSEO_LOGIN;
   const password = process.env.DATAFORSEO_PASSWORD;
 
-  let payload: RegionDemandPayload;
-
+  // Sem credenciais → não grava nada na history. GET serve mock ephemeral.
   if (!login || !password) {
-    payload = mockResponse(specialty, city, stateName, doctorName);
-  } else {
-    const baseUrl = process.env.DATAFORSEO_BASE_URL || 'https://api.dataforseo.com';
-
-    let dfsRes: Response;
-    try {
-      dfsRes = await fetch(
-        `${baseUrl}/v3/keywords_data/google_ads/search_volume/live`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Basic ${Buffer.from(`${login}:${password}`).toString('base64')}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify([{
-            keywords: allKeywords,
-            location_name: `${city},${stateName},Brazil`,
-            language_code: 'pt',
-            search_partners: false,
-          }]),
-        }
-      );
-    } catch (e) {
-      return { tenant_id: tenantId, status: 'error', reason: `dfs fetch failed: ${(e as Error).message}` };
-    }
-
-    if (!dfsRes.ok) {
-      payload = mockResponse(specialty, city, stateName, doctorName);
-    } else {
-      const data = (await dfsRes.json()) as DfsResponse;
-      if (data.status_code !== 20000) {
-        payload = mockResponse(specialty, city, stateName, doctorName);
-      } else {
-        const results = data.tasks?.[0]?.result ?? [];
-        const marketSet = new Set(config.market_keywords);
-        const nameSet = new Set(config.name_keywords);
-        const marketResults = results.filter(k => marketSet.has(k.keyword));
-        const nameResults = results.filter(k => nameSet.has(k.keyword));
-
-        const totalMarket = marketResults.reduce((s, k) => s + (k.search_volume ?? 0), 0);
-        const totalName = nameResults.reduce((s, k) => s + (k.search_volume ?? 0), 0);
-
-        if (totalMarket === 0) {
-          payload = mockResponse(specialty, city, stateName, doctorName);
-        } else {
-          const cpcValues = marketResults.filter(k => k.cpc != null).map(k => Number(k.cpc));
-          const avgCpc = cpcValues.length > 0 ? cpcValues.reduce((s, v) => s + v, 0) / cpcValues.length : null;
-
-          const toItems = (arr: DfsKeywordResult[]): KeywordItem[] =>
-            arr
-              .filter(k => (k.search_volume ?? 0) > 0)
-              .sort((a, b) => (b.search_volume ?? 0) - (a.search_volume ?? 0))
-              .map(k => ({
-                keyword: k.keyword,
-                volume: k.search_volume ?? 0,
-                competition_level: k.competition_level ?? null,
-                cpc: k.cpc,
-              }));
-
-          payload = {
-            success: true,
-            is_mock: false,
-            is_cached: false,
-            location: `${city}, ${stateName}, Brazil`,
-            specialty,
-            total_monthly_volume: totalMarket,
-            avg_cpc: avgCpc,
-            keywords: toItems(marketResults),
-            name_search: doctorName ? {
-              doctor_name: doctorName,
-              total_volume: totalName,
-              keywords: toItems(nameResults),
-            } : null,
-            collected_at: new Date().toISOString(),
-          };
-        }
-      }
-    }
+    console.log('[region-demand] tenant=%s SKIP no DFS credentials', tenantId);
+    return { tenant_id: tenantId, status: 'skipped', reason: 'no DataForSEO credentials configured' };
   }
 
-  // Append à history (não upsert — cada coleta vira 1 linha)
+  const baseUrl = process.env.DATAFORSEO_BASE_URL || 'https://api.dataforseo.com';
+  let dfsRes: Response;
+  try {
+    dfsRes = await fetch(
+      `${baseUrl}/v3/keywords_data/google_ads/search_volume/live`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${login}:${password}`).toString('base64')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify([{
+          keywords: allKeywords,
+          location_name: `${city},${stateName},Brazil`,
+          language_code: 'pt',
+          search_partners: false,
+        }]),
+      }
+    );
+  } catch (e) {
+    console.log('[region-demand] tenant=%s ERROR dfs fetch: %s', tenantId, (e as Error).message);
+    return { tenant_id: tenantId, status: 'error', reason: `dfs fetch failed: ${(e as Error).message}` };
+  }
+
+  if (!dfsRes.ok) {
+    const body = await dfsRes.text().catch(() => '');
+    console.log('[region-demand] tenant=%s ERROR dfs http=%s body=%s', tenantId, dfsRes.status, body.slice(0, 200));
+    return { tenant_id: tenantId, status: 'error', reason: `dfs http ${dfsRes.status}` };
+  }
+
+  const data = (await dfsRes.json()) as DfsResponse;
+  if (data.status_code !== 20000) {
+    console.log('[region-demand] tenant=%s ERROR dfs status_code=%s msg=%s', tenantId, data.status_code, data.status_message);
+    return { tenant_id: tenantId, status: 'error', reason: `dfs status ${data.status_code}: ${data.status_message}` };
+  }
+
+  // Sucesso — grava DADOS REAIS, mesmo que volumes sejam 0/null
+  const results = data.tasks?.[0]?.result ?? [];
+  const marketSet = new Set(config.market_keywords);
+  const nameSet = new Set(config.name_keywords);
+  const marketResults = results.filter(k => marketSet.has(k.keyword));
+  const nameResults = results.filter(k => nameSet.has(k.keyword));
+
+  const totalMarket = marketResults.reduce((s, k) => s + (k.search_volume ?? 0), 0);
+  const totalName = nameResults.reduce((s, k) => s + (k.search_volume ?? 0), 0);
+
+  const cpcValues = marketResults.filter(k => k.cpc != null).map(k => Number(k.cpc));
+  const avgCpc = cpcValues.length > 0 ? cpcValues.reduce((s, v) => s + v, 0) / cpcValues.length : null;
+
+  const toItems = (arr: DfsKeywordResult[]): KeywordItem[] =>
+    arr
+      .filter(k => (k.search_volume ?? 0) > 0)
+      .sort((a, b) => (b.search_volume ?? 0) - (a.search_volume ?? 0))
+      .map(k => ({
+        keyword: k.keyword,
+        volume: k.search_volume ?? 0,
+        competition_level: k.competition_level ?? null,
+        cpc: k.cpc,
+      }));
+
+  const payload: RegionDemandPayload = {
+    success: true,
+    is_mock: false,
+    is_cached: false,
+    location: `${city}, ${stateName}, Brazil`,
+    specialty,
+    total_monthly_volume: totalMarket,
+    avg_cpc: avgCpc,
+    keywords: toItems(marketResults),
+    name_search: doctorName ? {
+      doctor_name: doctorName,
+      total_volume: totalName,
+      keywords: toItems(nameResults),
+    } : null,
+    collected_at: new Date().toISOString(),
+  };
+
+  console.log('[region-demand] tenant=%s OK market=%s name=%s keywords_returned=%s', tenantId, totalMarket, totalName, results.length);
+
   const { error: histErr } = await supabase
     .from('tenant_region_demand_history')
     .insert({
@@ -391,8 +392,8 @@ export async function refreshRegionDemandForTenant(supabase: SB, tenantId: strin
   return {
     tenant_id: tenantId,
     status: 'ok',
-    is_mock: payload.is_mock,
-    total_monthly_volume: payload.total_monthly_volume,
-    total_name_volume: payload.name_search?.total_volume ?? 0,
+    is_mock: false,
+    total_monthly_volume: totalMarket,
+    total_name_volume: totalName,
   };
 }
