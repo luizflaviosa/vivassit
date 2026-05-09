@@ -163,7 +163,13 @@ export async function POST(req: NextRequest) {
 
     if (!upstream.ok) {
       const errText = await upstream.text().catch(() => '');
-      console.error('[interno/comando] N8N erro:', upstream.status, errText.slice(0, 200));
+      const upstreamCt = upstream.headers.get('content-type') ?? '';
+      console.error(
+        '[interno/comando] N8N erro:',
+        upstream.status,
+        upstreamCt,
+        errText.slice(0, 1000)
+      );
       return streamText(
         `Não consegui responder agora (${upstream.status}). Tenta de novo ou usa o Telegram.`
       );

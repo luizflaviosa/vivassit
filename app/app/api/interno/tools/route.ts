@@ -41,10 +41,21 @@ function verifyAuth(req: NextRequest): boolean {
   return auth === `Bearer ${expected}`;
 }
 
+// Loga e retorna a resposta de erro com shape preservado.
+// Sem PII: registra apenas chaves do body / nomes de params, nunca valores.
+function rejectWith(
+  status: number,
+  error: string,
+  ctx: Record<string, unknown> = {}
+) {
+  console.error('[interno/tools] reject:', { status, error, ...ctx });
+  return NextResponse.json({ ok: false, error, ...ctx }, { status });
+}
+
 // ── GET → manifest ───────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   if (!verifyAuth(req)) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return rejectWith(401, 'unauthorized', { route: 'GET /interno/tools' });
   }
   return NextResponse.json({
     ok: true,
@@ -76,37 +87,36 @@ interface ExecuteBody {
 
 export async function POST(req: NextRequest) {
   if (!verifyAuth(req)) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return rejectWith(401, 'unauthorized');
   }
 
   let body: ExecuteBody;
   try {
     body = (await req.json()) as ExecuteBody;
   } catch {
-    return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 });
+    return rejectWith(400, 'invalid_json');
   }
 
+  const bodyKeys = Object.keys(body ?? {});
   const { tool: toolName, params = {}, tenant_id, user_id, role } = body;
-  if (!toolName) return NextResponse.json({ ok: false, error: 'missing_tool' }, { status: 400 });
-  if (!tenant_id) return NextResponse.json({ ok: false, error: 'missing_tenant_id' }, { status: 400 });
-  if (!user_id) return NextResponse.json({ ok: false, error: 'missing_user_id' }, { status: 400 });
-  if (!role) return NextResponse.json({ ok: false, error: 'missing_role' }, { status: 400 });
+  if (!toolName) return rejectWith(400, 'missing_tool', { body_keys: bodyKeys });
+  if (!tenant_id) return rejectWith(400, 'missing_tenant_id', { tool: toolName, body_keys: bodyKeys });
+  if (!user_id) return rejectWith(400, 'missing_user_id', { tool: toolName });
+  if (!role) return rejectWith(400, 'missing_role', { tool: toolName, tenant_id });
 
   const tool = getToolDef(toolName);
   if (!tool) {
-    return NextResponse.json({ ok: false, error: `tool_not_found: ${toolName}` }, { status: 404 });
+    return rejectWith(404, `tool_not_found: ${toolName}`, { tool: toolName });
   }
 
   // RBAC
   if (!roleHasAccess(role, tool.min_role)) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: 'forbidden',
-        message: `Tool '${tool.name}' requer role ≥ ${tool.min_role}. Você é ${role}.`,
-      },
-      { status: 403 }
-    );
+    return rejectWith(403, 'forbidden', {
+      tool: tool.name,
+      role,
+      min_role: tool.min_role,
+      message: `Tool '${tool.name}' requer role ≥ ${tool.min_role}. Você é ${role}.`,
+    });
   }
 
   // Sanity: confirma membership ativa
@@ -119,16 +129,17 @@ export async function POST(req: NextRequest) {
     .eq('status', 'active')
     .maybeSingle();
   if (!member) {
-    return NextResponse.json(
-      { ok: false, error: 'membership_not_found' },
-      { status: 403 }
-    );
+    return rejectWith(403, 'membership_not_found', { tool: tool.name, tenant_id });
   }
 
   // Validate params
   const paramErr = validateParams(tool, params);
   if (paramErr) {
-    return NextResponse.json({ ok: false, error: 'invalid_params', message: paramErr }, { status: 400 });
+    return rejectWith(400, 'invalid_params', {
+      tool: tool.name,
+      message: paramErr,
+      params_keys: Object.keys(params ?? {}),
+    });
   }
 
   const mode = body.mode ?? 'propose';
@@ -138,7 +149,7 @@ export async function POST(req: NextRequest) {
     if (tool.mode === 'write') {
       const wh = getWriteHandler(tool.name);
       if (!wh) {
-        return NextResponse.json({ ok: false, error: 'handler_missing' }, { status: 500 });
+        return rejectWith(500, 'handler_missing', { tool: tool.name, mode: 'write' });
       }
       const result =
         mode === 'execute'
@@ -172,7 +183,7 @@ export async function POST(req: NextRequest) {
     // ── READ ────────────────────────────────────────────────
     const handler = getHandler(tool.name);
     if (!handler) {
-      return NextResponse.json({ ok: false, error: 'handler_missing' }, { status: 500 });
+      return rejectWith(500, 'handler_missing', { tool: tool.name, mode: 'read' });
     }
     const result = await handler(params, { tenant_id, user_id, role });
 
@@ -196,9 +207,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     const msg = (e as Error).message;
-    return NextResponse.json(
-      { ok: false, tool: tool.name, error: 'handler_error', message: msg },
-      { status: 500 }
-    );
+    return rejectWith(500, 'handler_error', { tool: tool.name, message: msg });
   }
 }
