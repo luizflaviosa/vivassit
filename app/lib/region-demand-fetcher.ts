@@ -388,7 +388,7 @@ export async function refreshRegionDemandForTenant(supabase: SB, tenantId: strin
         cpc: k.cpc,
       }));
 
-  const payload: RegionDemandPayload = {
+  const payload: RegionDemandPayload & { _debug?: unknown } = {
     success: true,
     is_mock: false,
     is_cached: false,
@@ -403,6 +403,20 @@ export async function refreshRegionDemandForTenant(supabase: SB, tenantId: strin
       keywords: toItems(nameResults),
     } : null,
     collected_at: new Date().toISOString(),
+    _debug: {
+      location_name_sent: `${city},${expandStateName(stateName)},Brazil`,
+      keywords_sent: allKeywords,
+      results_returned: results.length,
+      raw_sample: results.slice(0, 5).map(r => ({
+        keyword: r.keyword,
+        search_volume: r.search_volume,
+        cpc: r.cpc,
+        competition: r.competition,
+        competition_level: r.competition_level,
+      })),
+      dfs_status_code: data.status_code,
+      dfs_status_message: data.status_message,
+    },
   };
 
   console.log('[region-demand] tenant=%s OK market=%s name=%s keywords_returned=%s', tenantId, totalMarket, totalName, results.length);
