@@ -209,7 +209,7 @@ export async function refreshMarketTrendsForTenant(supabase: SB, tenantId: strin
         subregion_status: subregionRes.tasks?.[0]?.status_code,
         demography_status: demoRes.tasks?.[0]?.status_code,
         sample_explore: exploreItem?.data?.slice(0, 2),
-        sample_subregion: subregionData.slice(0, 3),
+        sample_subregion: subregionRaw.slice(0, 3),
         // Raw responses pra inspecionar estrutura quando parser falha
         raw_subregion_task: subregionRes.tasks?.[0],
         raw_demography_task: demoRes.tasks?.[0],
