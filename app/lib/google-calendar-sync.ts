@@ -122,7 +122,7 @@ async function persistEvents(opts: {
     if (!error) deleted = ids.length;
   }
 
-  const rows = active
+  const baseRows = active
     .filter((e) => (e.start?.dateTime ?? e.start?.date) && (e.end?.dateTime ?? e.end?.date))
     .map((e) => {
       // All-day usa só `date` (end é exclusivo). Converte pra ISO TZ Sao_Paulo
@@ -146,7 +146,29 @@ async function persistEvents(opts: {
       };
     });
 
-  if (rows.length > 0) {
+  if (baseRows.length > 0) {
+    // Lookup booking_id em batch: cada evento que tem origem no app
+    // (criado via safe_create_event → fn_attach_calendar_event) tem
+    // doctor_bookings.calendar_event_id == event_id. Sem esse link,
+    // fn_book_slot_atomic vê o próprio booking do bot como "compromisso
+    // externo" e rejeita slots já corretamente ocupados — mensagem ruim
+    // pro usuário ('Profissional tem compromisso externo nesse horário')
+    // mesmo quando o slot está ocupado por booking legítimo do app.
+    const eventIds = baseRows.map((r) => r.event_id);
+    const { data: bookings } = await supabase
+      .from('doctor_bookings')
+      .select('id, calendar_event_id')
+      .eq('tenant_id', opts.tenantId)
+      .in('calendar_event_id', eventIds);
+    const bookingByEventId = new Map(
+      (bookings ?? []).map((b) => [b.calendar_event_id as string, b.id as string])
+    );
+
+    const rows = baseRows.map((r) => ({
+      ...r,
+      booking_id: bookingByEventId.get(r.event_id) ?? null,
+    }));
+
     const { error } = await supabase
       .from('tenant_calendar_events')
       .upsert(rows, { onConflict: 'event_id' });
