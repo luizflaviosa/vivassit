@@ -54,7 +54,9 @@ export const TOOL_CATALOG: ToolDef[] = [
     description: 'Retorna as consultas de hoje (com nome do paciente, horário e status).',
     mode: 'read',
     min_role: 'viewer',
-    params: {},
+    params: {
+      doctor_id: { type: 'string', description: 'UUID do médico (admin/owner pode filtrar; doctor é sempre filtrado pelo próprio automaticamente)' },
+    },
   },
   {
     name: 'agenda_periodo',
@@ -65,7 +67,15 @@ export const TOOL_CATALOG: ToolDef[] = [
       start: { type: 'date', required: true, description: 'Data inicial ISO (ex: 2026-05-04)' },
       end:   { type: 'date', required: true, description: 'Data final ISO (inclusiva)' },
       status: { type: 'enum', enum: ['scheduled', 'confirmed', 'completed', 'cancelled', 'all'], default: 'all', description: 'Filtro de status' },
+      doctor_id: { type: 'string', description: 'UUID do médico (admin/owner pode filtrar; doctor é sempre filtrado pelo próprio automaticamente)' },
     },
+  },
+  {
+    name: 'medicos_listar',
+    description: 'Lista médicos ativos do tenant. Doctor vê apenas o próprio; admin/owner/staff vê todos. Use antes de filtrar agenda/documentos por nome de médico pra resolver doctor_id.',
+    mode: 'read',
+    min_role: 'viewer',
+    params: {},
   },
 
   // ── READ — Métricas ──
@@ -85,6 +95,7 @@ export const TOOL_CATALOG: ToolDef[] = [
     min_role: 'viewer',
     params: {
       weeks_ahead: { type: 'number', default: 2, description: 'Número de semanas à frente (1-12)' },
+      doctor_id: { type: 'string', description: 'UUID do médico (admin/owner pode filtrar; doctor é sempre filtrado pelo próprio automaticamente)' },
     },
   },
 
@@ -130,13 +141,14 @@ export const TOOL_CATALOG: ToolDef[] = [
   // ── READ — Documentos ──
   {
     name: 'documentos_listar',
-    description: 'Lista documentos da clínica. Filtros: status (rascunho/assinado), paciente.',
+    description: 'Lista documentos da clínica. Filtros: status (rascunho/assinado), paciente, médico.',
     mode: 'read',
     min_role: 'staff',
     params: {
       paciente_id: { type: 'string', description: 'UUID do paciente (opcional)' },
       status: { type: 'enum', enum: ['draft', 'sent', 'signed', 'all'], default: 'all', description: 'Filtro de status' },
       limit: { type: 'number', default: 10, description: 'Quantidade max (1-50)' },
+      doctor_id: { type: 'string', description: 'UUID do médico (admin/owner pode filtrar; doctor é sempre filtrado pelo próprio automaticamente)' },
     },
   },
 

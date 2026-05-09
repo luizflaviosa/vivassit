@@ -48,24 +48,62 @@ async function getDoctorIds(tenantId: string): Promise<string[]> {
   return (data ?? []).map((d) => d.id);
 }
 
+/**
+ * Resolve o escopo de visão por médico segundo o role do usuário.
+ *
+ * Regra de produto (validada com o usuário em 2026-05-09):
+ *   - role=doctor   → escopo INDIVIDUAL: queries filtradas pelo doctor_id
+ *                     vinculado em tenant_members.doctor_id. Param doctor_id
+ *                     do request é IGNORADO (médico não vê outros médicos).
+ *   - role=admin/owner/staff → escopo COLETIVO: aceita doctor_id opcional
+ *                              do request pra filtrar; sem ele = todos.
+ *   - role=viewer   → coletivo (read-only de tudo).
+ *
+ * Caso role=doctor sem doctor_id vinculado em tenant_members: scope individual
+ * mas doctor_id null → handler decide se retorna vazio ou erro semântico.
+ */
+async function resolveDoctorScope(
+  ctx: ToolContext,
+  requestedDoctorId?: string | null
+): Promise<{ scope: 'individual' | 'collective'; doctor_id: string | null }> {
+  if (ctx.role === 'doctor') {
+    const admin = supabaseAdmin();
+    const { data } = await admin
+      .from('tenant_members')
+      .select('doctor_id')
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('user_id', ctx.user_id)
+      .eq('status', 'active')
+      .maybeSingle<{ doctor_id: string | null }>();
+    return { scope: 'individual', doctor_id: data?.doctor_id ?? null };
+  }
+  return { scope: 'collective', doctor_id: requestedDoctorId ?? null };
+}
+
 // ──────────────────────────────────────────────────────────────────────
 // Handlers
 // ──────────────────────────────────────────────────────────────────────
 
-const agendaHoje: Handler = async (_params, ctx) => {
+const agendaHoje: Handler = async (params, ctx) => {
   const admin = supabaseAdmin();
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date();
   endOfDay.setHours(23, 59, 59, 999);
 
-  const { data, error } = await admin
+  const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
+
+  let q = admin
     .from('appointments')
     .select('id, patient_id, doctor_id, appointment_date, status, amount, description')
     .eq('tenant_id', ctx.tenant_id)
     .gte('appointment_date', startOfDay.toISOString())
     .lte('appointment_date', endOfDay.toISOString())
     .order('appointment_date', { ascending: true });
+
+  if (scope.doctor_id) q = q.eq('doctor_id', scope.doctor_id);
+
+  const { data, error } = await q;
 
   if (error) return { ok: false, summary: 'Erro ao buscar agenda', error: error.message };
 
@@ -93,6 +131,8 @@ const agendaPeriodo: Handler = async (params, ctx) => {
   const status = String(params.status ?? 'all');
   const admin = supabaseAdmin();
 
+  const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
+
   let q = admin
     .from('appointments')
     .select('id, patient_id, doctor_id, appointment_date, status, amount')
@@ -102,6 +142,7 @@ const agendaPeriodo: Handler = async (params, ctx) => {
     .order('appointment_date', { ascending: true });
 
   if (status !== 'all') q = q.eq('status', status);
+  if (scope.doctor_id) q = q.eq('doctor_id', scope.doctor_id);
 
   const { data, error } = await q;
   if (error) return { ok: false, summary: 'Erro ao buscar agenda', error: error.message };
@@ -157,13 +198,19 @@ const pacientesProximos: Handler = async (params, ctx) => {
   const end = new Date(now.getTime() + weeks * 7 * 86_400_000);
   const admin = supabaseAdmin();
 
-  const { data, error } = await admin
+  const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
+
+  let q = admin
     .from('appointments')
     .select('id, patient_id, appointment_date, status')
     .eq('tenant_id', ctx.tenant_id)
     .gte('appointment_date', now.toISOString())
     .lte('appointment_date', end.toISOString())
     .neq('status', 'cancelled');
+
+  if (scope.doctor_id) q = q.eq('doctor_id', scope.doctor_id);
+
+  const { data, error } = await q;
 
   if (error) return { ok: false, summary: 'Erro ao buscar próximos', error: error.message };
 
@@ -388,6 +435,8 @@ const documentosListar: Handler = async (params, ctx) => {
   const pacienteId = params.paciente_id ? Number(params.paciente_id) : null;
   const admin = supabaseAdmin();
 
+  const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
+
   let q = admin
     .from('medical_documents')
     .select('id, doc_type, status, patient_id, doctor_id, pdf_url, signed_pdf_url, signed_at, sent_to_patient_at, created_at')
@@ -397,6 +446,7 @@ const documentosListar: Handler = async (params, ctx) => {
 
   if (status !== 'all') q = q.eq('status', status);
   if (pacienteId) q = q.eq('patient_id', pacienteId);
+  if (scope.doctor_id) q = q.eq('doctor_id', scope.doctor_id);
 
   const { data, error } = await q;
   if (error) {
@@ -720,6 +770,57 @@ const documentoAssinar: WriteHandler = {
 };
 
 // ──────────────────────────────────────────────────────────────────────
+// medicos_listar — sempre respeita scope: doctor vê só ele mesmo,
+// admin/owner/staff vê todos os médicos do tenant.
+// ──────────────────────────────────────────────────────────────────────
+
+const medicosListar: Handler = async (_params, ctx) => {
+  const admin = supabaseAdmin();
+  const scope = await resolveDoctorScope(ctx);
+
+  let q = admin
+    .from('tenant_doctors')
+    .select('id, doctor_name, specialty, doctor_crm, status')
+    .eq('tenant_id', ctx.tenant_id)
+    .eq('status', 'active')
+    .order('doctor_name', { ascending: true });
+
+  if (scope.scope === 'individual' && scope.doctor_id) {
+    q = q.eq('id', scope.doctor_id);
+  }
+
+  const { data, error } = await q;
+  if (error) return { ok: false, summary: 'Erro ao buscar médicos', error: error.message };
+
+  const list = (data ?? []).map((d) => ({
+    doctor_id: d.id,
+    name: d.doctor_name,
+    specialty: d.specialty,
+    crm: d.doctor_crm,
+  }));
+
+  // doctor sem vínculo em tenant_members.doctor_id → retorna vazio com sinal claro
+  if (scope.scope === 'individual' && !scope.doctor_id) {
+    return {
+      ok: true,
+      summary: 'Seu usuário não está vinculado a um perfil de médico no tenant. Pede pra um admin configurar tenant_members.doctor_id.',
+      data: { count: 0, doctors: [], scope: 'individual_unlinked' },
+    };
+  }
+
+  return {
+    ok: true,
+    summary:
+      list.length === 0
+        ? 'Nenhum médico ativo cadastrado.'
+        : list.length === 1
+          ? `1 médico ativo: ${list[0].name} (${list[0].specialty}).`
+          : `${list.length} médicos ativos: ${list.map((d) => d.name).join(', ')}.`,
+    data: { count: list.length, doctors: list, scope: scope.scope },
+  };
+};
+
+// ──────────────────────────────────────────────────────────────────────
 // Registry
 // ──────────────────────────────────────────────────────────────────────
 
@@ -733,6 +834,7 @@ export const HANDLERS: Record<string, Handler> = {
   nps_resumo: npsResumo,
   reviews_externos: reviewsExternos,
   documentos_listar: documentosListar,
+  medicos_listar: medicosListar,
 };
 
 export const WRITE_HANDLERS: Record<string, WriteHandler> = {
