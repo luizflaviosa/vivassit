@@ -480,6 +480,180 @@ function RegionDemandCard({ d, refreshing, onRefresh }: { d: RegionDemand; refre
   );
 }
 
+// ─── MarketTrends ─────────────────────────────────────────────────────────────
+interface MarketTrends {
+  is_mock: boolean;
+  is_cached?: boolean;
+  location: string;
+  primary_keyword: string;
+  explore: {
+    keywords: string[];
+    series: Array<{ date_from: string; values: number[] }>;
+    current: number[];
+    peak: number[];
+    avg_90d: number[];
+    prev_90d: number[];
+    delta_90d_pct: (number | null)[];
+  };
+  subregion: Array<{ keyword: string; regions: Array<{ name: string; value: number }> }>;
+  demography: Array<{ keyword: string; age: Record<string, number>; gender: { female: number; male: number } }>;
+}
+
+function TrendBar({ label, value, peak, delta, color, size = 'md' }: { label: string; value: number; peak: number; delta: number | null; color: string; size?: 'sm' | 'md' }) {
+  const pct = peak > 0 ? Math.round((value / peak) * 100) : 0;
+  const fontSize = size === 'sm' ? 'text-[12px]' : 'text-[13px]';
+  return (
+    <div className="py-2">
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <span className={`${fontSize} font-medium text-zinc-800 truncate`}>{label}</span>
+        <span className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-[12px] tabular-nums font-semibold" style={{ color }}>{value}</span>
+          <span className="text-[10px] text-zinc-300">/{peak}</span>
+          <DeltaBadge pct={delta} color={color} />
+        </span>
+      </div>
+      <div className="h-[3px] bg-zinc-100 rounded-full overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color, transition: 'width 1s cubic-bezier(0.16,1,0.3,1)' }} />
+      </div>
+    </div>
+  );
+}
+
+function MarketTrendsCard({ d, refreshing, onRefresh }: { d: MarketTrends; refreshing: boolean; onRefresh: () => void }) {
+  const explore = d.explore;
+  const subregion = d.subregion?.[0];
+  const demography = d.demography?.[0];
+
+  const ageOrder = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
+  const ageEntries = ageOrder.filter(k => demography?.age?.[k] != null).map(k => ({ k, v: demography!.age[k] }));
+  const ageMax = Math.max(1, ...ageEntries.map(e => e.v));
+
+  return (
+    <motion.div variants={fadeUp} className="rounded-2xl border border-black/[0.07] bg-white overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}>
+      <div className="px-5 pt-4 pb-3 border-b border-black/[0.05] flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-zinc-400">Inteligência de Mercado · Brasil</p>
+          <p className="text-[12px] text-zinc-500 mt-0.5">
+            Tendência de interesse, distribuição regional e demografia — fonte clickstream DataForSEO {d.is_mock && <span className="text-amber-700/70">(estimativa)</span>}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {refreshing ? (
+            <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              atualizando
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="text-[10px] text-zinc-400 hover:text-zinc-700 transition-colors"
+            >
+              atualizar
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr_1fr] divide-y lg:divide-y-0 lg:divide-x divide-black/[0.05]">
+        {/* Bloco 1 — Comparação de tendências */}
+        <div className="p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-3">Comparação de busca · 90d vs 90d anterior</p>
+          {explore.keywords.map((kw, i) => (
+            <TrendBar
+              key={kw}
+              label={kw}
+              value={Math.round(explore.avg_90d[i] ?? 0)}
+              peak={Math.max(1, ...explore.peak)}
+              delta={explore.delta_90d_pct[i]}
+              color={i === 0 ? ACCENT_DEEP : '#71717a'}
+            />
+          ))}
+          <p className="text-[10px] text-zinc-400 mt-3 leading-relaxed">
+            Escala 0–100 normalizada. Valor = média dos últimos 90d. Termo destacado é sua especialidade.
+          </p>
+        </div>
+
+        {/* Bloco 2 — Onde está a demanda */}
+        <div className="p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-3">
+            <MapPin className="inline w-3 h-3 mr-1 -mt-0.5" />
+            Top regiões · {subregion?.keyword ?? d.primary_keyword}
+          </p>
+          {subregion?.regions?.length ? (
+            <div className="space-y-1.5">
+              {subregion.regions.slice(0, 6).map((r, i) => (
+                <TrendBar
+                  key={r.name}
+                  label={r.name}
+                  value={r.value}
+                  peak={subregion.regions[0].value}
+                  delta={null}
+                  color={i === 0 ? ACCENT : '#a1a1aa'}
+                  size="sm"
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-[12px] text-zinc-400">Sem dados regionais disponíveis</p>
+          )}
+          <p className="text-[10px] text-zinc-400 mt-3 leading-relaxed">
+            Onde sua especialidade tem mais buscas no BR. Útil pra estratégia de expansão e tráfego pago geo-segmentado.
+          </p>
+        </div>
+
+        {/* Bloco 3 — Demografia */}
+        <div className="p-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-3">Quem busca</p>
+
+          {demography ? (
+            <>
+              <div className="mb-4">
+                <p className="text-[10px] text-zinc-400 mb-2">Gênero</p>
+                <div className="flex h-6 rounded-md overflow-hidden border border-black/[0.06]">
+                  <div
+                    className="flex items-center justify-center text-[10px] font-semibold text-white"
+                    style={{ width: `${demography.gender.female}%`, background: ACCENT_DEEP }}
+                  >
+                    {demography.gender.female > 12 && `♀ ${Math.round(demography.gender.female)}%`}
+                  </div>
+                  <div
+                    className="flex items-center justify-center text-[10px] font-semibold text-zinc-700"
+                    style={{ width: `${demography.gender.male}%`, background: '#e4e4e7' }}
+                  >
+                    {demography.gender.male > 12 && `♂ ${Math.round(demography.gender.male)}%`}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] text-zinc-400 mb-2">Faixa etária</p>
+                <div className="space-y-1">
+                  {ageEntries.map(({ k, v }) => (
+                    <div key={k} className="flex items-center gap-2">
+                      <span className="text-[10px] tabular-nums text-zinc-500 w-10">{k}</span>
+                      <div className="flex-1 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${(v / ageMax) * 100}%`, background: ACCENT, transition: 'width 0.8s cubic-bezier(0.16,1,0.3,1)' }} />
+                      </div>
+                      <span className="text-[10px] tabular-nums font-medium text-zinc-700 w-8 text-right">{Math.round(v)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-[12px] text-zinc-400">Sem dados demográficos</p>
+          )}
+
+          <p className="text-[10px] text-zinc-400 mt-4 leading-relaxed">
+            Perfil de quem busca sua especialidade. Use pra segmentar criativos e copy de campanhas.
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── DadosCompletos ───────────────────────────────────────────────────────────
 function DadosCompletos({ d }: { d: ScoreData }) {
   const [open, setOpen] = useState(false);
@@ -592,17 +766,20 @@ function MarketingInner() {
   const [eligibleReviews, setEligibleReviews] = useState(0);
   const [regionDemand, setRegionDemand] = useState<RegionDemand | null>(null);
   const [regionRefreshing, setRegionRefreshing] = useState(false);
+  const [marketTrends, setMarketTrends] = useState<MarketTrends | null>(null);
+  const [trendsRefreshing, setTrendsRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewDone, setReviewDone] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [sRes, pRes, rRes, dRes] = await Promise.all([
+      const [sRes, pRes, rRes, dRes, tRes] = await Promise.all([
         fetch('/api/painel/marketing/score'),
         fetch('/api/painel/marketing/posts?status=pending_approval&limit=6'),
         fetch('/api/painel/marketing/reviews'),
         fetch('/api/painel/marketing/region-demand'),
+        fetch('/api/painel/marketing/market-trends'),
       ]);
       if (sRes.ok) { const d = await sRes.json(); setScoreData(d.current); setRecs(d.recommendations || []); }
       if (pRes.ok) { const d = await pRes.json(); setPosts(d.posts || []); }
@@ -611,14 +788,27 @@ function MarketingInner() {
         const d = await dRes.json();
         if (d.success) {
           setRegionDemand(d);
-          // Auto-bootstrap: cache vazio (is_cached !== true) → tenta refresh real em background
           if (!d.is_cached) {
             setRegionRefreshing(true);
             fetch('/api/painel/marketing/region-demand-refresh', { method: 'POST' })
               .then(r => r.ok ? r.json() : null)
               .then(j => { if (j?.payload) setRegionDemand(j.payload); })
-              .catch(() => { /* mantém mock se falhar */ })
+              .catch(() => {})
               .finally(() => setRegionRefreshing(false));
+          }
+        }
+      }
+      if (tRes.ok) {
+        const t = await tRes.json();
+        if (t.primary_keyword) {
+          setMarketTrends(t);
+          if (!t.is_cached) {
+            setTrendsRefreshing(true);
+            fetch('/api/painel/marketing/market-trends-refresh', { method: 'POST' })
+              .then(r => r.ok ? r.json() : null)
+              .then(j => { if (j?.payload) setMarketTrends(j.payload); })
+              .catch(() => {})
+              .finally(() => setTrendsRefreshing(false));
           }
         }
       }
@@ -639,6 +829,19 @@ function MarketingInner() {
       }
     } finally {
       setRegionRefreshing(false);
+    }
+  }, []);
+
+  const refreshMarketTrends = useCallback(async () => {
+    setTrendsRefreshing(true);
+    try {
+      const r = await fetch('/api/painel/marketing/market-trends-refresh', { method: 'POST' });
+      if (r.ok) {
+        const j = await r.json();
+        if (j?.payload) setMarketTrends(j.payload);
+      }
+    } finally {
+      setTrendsRefreshing(false);
     }
   }, []);
 
@@ -740,6 +943,11 @@ function MarketingInner() {
           {/* Bloco 3 — Oportunidade na região */}
           {regionDemand && (
             <RegionDemandCard d={regionDemand} refreshing={regionRefreshing} onRefresh={refreshRegionDemand} />
+          )}
+
+          {/* Bloco 3b — Inteligência de Mercado (Trends) */}
+          {marketTrends && (
+            <MarketTrendsCard d={marketTrends} refreshing={trendsRefreshing} onRefresh={refreshMarketTrends} />
           )}
 
           {/* Bloco 4 — Ativar agora */}

@@ -3,6 +3,10 @@
     {
       "path": "/api/interno/region-demand-refresh",
       "schedule": "0 3 1 * *"
+    },
+    {
+      "path": "/api/interno/market-trends-refresh",
+      "schedule": "30 3 1 * *"
     }
   ]
 }
