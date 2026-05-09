@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const BASE_URL = 'https://app.singulare.org';
+const BASE_URL = 'https://singulare.org';
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -10,8 +10,6 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: '*',
         allow: [
           '/',
-          '/v2',
-          '/v6.html',
           '/landing',
           '/onboarding',
           '/termos',

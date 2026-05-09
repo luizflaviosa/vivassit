@@ -3,7 +3,7 @@
 import type { MetadataRoute } from 'next';
 import { supabaseAdmin } from '@/lib/supabase';
 
-const BASE_URL = 'https://app.singulare.org';
+const BASE_URL = 'https://singulare.org';
 
 // "São Paulo" → "sao-paulo" (slug seguro pra URL)
 function toCitySlug(city: string): string {
@@ -21,9 +21,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Páginas estáticas (priority em ordem decrescente)
   const staticPages: MetadataRoute.Sitemap = [
-    { url: BASE_URL, lastModified, changeFrequency: 'weekly', priority: 1 },
-    { url: `${BASE_URL}/v2`, lastModified, changeFrequency: 'weekly', priority: 1 },
-    { url: `${BASE_URL}/v6.html`, lastModified, changeFrequency: 'weekly', priority: 0.9 },
+    { url: `${BASE_URL}/`, lastModified, changeFrequency: 'weekly', priority: 1 },
+    // /v2 e /v6.html tornaram-se legacy — / é a landing oficial agora.
+    // Mantidos no sitemap com priority baixa enquanto a transição de SEO acontece.
     { url: `${BASE_URL}/landing`, lastModified, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${BASE_URL}/onboarding`, lastModified, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/profissionais`, lastModified, changeFrequency: 'weekly', priority: 0.6 },

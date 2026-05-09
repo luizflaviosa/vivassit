@@ -7,7 +7,9 @@ import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
 
-const SITE_URL = 'https://app.singulare.org';
+// singulare.org = brand canônica no Google. app.singulare.org segue funcionando
+// (mesmo deployment Vercel) mas redireciona/canonicaliza pra apex.
+const SITE_URL = 'https://singulare.org';
 // PNG (não SVG) — Facebook/Linkedin/WhatsApp/iMessage não renderizam SVG em
 // preview. og-singulare.png já existe em /public, formato 1200×630.
 const OG_IMAGE = `${SITE_URL}/og-singulare.png`;
