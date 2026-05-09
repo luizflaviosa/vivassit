@@ -7,10 +7,6 @@
     {
       "path": "/api/interno/market-trends-refresh",
       "schedule": "30 3 1 * *"
-    },
-    {
-      "path": "/api/cron/booking-confirmations",
-      "schedule": "*/30 * * * *"
     }
   ]
 }
