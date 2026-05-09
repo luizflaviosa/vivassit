@@ -55,6 +55,23 @@ interface DfsResponse {
   tasks: Array<{ status_code: number; status_message: string; result: DfsKeywordResult[] | null }>;
 }
 
+// DataForSEO espera nome completo do estado (location_name fuzzy mas
+// abreviações tipo "SP" não casam — devolvem volumes vazios sem erro).
+const BR_STATE_MAP: Record<string, string> = {
+  AC: 'Acre', AL: 'Alagoas', AP: 'Amapá', AM: 'Amazonas',
+  BA: 'Bahia', CE: 'Ceará', DF: 'Distrito Federal', ES: 'Espírito Santo',
+  GO: 'Goiás', MA: 'Maranhão', MT: 'Mato Grosso', MS: 'Mato Grosso do Sul',
+  MG: 'Minas Gerais', PA: 'Pará', PB: 'Paraíba', PR: 'Paraná',
+  PE: 'Pernambuco', PI: 'Piauí', RJ: 'Rio de Janeiro', RN: 'Rio Grande do Norte',
+  RS: 'Rio Grande do Sul', RO: 'Rondônia', RR: 'Roraima', SC: 'Santa Catarina',
+  SP: 'São Paulo', SE: 'Sergipe', TO: 'Tocantins',
+};
+
+function expandStateName(state: string): string {
+  const upper = state.trim().toUpperCase();
+  return BR_STATE_MAP[upper] ?? state;
+}
+
 interface KeywordConfig {
   market_keywords: string[];
   name_keywords: string[];
@@ -311,7 +328,7 @@ export async function refreshRegionDemandForTenant(supabase: SB, tenantId: strin
         },
         body: JSON.stringify([{
           keywords: allKeywords,
-          location_name: `${city},${stateName},Brazil`,
+          location_name: `${city},${expandStateName(stateName)},Brazil`,
           language_code: 'pt',
           search_partners: false,
         }]),
@@ -343,6 +360,19 @@ export async function refreshRegionDemandForTenant(supabase: SB, tenantId: strin
 
   const totalMarket = marketResults.reduce((s, k) => s + (k.search_volume ?? 0), 0);
   const totalName = nameResults.reduce((s, k) => s + (k.search_volume ?? 0), 0);
+
+  // Diagnóstico: log raw DFS sample pra detectar location não-reconhecida ou
+  // outros problemas de matching de keywords
+  if (totalMarket === 0 && results.length > 0) {
+    const sample = results.slice(0, 3).map(r => ({
+      keyword: r.keyword,
+      search_volume: r.search_volume,
+      cpc: r.cpc,
+    }));
+    console.log('[region-demand] tenant=%s WARN totalMarket=0 sample=%j returned=%s sent=%s', tenantId, sample, results.length, allKeywords.length);
+  } else if (results.length === 0) {
+    console.log('[region-demand] tenant=%s WARN dfs returned 0 results for %s keywords', tenantId, allKeywords.length);
+  }
 
   const cpcValues = marketResults.filter(k => k.cpc != null).map(k => Number(k.cpc));
   const avgCpc = cpcValues.length > 0 ? cpcValues.reduce((s, v) => s + v, 0) / cpcValues.length : null;
