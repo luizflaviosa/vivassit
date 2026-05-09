@@ -138,7 +138,10 @@ async function persistEvents(opts: {
         event_end: endIso,
         summary: e.summary ?? null,
         description: e.description ?? null,
-        source: 'google_calendar',
+        // Constraint tenant_calendar_events_source_check exige
+        // 'calendar_sync' | 'app_created'. Valor 'google_calendar' (anterior)
+        // violava o CHECK e fazia o upsert falhar silenciosamente.
+        source: 'calendar_sync',
         synced_at: new Date().toISOString(),
       };
     });
@@ -147,7 +150,11 @@ async function persistEvents(opts: {
     const { error } = await supabase
       .from('tenant_calendar_events')
       .upsert(rows, { onConflict: 'event_id' });
-    if (!error) upserted = rows.length;
+    if (error) {
+      console.error('[google-calendar-sync] persistEvents upsert falhou:', error.message);
+    } else {
+      upserted = rows.length;
+    }
   }
 
   return { upserted, deleted };
