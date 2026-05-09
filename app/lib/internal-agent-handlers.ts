@@ -9,7 +9,20 @@
  */
 
 import { supabaseAdmin } from './supabase';
+import { deleteEvent, updateEvent } from './google-calendar';
 import type { AgentRole } from './internal-agent-tools';
+
+// Lookup interno: pega calendar_id do doctor pra propagar mudança no Google.
+async function getDoctorCalendarId(tenantId: string, doctorId: string): Promise<string | null> {
+  const admin = supabaseAdmin();
+  const { data } = await admin
+    .from('tenant_doctors')
+    .select('calendar_id')
+    .eq('tenant_id', tenantId)
+    .eq('id', doctorId)
+    .maybeSingle<{ calendar_id: string | null }>();
+  return data?.calendar_id ?? null;
+}
 
 export interface ToolContext {
   tenant_id: string;
@@ -509,12 +522,9 @@ export interface WriteHandler {
 }
 
 // ── consulta_reagendar ─────────────────────────────────────────
-// Opera em doctor_bookings (source of truth). appointment_id no contrato
-// público da tool é o booking.id.
-// IMPORTANTE: o execute aqui só atualiza o slot no DB. A propagação pro
-// Google Calendar (mover o evento) ainda é responsabilidade do workflow
-// N8N quando chamado pelo bot — o agente interno não tem creds de Calendar.
-// Ver doc/PROBLEM-MAP-multi-doctor-setup.md pra próximo passo de sync.
+// Opera em doctor_bookings (source of truth). Quando a booking tem
+// calendar_event_id, propaga o move pro Google Calendar via Service Account
+// — webhook sincroniza tenant_calendar_events e o slot antigo é liberado.
 const consultaReagendar: WriteHandler = {
   async propose(params, ctx) {
     const bookingId = String(params.appointment_id);
@@ -539,7 +549,7 @@ const consultaReagendar: WriteHandler = {
       summary: `Reagendar ${appt.patient_name ?? 'consulta'} de ${oldFmt} → ${newFmt}?`,
       card: {
         summary: `Reagendar consulta`,
-        detail: `Paciente: ${appt.patient_name ?? '(sem nome)'}\nDe: ${oldFmt}\nPara: ${newFmt}${appt.calendar_event_id ? '\n\n⚠️ Atualiza só o DB. O evento no Google Calendar precisa ser ajustado manualmente (ou via bot).' : ''}`,
+        detail: `Paciente: ${appt.patient_name ?? '(sem nome)'}\nDe: ${oldFmt}\nPara: ${newFmt}`,
         confirm_label: 'Confirmar reagendamento',
         cancel_label: 'Voltar',
         action: { tool: 'consulta_reagendar', params: { appointment_id: bookingId, new_date: newDate } },
@@ -572,19 +582,42 @@ const consultaReagendar: WriteHandler = {
       })
       .eq('tenant_id', ctx.tenant_id)
       .eq('id', bookingId)
-      .select('id, slot_start, status, calendar_event_id')
+      .select('id, slot_start, status, calendar_event_id, doctor_id')
       .maybeSingle();
     if (error) return { ok: false, summary: 'Falha ao reagendar', error: error.message };
     if (!data) return { ok: false, summary: 'Consulta não encontrada', error: 'not_found' };
+
+    let calendarMsg = '';
+    if (data.calendar_event_id && data.doctor_id) {
+      const calId = await getDoctorCalendarId(ctx.tenant_id, data.doctor_id);
+      if (calId) {
+        const upd = await updateEvent({
+          calendarId: calId,
+          eventId: data.calendar_event_id,
+          start: newStart,
+          end: newEnd,
+        });
+        if ('error' in upd) {
+          calendarMsg = ' (Calendar: falha ao mover — ajuste manual.)';
+          console.error('[consulta_reagendar] updateEvent falhou:', upd.error);
+        }
+      } else {
+        calendarMsg = ' (Calendar: sem calendar_id no doctor.)';
+      }
+    }
+
     return {
       ok: true,
-      summary: `Reagendado pra ${fmtDate(data.slot_start)}.${data.calendar_event_id ? ' (Calendar não foi atualizado — ajuste manual.)' : ''}`,
+      summary: `Reagendado pra ${fmtDate(data.slot_start)}.${calendarMsg}`,
       data: { booking: data },
     };
   },
 };
 
 // ── consulta_cancelar ──────────────────────────────────────────
+// Cancela booking + deleta evento no Google Calendar (Service Account).
+// Sem o delete no Google, fn_get_available_slots seguiria vendo o slot ocupado
+// porque tenant_calendar_events guardaria o evento (sync via webhook).
 const consultaCancelar: WriteHandler = {
   async propose(params, ctx) {
     const bookingId = String(params.appointment_id);
@@ -603,7 +636,7 @@ const consultaCancelar: WriteHandler = {
       summary: `Cancelar consulta de ${appt.patient_name ?? 'paciente'} em ${fmtDate(appt.slot_start)}?`,
       card: {
         summary: 'Cancelar consulta',
-        detail: `Paciente: ${appt.patient_name ?? '(sem nome)'}\nQuando: ${fmtDate(appt.slot_start)}${reason ? `\nMotivo: ${reason}` : ''}${appt.calendar_event_id ? '\n\n⚠️ Atualiza só o DB. O evento no Google Calendar precisa ser deletado manualmente.' : ''}`,
+        detail: `Paciente: ${appt.patient_name ?? '(sem nome)'}\nQuando: ${fmtDate(appt.slot_start)}${reason ? `\nMotivo: ${reason}` : ''}`,
         confirm_label: 'Sim, cancelar',
         cancel_label: 'Voltar',
         action: { tool: 'consulta_cancelar', params: { appointment_id: bookingId, reason } },
@@ -625,13 +658,30 @@ const consultaCancelar: WriteHandler = {
       })
       .eq('tenant_id', ctx.tenant_id)
       .eq('id', bookingId)
-      .select('id, status, slot_start, calendar_event_id')
+      .select('id, status, slot_start, calendar_event_id, doctor_id')
       .maybeSingle();
     if (error) return { ok: false, summary: 'Falha ao cancelar', error: error.message };
     if (!data) return { ok: false, summary: 'Consulta não encontrada', error: 'not_found' };
+
+    // Propaga delete pro Google Calendar (idempotente: 404/410 contam como sucesso).
+    // Webhook → tenant_calendar_events removerá a linha em ~5s, liberando o slot.
+    let calendarMsg = '';
+    if (data.calendar_event_id && data.doctor_id) {
+      const calId = await getDoctorCalendarId(ctx.tenant_id, data.doctor_id);
+      if (calId) {
+        const del = await deleteEvent({ calendarId: calId, eventId: data.calendar_event_id });
+        if ('error' in del) {
+          calendarMsg = ' (Calendar: falha — limpe o evento manualmente.)';
+          console.error('[consulta_cancelar] deleteEvent falhou:', del.error);
+        }
+      } else {
+        calendarMsg = ' (Calendar: sem calendar_id no doctor — evento órfão.)';
+      }
+    }
+
     return {
       ok: true,
-      summary: `Consulta cancelada.${data.calendar_event_id ? ' (Calendar não foi atualizado — delete manual.)' : ''}`,
+      summary: `Consulta cancelada.${calendarMsg}`,
       data,
     };
   },
