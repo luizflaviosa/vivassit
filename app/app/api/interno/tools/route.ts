@@ -24,6 +24,7 @@ import {
   TOOL_CATALOG,
   getToolDef,
   validateParams,
+  normalizeParams,
   roleHasAccess,
   type AgentRole,
 } from '@/lib/internal-agent-tools';
@@ -132,13 +133,18 @@ export async function POST(req: NextRequest) {
     return rejectWith(403, 'membership_not_found', { tool: tool.name, tenant_id });
   }
 
+  // Normalize aliases PT → EN antes de validar (defense in depth contra LLM
+  // que traduz nomes de param). Re-atribui pra usar nas chamadas dos handlers.
+  const normalized = normalizeParams(tool.name, params);
+
   // Validate params
-  const paramErr = validateParams(tool, params);
+  const paramErr = validateParams(tool, normalized);
   if (paramErr) {
     return rejectWith(400, 'invalid_params', {
       tool: tool.name,
       message: paramErr,
-      params_keys: Object.keys(params ?? {}),
+      params_keys: Object.keys(normalized ?? {}),
+      original_keys: Object.keys(params ?? {}),
     });
   }
 
@@ -153,15 +159,15 @@ export async function POST(req: NextRequest) {
       }
       const result =
         mode === 'execute'
-          ? await wh.execute(params, { tenant_id, user_id, role })
-          : await wh.propose(params, { tenant_id, user_id, role });
+          ? await wh.execute(normalized, { tenant_id, user_id, role })
+          : await wh.propose(normalized, { tenant_id, user_id, role });
 
       // Audit log
       void Promise.resolve(
         admin.from('tenant_activity_logs').insert({
           tenant_id,
           activity_type: `agent_tool:${tool.name}:${mode}`,
-          activity_data: { params, ok: result.ok, user_id, role },
+          activity_data: { params: normalized, ok: result.ok, user_id, role },
           status: result.ok ? 'success' : 'failed',
           error_message: result.error ?? null,
           created_at: new Date().toISOString(),
@@ -185,13 +191,13 @@ export async function POST(req: NextRequest) {
     if (!handler) {
       return rejectWith(500, 'handler_missing', { tool: tool.name, mode: 'read' });
     }
-    const result = await handler(params, { tenant_id, user_id, role });
+    const result = await handler(normalized, { tenant_id, user_id, role });
 
     void Promise.resolve(
       admin.from('tenant_activity_logs').insert({
         tenant_id,
         activity_type: `agent_tool:${tool.name}`,
-        activity_data: { params, ok: result.ok, user_id, role },
+        activity_data: { params: normalized, ok: result.ok, user_id, role },
         status: result.ok ? 'success' : 'failed',
         error_message: result.error ?? null,
         created_at: new Date().toISOString(),

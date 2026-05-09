@@ -210,6 +210,38 @@ export function getToolDef(name: string): ToolDef | null {
   return TOOL_CATALOG.find((t) => t.name === name) ?? null;
 }
 
+// Aliases PT → schema EN. Defensivo contra LLM que traduz nomes de param
+// (ex: Gemini chamou agenda_periodo com data_inicio/data_fim em vez de start/end).
+// O fix de 1ª linha é o system prompt do N8N; este mapa é segurança em profundidade.
+const PARAM_ALIASES: Record<string, Record<string, string>> = {
+  agenda_periodo:    { data_inicio: 'start', data_fim: 'end', inicio: 'start', fim: 'end' },
+  pagamentos_status: { data_inicio: 'start', data_fim: 'end', inicio: 'start', fim: 'end' },
+  pacientes_count:   { desde: 'since' },
+  nps_resumo:        { desde: 'since' },
+  pacientes_proximos:{ semanas: 'weeks_ahead', proximas_semanas: 'weeks_ahead' },
+  pagamentos_pendentes: { apenas_vencidos: 'include_overdue_only', somente_vencidos: 'include_overdue_only' },
+  consulta_reagendar:{ nova_data: 'new_date', data_nova: 'new_date' },
+  consulta_cancelar: { motivo: 'reason' },
+  paciente_criar:    { nome: 'name', telefone: 'phone', data_nascimento: 'birthdate', nascimento: 'birthdate' },
+  cobranca_avulsa:   { valor_reais: 'valor', metodo_pagamento: 'metodo' },
+};
+
+export function normalizeParams(
+  toolName: string,
+  input: Record<string, unknown>
+): Record<string, unknown> {
+  const aliases = PARAM_ALIASES[toolName];
+  if (!aliases) return input;
+  const out: Record<string, unknown> = { ...input };
+  for (const [alias, canonical] of Object.entries(aliases)) {
+    if (alias in out && !(canonical in out)) {
+      out[canonical] = out[alias];
+      delete out[alias];
+    }
+  }
+  return out;
+}
+
 /**
  * Validação leve de params contra schema. Retorna null se ok, ou mensagem de erro.
  */
