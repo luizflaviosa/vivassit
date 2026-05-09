@@ -8,7 +8,9 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 const SITE_URL = 'https://app.singulare.org';
-const OG_IMAGE = `${SITE_URL}/logos/singulare-a.svg`;
+// PNG (não SVG) — Facebook/Linkedin/WhatsApp/iMessage não renderizam SVG em
+// preview. og-singulare.png já existe em /public, formato 1200×630.
+const OG_IMAGE = `${SITE_URL}/og-singulare.png`;
 const ICON = `${SITE_URL}/logos/icon.svg`;
 
 export const metadata: Metadata = {
@@ -72,6 +74,62 @@ export const metadata: Metadata = {
   },
   category: 'Health',
   applicationName: 'Singulare',
+  // Verificação Google Search Console — redundante com TXT DNS, mas o
+  // Google aceita ambos e não há custo em ter as duas formas.
+  verification: {
+    google: 'gl8TV6ZTjSPMRt6j1Nqhe1KdzSH8giuYRplknNmRQiY',
+  },
+};
+
+// Schema.org JSON-LD: ajuda Google a entender o que é a Singulare.
+// Cobertura: Organization (autoridade do brand) + SoftwareApplication
+// (categoria correta no Google) + ContactPoint (sinaliza suporte real).
+const SCHEMA_ORG = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: 'Singulare',
+      url: SITE_URL,
+      logo: `${SITE_URL}/logos/singulare-a.png`,
+      description:
+        'Plataforma SaaS que automatiza atendimento de clínicas e consultórios via WhatsApp + IA.',
+      sameAs: [
+        // Adicionar quando publicar perfis sociais oficiais:
+        // 'https://www.instagram.com/singulareapp',
+        // 'https://www.linkedin.com/company/singulare',
+      ],
+      contactPoint: [
+        {
+          '@type': 'ContactPoint',
+          contactType: 'customer support',
+          areaServed: 'BR',
+          availableLanguage: ['Portuguese'],
+          email: 'contato@singulare.org',
+        },
+      ],
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${SITE_URL}/#software`,
+      name: 'Singulare',
+      operatingSystem: 'Web',
+      applicationCategory: 'BusinessApplication',
+      applicationSubCategory: 'Healthcare Practice Management',
+      url: SITE_URL,
+      description:
+        'IA atende pacientes no WhatsApp, agenda consultas, organiza pagamentos e mantém o CRM em dia.',
+      offers: {
+        '@type': 'Offer',
+        priceCurrency: 'BRL',
+        price: '197',
+        priceValidUntil: '2026-12-31',
+        availability: 'https://schema.org/InStock',
+      },
+      provider: { '@id': `${SITE_URL}/#organization` },
+    },
+  ],
 };
 
 export const viewport: Viewport = {
@@ -97,6 +155,10 @@ export default function RootLayout({
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, interactive-widget=resizes-content"
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(SCHEMA_ORG) }}
         />
       </head>
       <body className={`${inter.className} antialiased`}>
