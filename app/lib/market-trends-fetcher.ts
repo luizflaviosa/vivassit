@@ -175,15 +175,14 @@ export async function refreshMarketTrendsForTenant(supabase: SB, tenantId: strin
     }]);
 
     const subregionItems = subregionRes.tasks?.[0]?.result?.[0]?.items ?? [];
-    const subregionData = subregionItems
-      .find((i: { type: string }) => i.type === 'dataforseo_trends_subregion_interests')
-      ?.data ?? [];
+    const subregionItem = subregionItems.find((i: { type: string }) => i.type === 'subregion_interests');
+    const subregionRaw = (subregionItem?.interests?.[0]?.values ?? []) as Array<{ value: number; geo_name: string }>;
     const subregion: SubregionRow[] = [{
       keyword: specialty.toLowerCase(),
-      regions: subregionData
-        .filter((r: { values?: number[] }) => (r.values?.[0] ?? 0) > 0)
-        .map((r: { geo_name: string; values: number[] }) => ({ name: r.geo_name, value: r.values[0] }))
-        .sort((a: { value: number }, b: { value: number }) => b.value - a.value)
+      regions: subregionRaw
+        .filter(r => (r.value ?? 0) > 0)
+        .map(r => ({ name: cleanBrazilStateName(r.geo_name), value: r.value }))
+        .sort((a, b) => b.value - a.value)
         .slice(0, 10),
     }];
 
@@ -345,26 +344,51 @@ function emptyExplore(keywords: string[]): ExploreSection {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractDemography(keyword: string, items: any[]): DemographyRow {
-  // DFS demography retorna items com type = 'dataforseo_trends_demography'.
-  // O .data tem age e gender breakdowns.
-  const item = items.find(i => i.type === 'dataforseo_trends_demography');
-  const age: Record<string, number> = {};
-  const gender = { female: 0, male: 0 };
+  // Estrutura DFS:
+  //   item.type = 'demography'
+  //   item.demography.age    = [{ keyword, values: [{ type: '18-24', value: 100 }, ...] }]
+  //   item.demography.gender = [{ keyword, values: [{ type: 'female', value: 100 }, { type: 'male', value: 79 }] }]
+  // Valores são relativos (peak = 100). Normalizamos pra % do total p/ exibir share.
 
-  if (item?.data) {
-    // Estrutura DFS: data.age = [{type, value}] e data.gender = [{type, value}]
-    if (Array.isArray(item.data.age)) {
-      for (const a of item.data.age) {
-        if (a?.type && typeof a.value === 'number') age[a.type] = a.value;
-      }
-    }
-    if (Array.isArray(item.data.gender)) {
-      for (const g of item.data.gender) {
-        if (g?.type === 'female' && typeof g.value === 'number') gender.female = g.value;
-        if (g?.type === 'male' && typeof g.value === 'number') gender.male = g.value;
-      }
+  const item = items.find(i => i.type === 'demography');
+  const ageRaw = (item?.demography?.age?.[0]?.values ?? []) as Array<{ type: string; value: number }>;
+  const genderRaw = (item?.demography?.gender?.[0]?.values ?? []) as Array<{ type: string; value: number }>;
+
+  // Normalize age: value/total * 100 — soma 100%
+  const ageTotal = ageRaw.reduce((s, e) => s + (e.value ?? 0), 0);
+  const age: Record<string, number> = {};
+  if (ageTotal > 0) {
+    for (const e of ageRaw) {
+      if (e.type) age[e.type] = (e.value / ageTotal) * 100;
     }
   }
 
+  // Normalize gender: same pattern
+  const fRaw = genderRaw.find(e => e.type === 'female')?.value ?? 0;
+  const mRaw = genderRaw.find(e => e.type === 'male')?.value ?? 0;
+  const gTotal = fRaw + mRaw;
+  const gender = gTotal > 0
+    ? { female: (fRaw / gTotal) * 100, male: (mRaw / gTotal) * 100 }
+    : { female: 0, male: 0 };
+
   return { keyword, age, gender };
+}
+
+function cleanBrazilStateName(raw: string): string {
+  // DFS retorna "State of Sao Paulo" — limpa pra "São Paulo" com acento.
+  const stripped = raw.replace(/^State of\s+/i, '').trim();
+  const accentMap: Record<string, string> = {
+    'Sao Paulo': 'São Paulo',
+    'Espirito Santo': 'Espírito Santo',
+    'Goias': 'Goiás',
+    'Maranhao': 'Maranhão',
+    'Para': 'Pará',
+    'Paraiba': 'Paraíba',
+    'Parana': 'Paraná',
+    'Piaui': 'Piauí',
+    'Rondonia': 'Rondônia',
+    'Ceara': 'Ceará',
+    'Federal District': 'Distrito Federal',
+  };
+  return accentMap[stripped] ?? stripped;
 }
