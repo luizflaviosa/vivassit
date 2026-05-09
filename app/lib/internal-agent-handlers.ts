@@ -93,13 +93,15 @@ const agendaHoje: Handler = async (params, ctx) => {
 
   const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
 
+  // Source of truth: doctor_bookings (appointments é tabela legacy abandonada).
+  // Status canônicos: booked / confirmed / completed / cancelled.
   let q = admin
-    .from('appointments')
-    .select('id, patient_id, doctor_id, appointment_date, status, amount, description')
+    .from('doctor_bookings')
+    .select('id, patient_id, patient_name, patient_phone, doctor_id, slot_start, slot_end, status, notes, calendar_event_id')
     .eq('tenant_id', ctx.tenant_id)
-    .gte('appointment_date', startOfDay.toISOString())
-    .lte('appointment_date', endOfDay.toISOString())
-    .order('appointment_date', { ascending: true });
+    .gte('slot_start', startOfDay.toISOString())
+    .lte('slot_start', endOfDay.toISOString())
+    .order('slot_start', { ascending: true });
 
   if (scope.doctor_id) q = q.eq('doctor_id', scope.doctor_id);
 
@@ -109,19 +111,24 @@ const agendaHoje: Handler = async (params, ctx) => {
 
   const list = (data ?? []).map((a) => ({
     id: a.id,
-    time: new Date(a.appointment_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    patient_id: a.patient_id,
+    time: new Date(a.slot_start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    patient_name: a.patient_name,
+    patient_phone: a.patient_phone,
     status: a.status,
-    description: a.description,
+    notes: a.notes,
+    in_calendar: !!a.calendar_event_id,
   }));
+
+  const active = list.filter((l) => l.status !== 'cancelled');
+  const confirmed = list.filter((l) => l.status === 'confirmed').length;
 
   return {
     ok: true,
     summary:
-      list.length === 0
-        ? 'Sem consultas hoje.'
-        : `${list.length} ${list.length === 1 ? 'consulta' : 'consultas'} hoje. ${list.filter((l) => l.status === 'confirmed').length} confirmada(s).`,
-    data: { count: list.length, appointments: list },
+      active.length === 0
+        ? 'Sem consultas ativas hoje.'
+        : `${active.length} ${active.length === 1 ? 'consulta' : 'consultas'} hoje${confirmed > 0 ? ` (${confirmed} confirmada${confirmed === 1 ? '' : 's'})` : ''}.`,
+    data: { count: active.length, total_with_cancelled: list.length, appointments: list },
   };
 };
 
@@ -133,13 +140,16 @@ const agendaPeriodo: Handler = async (params, ctx) => {
 
   const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
 
+  // Source of truth: doctor_bookings. Status canônicos do enum:
+  //   booked (recém-marcada) / confirmed (paciente reconfirmou) /
+  //   completed (atendimento ocorrido) / cancelled (cancelada).
   let q = admin
-    .from('appointments')
-    .select('id, patient_id, doctor_id, appointment_date, status, amount')
+    .from('doctor_bookings')
+    .select('id, patient_id, patient_name, patient_phone, doctor_id, slot_start, slot_end, status, notes, calendar_event_id')
     .eq('tenant_id', ctx.tenant_id)
-    .gte('appointment_date', start)
-    .lte('appointment_date', end + 'T23:59:59.999Z')
-    .order('appointment_date', { ascending: true });
+    .gte('slot_start', start)
+    .lte('slot_start', end + 'T23:59:59.999Z')
+    .order('slot_start', { ascending: true });
 
   if (status !== 'all') q = q.eq('status', status);
   if (scope.doctor_id) q = q.eq('doctor_id', scope.doctor_id);
@@ -153,17 +163,24 @@ const agendaPeriodo: Handler = async (params, ctx) => {
     return acc;
   }, {});
 
+  const active = list.length - (byStatus.cancelled ?? 0);
+
   return {
     ok: true,
-    summary: `${list.length} consulta(s) entre ${start} e ${end}. ${byStatus.confirmed ?? 0} confirmadas, ${byStatus.scheduled ?? 0} pendentes, ${byStatus.completed ?? 0} concluídas, ${byStatus.cancelled ?? 0} canceladas.`,
+    summary:
+      `${active} consulta(s) ativa(s) entre ${start} e ${end}` +
+      ` (${byStatus.booked ?? 0} marcadas, ${byStatus.confirmed ?? 0} confirmadas, ${byStatus.completed ?? 0} concluídas, ${byStatus.cancelled ?? 0} canceladas).`,
     data: {
       total: list.length,
+      active,
       breakdown: byStatus,
       appointments: list.map((a) => ({
         id: a.id,
-        when: fmtDate(a.appointment_date),
+        when: fmtDate(a.slot_start),
+        patient_name: a.patient_name,
+        patient_phone: a.patient_phone,
         status: a.status,
-        amount: a.amount,
+        in_calendar: !!a.calendar_event_id,
       })),
     },
   };
@@ -200,12 +217,15 @@ const pacientesProximos: Handler = async (params, ctx) => {
 
   const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
 
+  // Source of truth: doctor_bookings (slot_start em vez de appointment_date,
+  // patient_name/phone denormalizados, status enum {booked, confirmed,
+  // completed, cancelled}).
   let q = admin
-    .from('appointments')
-    .select('id, patient_id, appointment_date, status')
+    .from('doctor_bookings')
+    .select('id, patient_id, patient_name, slot_start, status')
     .eq('tenant_id', ctx.tenant_id)
-    .gte('appointment_date', now.toISOString())
-    .lte('appointment_date', end.toISOString())
+    .gte('slot_start', now.toISOString())
+    .lte('slot_start', end.toISOString())
     .neq('status', 'cancelled');
 
   if (scope.doctor_id) q = q.eq('doctor_id', scope.doctor_id);
@@ -218,13 +238,14 @@ const pacientesProximos: Handler = async (params, ctx) => {
   // breakdown por semana
   const byWeek: number[] = Array(weeks).fill(0);
   list.forEach((a) => {
-    const days = Math.floor((new Date(a.appointment_date).getTime() - now.getTime()) / 86_400_000);
+    const days = Math.floor((new Date(a.slot_start).getTime() - now.getTime()) / 86_400_000);
     const wk = Math.min(weeks - 1, Math.floor(days / 7));
     byWeek[wk]++;
   });
 
-  // pacientes únicos
-  const unique = new Set(list.map((a) => a.patient_id)).size;
+  // pacientes únicos: usa patient_name (denormalizado) como chave fallback
+  // quando patient_id é null (bookings antigos sem FK)
+  const unique = new Set(list.map((a) => a.patient_id ?? a.patient_name)).size;
 
   return {
     ok: true,
@@ -488,16 +509,22 @@ export interface WriteHandler {
 }
 
 // ── consulta_reagendar ─────────────────────────────────────────
+// Opera em doctor_bookings (source of truth). appointment_id no contrato
+// público da tool é o booking.id.
+// IMPORTANTE: o execute aqui só atualiza o slot no DB. A propagação pro
+// Google Calendar (mover o evento) ainda é responsabilidade do workflow
+// N8N quando chamado pelo bot — o agente interno não tem creds de Calendar.
+// Ver doc/PROBLEM-MAP-multi-doctor-setup.md pra próximo passo de sync.
 const consultaReagendar: WriteHandler = {
   async propose(params, ctx) {
-    const apptId = String(params.appointment_id);
+    const bookingId = String(params.appointment_id);
     const newDate = String(params.new_date);
     const admin = supabaseAdmin();
     const { data: appt, error } = await admin
-      .from('appointments')
-      .select('id, appointment_date, status, patient_id, doctor_id')
+      .from('doctor_bookings')
+      .select('id, slot_start, slot_end, duration_minutes, status, patient_name, patient_phone, doctor_id, calendar_event_id')
       .eq('tenant_id', ctx.tenant_id)
-      .eq('id', apptId)
+      .eq('id', bookingId)
       .maybeSingle();
     if (error || !appt) {
       return { ok: false, summary: 'Consulta não encontrada', error: 'not_found' };
@@ -505,38 +532,54 @@ const consultaReagendar: WriteHandler = {
     if (appt.status === 'cancelled') {
       return { ok: false, summary: 'Consulta já está cancelada — não dá pra reagendar.' };
     }
-    const oldFmt = fmtDate(appt.appointment_date);
+    const oldFmt = fmtDate(appt.slot_start);
     const newFmt = fmtDate(newDate);
     return {
       ok: true,
-      summary: `Reagendar de ${oldFmt} → ${newFmt}?`,
+      summary: `Reagendar ${appt.patient_name ?? 'consulta'} de ${oldFmt} → ${newFmt}?`,
       card: {
         summary: `Reagendar consulta`,
-        detail: `De ${oldFmt} para ${newFmt}`,
+        detail: `Paciente: ${appt.patient_name ?? '(sem nome)'}\nDe: ${oldFmt}\nPara: ${newFmt}${appt.calendar_event_id ? '\n\n⚠️ Atualiza só o DB. O evento no Google Calendar precisa ser ajustado manualmente (ou via bot).' : ''}`,
         confirm_label: 'Confirmar reagendamento',
         cancel_label: 'Voltar',
-        action: { tool: 'consulta_reagendar', params: { appointment_id: apptId, new_date: newDate } },
+        action: { tool: 'consulta_reagendar', params: { appointment_id: bookingId, new_date: newDate } },
       },
-      data: { appointment: appt, new_date: newDate },
+      data: { booking: appt, new_date: newDate },
     };
   },
   async execute(params, ctx) {
-    const apptId = String(params.appointment_id);
+    const bookingId = String(params.appointment_id);
     const newDate = String(params.new_date);
+    const newStart = new Date(newDate);
     const admin = supabaseAdmin();
-    const { data, error } = await admin
-      .from('appointments')
-      .update({ appointment_date: newDate, updated_at: new Date().toISOString() })
+
+    // Pega duration pra recalcular slot_end
+    const { data: existing } = await admin
+      .from('doctor_bookings')
+      .select('duration_minutes')
       .eq('tenant_id', ctx.tenant_id)
-      .eq('id', apptId)
-      .select('id, appointment_date, status')
+      .eq('id', bookingId)
+      .maybeSingle<{ duration_minutes: number | null }>();
+    const dur = existing?.duration_minutes ?? 60;
+    const newEnd = new Date(newStart.getTime() + dur * 60_000);
+
+    const { data, error } = await admin
+      .from('doctor_bookings')
+      .update({
+        slot_start: newStart.toISOString(),
+        slot_end: newEnd.toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('id', bookingId)
+      .select('id, slot_start, status, calendar_event_id')
       .maybeSingle();
     if (error) return { ok: false, summary: 'Falha ao reagendar', error: error.message };
     if (!data) return { ok: false, summary: 'Consulta não encontrada', error: 'not_found' };
     return {
       ok: true,
-      summary: `Reagendado pra ${fmtDate(data.appointment_date)}.`,
-      data: { appointment: data },
+      summary: `Reagendado pra ${fmtDate(data.slot_start)}.${data.calendar_event_id ? ' (Calendar não foi atualizado — ajuste manual.)' : ''}`,
+      data: { booking: data },
     };
   },
 };
@@ -544,48 +587,53 @@ const consultaReagendar: WriteHandler = {
 // ── consulta_cancelar ──────────────────────────────────────────
 const consultaCancelar: WriteHandler = {
   async propose(params, ctx) {
-    const apptId = String(params.appointment_id);
+    const bookingId = String(params.appointment_id);
     const reason = params.reason ? String(params.reason) : null;
     const admin = supabaseAdmin();
     const { data: appt } = await admin
-      .from('appointments')
-      .select('id, appointment_date, status, description')
+      .from('doctor_bookings')
+      .select('id, slot_start, status, patient_name, calendar_event_id, notes')
       .eq('tenant_id', ctx.tenant_id)
-      .eq('id', apptId)
+      .eq('id', bookingId)
       .maybeSingle();
     if (!appt) return { ok: false, summary: 'Consulta não encontrada', error: 'not_found' };
     if (appt.status === 'cancelled') return { ok: false, summary: 'Consulta já cancelada.' };
     return {
       ok: true,
-      summary: `Cancelar consulta de ${fmtDate(appt.appointment_date)}?`,
+      summary: `Cancelar consulta de ${appt.patient_name ?? 'paciente'} em ${fmtDate(appt.slot_start)}?`,
       card: {
         summary: 'Cancelar consulta',
-        detail: `${appt.description ?? 'Consulta'} — ${fmtDate(appt.appointment_date)}${reason ? `\nMotivo: ${reason}` : ''}`,
+        detail: `Paciente: ${appt.patient_name ?? '(sem nome)'}\nQuando: ${fmtDate(appt.slot_start)}${reason ? `\nMotivo: ${reason}` : ''}${appt.calendar_event_id ? '\n\n⚠️ Atualiza só o DB. O evento no Google Calendar precisa ser deletado manualmente.' : ''}`,
         confirm_label: 'Sim, cancelar',
         cancel_label: 'Voltar',
-        action: { tool: 'consulta_cancelar', params: { appointment_id: apptId, reason } },
+        action: { tool: 'consulta_cancelar', params: { appointment_id: bookingId, reason } },
       },
-      data: { appointment: appt },
+      data: { booking: appt },
     };
   },
   async execute(params, ctx) {
-    const apptId = String(params.appointment_id);
+    const bookingId = String(params.appointment_id);
     const reason = params.reason ? String(params.reason) : null;
     const admin = supabaseAdmin();
     const { data, error } = await admin
-      .from('appointments')
+      .from('doctor_bookings')
       .update({
         status: 'cancelled',
-        description: reason ? `[CANCELADO] ${reason}` : undefined,
+        cancelled_at: new Date().toISOString(),
+        cancel_reason: reason,
         updated_at: new Date().toISOString(),
       })
       .eq('tenant_id', ctx.tenant_id)
-      .eq('id', apptId)
-      .select('id, status, appointment_date')
+      .eq('id', bookingId)
+      .select('id, status, slot_start, calendar_event_id')
       .maybeSingle();
     if (error) return { ok: false, summary: 'Falha ao cancelar', error: error.message };
     if (!data) return { ok: false, summary: 'Consulta não encontrada', error: 'not_found' };
-    return { ok: true, summary: 'Consulta cancelada.', data };
+    return {
+      ok: true,
+      summary: `Consulta cancelada.${data.calendar_event_id ? ' (Calendar não foi atualizado — delete manual.)' : ''}`,
+      data,
+    };
   },
 };
 

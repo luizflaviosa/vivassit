@@ -66,7 +66,7 @@ export const TOOL_CATALOG: ToolDef[] = [
     params: {
       start: { type: 'date', required: true, description: 'Data inicial ISO (ex: 2026-05-04)' },
       end:   { type: 'date', required: true, description: 'Data final ISO (inclusiva)' },
-      status: { type: 'enum', enum: ['scheduled', 'confirmed', 'completed', 'cancelled', 'all'], default: 'all', description: 'Filtro de status' },
+      status: { type: 'enum', enum: ['booked', 'confirmed', 'completed', 'cancelled', 'all'], default: 'all', description: 'Filtro de status (booked=marcada, confirmed=reconfirmada, completed=ocorreu, cancelled=cancelada)' },
       doctor_id: { type: 'string', description: 'UUID do médico (admin/owner pode filtrar; doctor é sempre filtrado pelo próprio automaticamente)' },
     },
   },
