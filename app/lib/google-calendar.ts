@@ -359,3 +359,14 @@ export function getServiceAccountEmail(): string | null {
   const sa = getServiceAccount();
   return sa?.client_email ?? null;
 }
+
+// Exposto pro lib de sync (watch channels, syncToken). Retorna null se SA não configurado.
+export async function getAccessToken(): Promise<string | null> {
+  const sa = getServiceAccount();
+  if (!sa) return null;
+  try {
+    return await fetchAccessToken(sa);
+  } catch {
+    return null;
+  }
+}

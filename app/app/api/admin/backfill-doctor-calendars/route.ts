@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createCalendar, shareCalendarWith, getServiceAccountEmail } from '@/lib/google-calendar';
+import { createWatchChannel } from '@/lib/google-calendar-sync';
 
 // POST /api/admin/backfill-doctor-calendars
 //
@@ -18,7 +19,16 @@ interface BackfillResult {
   status: 'created' | 'skipped' | 'failed';
   calendar_id?: string;
   share_status?: string;
+  watch_status?: string;
   error?: string;
+}
+
+function getWebhookUrl(req: NextRequest): string {
+  const explicit = process.env.GOOGLE_CALENDAR_WEBHOOK_URL?.trim();
+  if (explicit) return explicit;
+  const proto = req.headers.get('x-forwarded-proto') ?? 'https';
+  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host');
+  return `${proto}://${host}/api/webhooks/google-calendar`;
 }
 
 export async function POST(req: NextRequest) {
@@ -124,6 +134,16 @@ export async function POST(req: NextRequest) {
         : `shared_with_${d.contact_email}`;
     }
 
+    // Cria push-notification channel pra que bloqueios manuais no Google Calendar
+    // sincronizem em tenant_calendar_events (lido por fn_get_available_slots)
+    const watch = await createWatchChannel({
+      calendarId: created.calendar_id,
+      doctorId: d.id,
+      tenantId: d.tenant_id,
+      webhookUrl: getWebhookUrl(req),
+    });
+    const watchStatus = 'error' in watch ? `watch_failed:${watch.error.slice(0, 80)}` : 'watching';
+
     results.push({
       doctor_id: d.id,
       doctor_name: d.doctor_name,
@@ -131,6 +151,7 @@ export async function POST(req: NextRequest) {
       status: 'created',
       calendar_id: created.calendar_id,
       share_status: shareStatus,
+      watch_status: watchStatus,
     });
   }
 
