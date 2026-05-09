@@ -165,6 +165,18 @@ function AgendaInner() {
   const [creating, setCreating] = useState<{ start: Date; end: Date; allDay: boolean } | null>(null);
   const [createForm, setCreateForm] = useState({ title: '', description: '', location: '' });
   const [createSaving, setCreateSaving] = useState(false);
+  // Edição inline do evento selecionado: quando true, troca read-only por form.
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    title: string;
+    description: string;
+    location: string;
+    start: Date;
+    end: Date;
+    allDay: boolean;
+  } | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Carrega lista de profissionais
   useEffect(() => {
@@ -230,7 +242,85 @@ function AgendaInner() {
 
   const handleSelectEvent = useCallback((ev: RBCEvent) => {
     setSelected(ev.raw);
+    setEditing(false);
+    setEditForm(null);
   }, []);
+
+  const startEdit = useCallback(() => {
+    if (!selected) return;
+    setEditForm({
+      title: selected.title || '',
+      description: selected.description || '',
+      location: selected.location || '',
+      start: selected.start ? new Date(selected.start) : new Date(),
+      end: selected.end ? new Date(selected.end) : new Date(),
+      allDay: selected.all_day,
+    });
+    setEditing(true);
+  }, [selected]);
+
+  const handleEditSave = useCallback(async () => {
+    if (!selected || !editForm) return;
+    if (!editForm.title.trim()) {
+      toast.error('Título é obrigatório');
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/painel/agenda/events/${selected.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editForm.title.trim(),
+          description: editForm.description.trim() || null,
+          location: editForm.location.trim() || null,
+          start: editForm.start.toISOString(),
+          end: editForm.end.toISOString(),
+          allDay: editForm.allDay,
+          doctorId: activeDoctor ?? undefined,
+        }),
+      });
+      const json = await res.json().catch(() => ({ success: false, message: 'Erro' }));
+      if (!json.success) {
+        toast.error('Não foi possível salvar', { description: json.message });
+        return;
+      }
+      toast.success('Evento atualizado');
+      setEditing(false);
+      setSelected(null);
+      void fetchEvents(true);
+    } catch (e) {
+      toast.error('Erro de conexão', { description: (e as Error).message });
+    } finally {
+      setEditSaving(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, editForm, activeDoctor]);
+
+  const handleDelete = useCallback(async () => {
+    if (!selected) return;
+    if (!confirm(`Excluir "${selected.title}"?`)) return;
+    setDeleting(true);
+    try {
+      const url = activeDoctor
+        ? `/api/painel/agenda/events/${selected.id}?doctorId=${activeDoctor}`
+        : `/api/painel/agenda/events/${selected.id}`;
+      const res = await fetch(url, { method: 'DELETE' });
+      const json = await res.json().catch(() => ({ success: false, message: 'Erro' }));
+      if (!json.success) {
+        toast.error('Não foi possível excluir', { description: json.message });
+        return;
+      }
+      toast.success('Evento excluído');
+      setSelected(null);
+      void fetchEvents(true);
+    } catch (e) {
+      toast.error('Erro de conexão', { description: (e as Error).message });
+    } finally {
+      setDeleting(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, activeDoctor]);
 
   // Clique em slot vazio (ou drag-select) → abre drawer de criação
   const handleSelectSlot = useCallback(
@@ -842,7 +932,7 @@ function AgendaInner() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setSelected(null)}
+              onClick={() => !editSaving && !deleting && setSelected(null)}
             />
             <motion.div
               className="fixed top-0 right-0 bottom-0 z-50 w-full sm:w-[480px] bg-white p-6 overflow-y-auto"
@@ -865,86 +955,226 @@ function AgendaInner() {
                 <button
                   type="button"
                   onClick={() => setSelected(null)}
-                  className="h-9 px-3 -mr-2 inline-flex items-center text-[13px] font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-md"
+                  disabled={editSaving || deleting}
+                  className="h-9 px-3 -mr-2 inline-flex items-center text-[13px] font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-md disabled:opacity-50"
                 >
                   Fechar
                 </button>
               </div>
-              <h2 className="text-[22px] font-medium tracking-[-0.02em] text-zinc-900 mb-1.5 leading-snug">
-                {selected.title}
-              </h2>
-              <p className="text-[13px] text-zinc-500 mb-5">
-                {selected.start && (
-                  <>
-                    {new Date(selected.start).toLocaleDateString('pt-BR', {
-                      weekday: 'long',
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                    {!selected.all_day && (
+
+              {!editing ? (
+                <>
+                  <h2 className="text-[22px] font-medium tracking-[-0.02em] text-zinc-900 mb-1.5 leading-snug">
+                    {selected.title}
+                  </h2>
+                  <p className="text-[13px] text-zinc-500 mb-5">
+                    {selected.start && (
                       <>
-                        {' '}
-                        · {fmtTime(new Date(selected.start))}
-                        {selected.end ? ' – ' + fmtTime(new Date(selected.end)) : ''}
+                        {new Date(selected.start).toLocaleDateString('pt-BR', {
+                          weekday: 'long',
+                          day: '2-digit',
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                        {!selected.all_day && (
+                          <>
+                            {' '}
+                            · {fmtTime(new Date(selected.start))}
+                            {selected.end ? ' – ' + fmtTime(new Date(selected.end)) : ''}
+                          </>
+                        )}
                       </>
                     )}
-                  </>
-                )}
-              </p>
-
-              {selected.location && (
-                <div className="flex items-start gap-2.5 py-2.5 border-t border-black/[0.05]">
-                  <MapPin className="w-4 h-4 text-zinc-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-[14px] text-zinc-700">{selected.location}</span>
-                </div>
-              )}
-
-              {selected.attendees.length > 0 && (
-                <div className="flex items-start gap-2.5 py-2.5 border-t border-black/[0.05]">
-                  <Users className="w-4 h-4 text-zinc-400 mt-0.5 flex-shrink-0" />
-                  <div className="text-[14px] text-zinc-700">
-                    <div className="text-[12px] text-zinc-400 mb-1">Participantes</div>
-                    {selected.attendees.map((a, i) => (
-                      <div key={i}>{a}</div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selected.description && (
-                <div className="py-3 border-t border-black/[0.05]">
-                  <div className="text-[12px] text-zinc-400 mb-1.5">Descrição</div>
-                  <p className="text-[14px] text-zinc-700 whitespace-pre-wrap leading-relaxed">
-                    {selected.description}
                   </p>
-                </div>
-              )}
 
-              <div className="flex flex-col gap-2 mt-6">
-                {selected.meet_link && (
-                  <a
-                    href={selected.meet_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="h-11 px-4 rounded-lg bg-emerald-600 text-white text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:brightness-110 transition-all"
-                  >
-                    <Video className="w-4 h-4" />
-                    Entrar no Google Meet
-                  </a>
-                )}
-                {selected.link && (
-                  <a
-                    href={selected.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="h-11 px-4 rounded-lg border border-zinc-300 text-zinc-900 text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:border-zinc-900 transition-all"
-                  >
-                    Abrir no Google Calendar
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                )}
-              </div>
+                  {selected.location && (
+                    <div className="flex items-start gap-2.5 py-2.5 border-t border-black/[0.05]">
+                      <MapPin className="w-4 h-4 text-zinc-400 mt-0.5 flex-shrink-0" />
+                      <span className="text-[14px] text-zinc-700">{selected.location}</span>
+                    </div>
+                  )}
+
+                  {selected.attendees.length > 0 && (
+                    <div className="flex items-start gap-2.5 py-2.5 border-t border-black/[0.05]">
+                      <Users className="w-4 h-4 text-zinc-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-[14px] text-zinc-700">
+                        <div className="text-[12px] text-zinc-400 mb-1">Participantes</div>
+                        {selected.attendees.map((a, i) => (
+                          <div key={i}>{a}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selected.description && (
+                    <div className="py-3 border-t border-black/[0.05]">
+                      <div className="text-[12px] text-zinc-400 mb-1.5">Descrição</div>
+                      <p className="text-[14px] text-zinc-700 whitespace-pre-wrap leading-relaxed">
+                        {selected.description}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2 mt-6">
+                    <button
+                      type="button"
+                      onClick={startEdit}
+                      className="h-11 px-4 rounded-lg text-white text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:brightness-110 transition-all"
+                      style={{ background: ACCENT }}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="h-11 px-4 rounded-lg border border-red-200 text-red-700 text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-red-50 transition-all disabled:opacity-50"
+                    >
+                      {deleting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" /> Excluindo...
+                        </>
+                      ) : (
+                        'Excluir'
+                      )}
+                    </button>
+                    {selected.meet_link && (
+                      <a
+                        href={selected.meet_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-11 px-4 rounded-lg bg-emerald-600 text-white text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:brightness-110 transition-all"
+                      >
+                        <Video className="w-4 h-4" />
+                        Entrar no Google Meet
+                      </a>
+                    )}
+                    {selected.link && (
+                      <a
+                        href={selected.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-11 px-4 rounded-lg border border-zinc-300 text-zinc-700 text-[13px] font-medium inline-flex items-center justify-center gap-2 hover:border-zinc-900 transition-all"
+                      >
+                        Abrir no Google Calendar
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-[22px] font-medium tracking-[-0.02em] text-zinc-900 mb-5 leading-snug">
+                    Editar evento
+                  </h2>
+                  {editForm && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-[0.08em] mb-1.5">
+                          Título
+                        </label>
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editForm.title}
+                          onChange={(e) =>
+                            setEditForm((f) => (f ? { ...f, title: e.target.value } : f))
+                          }
+                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-[0.08em] mb-1.5">
+                          Início
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={toLocalInputValue(editForm.start)}
+                          onChange={(e) =>
+                            setEditForm((f) =>
+                              f ? { ...f, start: fromLocalInputValue(e.target.value) } : f,
+                            )
+                          }
+                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-[0.08em] mb-1.5">
+                          Fim
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={toLocalInputValue(editForm.end)}
+                          onChange={(e) =>
+                            setEditForm((f) =>
+                              f ? { ...f, end: fromLocalInputValue(e.target.value) } : f,
+                            )
+                          }
+                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-[0.08em] mb-1.5">
+                          Descrição
+                        </label>
+                        <textarea
+                          value={editForm.description}
+                          onChange={(e) =>
+                            setEditForm((f) => (f ? { ...f, description: e.target.value } : f))
+                          }
+                          rows={3}
+                          className="w-full px-3 py-2.5 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-[0.08em] mb-1.5">
+                          Local
+                        </label>
+                        <input
+                          type="text"
+                          value={editForm.location}
+                          onChange={(e) =>
+                            setEditForm((f) => (f ? { ...f, location: e.target.value } : f))
+                          }
+                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2 mt-6">
+                    <button
+                      type="button"
+                      onClick={handleEditSave}
+                      disabled={editSaving || !editForm?.title.trim()}
+                      className="h-11 px-4 rounded-lg text-white text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ background: ACCENT }}
+                    >
+                      {editSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" /> Salvando...
+                        </>
+                      ) : (
+                        'Salvar alterações'
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditing(false);
+                        setEditForm(null);
+                      }}
+                      disabled={editSaving}
+                      className="h-11 px-4 rounded-lg border border-zinc-300 text-zinc-700 text-[14px] font-semibold inline-flex items-center justify-center hover:border-zinc-900 transition-all disabled:opacity-50"
+                    >
+                      Cancelar edição
+                    </button>
+                  </div>
+                </>
+              )}
             </motion.div>
           </>
         )}

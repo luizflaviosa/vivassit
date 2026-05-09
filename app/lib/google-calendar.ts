@@ -248,14 +248,18 @@ export async function createEvent(opts: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// UPDATE: move/resize evento (drag-and-drop)
+// UPDATE: move/resize evento (drag-and-drop) ou edita campos textuais.
+// Todos os campos são opcionais — só os passados são atualizados via PATCH.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function updateEvent(opts: {
   calendarId: string;
   eventId: string;
-  start: Date;
-  end: Date;
+  start?: Date;
+  end?: Date;
   allDay?: boolean;
+  summary?: string;
+  description?: string | null;
+  location?: string | null;
 }): Promise<{ ok: true } | { error: string }> {
   const sa = getServiceAccount();
   if (!sa) return { error: 'GOOGLE_SERVICE_ACCOUNT_JSON não configurado' };
@@ -271,9 +275,20 @@ export async function updateEvent(opts: {
   const fmtDate = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-  const body = opts.allDay
-    ? { start: { date: fmtDate(opts.start) }, end: { date: fmtDate(opts.end) } }
-    : { start: { dateTime: fmt(opts.start) }, end: { dateTime: fmt(opts.end) } };
+  const body: Record<string, unknown> = {};
+  if (opts.start && opts.end) {
+    if (opts.allDay) {
+      body.start = { date: fmtDate(opts.start) };
+      body.end = { date: fmtDate(opts.end) };
+    } else {
+      body.start = { dateTime: fmt(opts.start), timeZone: 'America/Sao_Paulo' };
+      body.end = { dateTime: fmt(opts.end), timeZone: 'America/Sao_Paulo' };
+    }
+  }
+  if (opts.summary !== undefined) body.summary = opts.summary;
+  // null limpa o campo no Google; undefined deixa intacto
+  if (opts.description !== undefined) body.description = opts.description ?? '';
+  if (opts.location !== undefined) body.location = opts.location ?? '';
 
   const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(opts.calendarId)}/events/${encodeURIComponent(opts.eventId)}`;
 
@@ -293,6 +308,36 @@ export async function updateEvent(opts: {
   }
 
   return { ok: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE: remove evento. Idempotente — 404/410 contam como sucesso.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function deleteEvent(opts: {
+  calendarId: string;
+  eventId: string;
+}): Promise<{ ok: true } | { error: string }> {
+  const sa = getServiceAccount();
+  if (!sa) return { error: 'GOOGLE_SERVICE_ACCOUNT_JSON não configurado' };
+
+  let token: string;
+  try {
+    token = await fetchAccessToken(sa);
+  } catch {
+    return { error: 'Falha ao autenticar service account' };
+  }
+
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(opts.calendarId)}/events/${encodeURIComponent(opts.eventId)}`;
+
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (res.ok || res.status === 404 || res.status === 410) return { ok: true };
+  const txt = await res.text().catch(() => '');
+  console.error('[google-calendar] deleteEvent erro', res.status, txt.slice(0, 200));
+  return { error: `Google API erro ${res.status}` };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
