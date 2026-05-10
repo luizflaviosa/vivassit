@@ -196,11 +196,11 @@ Bloco a inserir no `<GUIA_DE_FERRAMENTAS>` da Camada 1 do prompt (workflow `EaZN
 
 ## UI no painel
 
-Reusa o pattern existente de cards de propose (`[[CARD]]...[[/CARD]]` que o frontend renderiza). Três templates de card novos em `app/components/agent-cards/`:
+O chat-drawer (`app/app/painel/components/chat-drawer.tsx`) já renderiza cards de propose **genericamente** a partir do JSON `[[CARD]]{...}[[/CARD]]` — schema `{summary, detail?, confirm_label?, cancel_label?, action: {tool, params}}`. Não há componente React por tipo de card.
 
-1. **MarcarConsultaCard** — preview com paciente/médico/data/hora/notes. Botão "Confirmar agendamento" / "Cancelar". Em conflito, mostra alert vermelho com booking conflitante e bloqueia confirmação.
-2. **BloquearHorarioCard** — janela + motivo. Lista (se houver) bookings que caem dentro com link pra reagendar. Botão "Bloquear" / "Cancelar".
-3. **MudarHorarioCard** — diff visual antes/depois pro dia da semana, alerta amarelo sobre impacto no agente WhatsApp, **input de texto requerendo digitação literal `CONFIRMAR MUDANCA HORARIO`**, botão "Aplicar mudança" desabilitado até match exato.
+Pra `consulta_marcar` e `bloquear_horario`, basta os handlers retornarem `card` no formato existente — usa o `detail` em multilinha pra mostrar paciente/médico/data/conflitos. **Zero novos componentes**.
+
+Pra `working_hours_atualizar` (confirmação extra por digitação literal), estendo o schema do card com um campo opcional `confirmation_phrase: string`. Quando presente, o chat-drawer renderiza um `<input>` extra antes do botão de confirmar — botão habilita só quando o valor digitado === `confirmation_phrase`. Backwards compatible (cards existentes não têm esse campo, comportamento inalterado).
 
 ## Componentes alterados
 
@@ -209,10 +209,7 @@ Reusa o pattern existente de cards de propose (`[[CARD]]...[[/CARD]]` que o fron
 | `supabase/migrations/<timestamp>_doctor_schedule_blocks.sql` | Migration nova com a tabela + RLS |
 | `app/lib/internal-agent-handlers.ts` | 4 handlers novos (`horariosLivres`, `consultaMarcar`, `bloquearHorario`, `workingHoursAtualizar`) |
 | `app/lib/internal-agent-tools.ts` | Registra as 4 tools com schemas Zod |
-| `app/components/agent-cards/MarcarConsultaCard.tsx` | Componente novo |
-| `app/components/agent-cards/BloquearHorarioCard.tsx` | Componente novo |
-| `app/components/agent-cards/MudarHorarioCard.tsx` | Componente novo |
-| `app/components/chat-drawer.tsx` | Switch que renderiza o card certo por `card.type` (já existe pattern, só adicionar 3 cases) |
+| `app/app/painel/components/chat-drawer.tsx` | Estende `ActionCard` type com `confirmation_phrase?: string`; render condicional do input quando presente; botão desabilitado até match |
 | `n8n/workflows/EaZNHoaKhq0yJsiS-...json` | systemMessage ampliado com as 4 tools (backup em `.n8n-backups/` antes) |
 
 ## Plano de implementação (ordem)
