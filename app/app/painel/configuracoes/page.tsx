@@ -563,11 +563,49 @@ interface SubscriptionInfo {
   } | null;
 }
 
+interface PlanOption {
+  key: 'professional' | 'enterprise' | 'sob_medida';
+  name: string;
+  priceLabel: string;
+  amount: number | null;
+  description: string;
+  features: string[];
+  highlight?: boolean;
+}
+
 const PLAN_LABEL: Record<string, string> = {
   professional: 'Profissional',
   enterprise: 'Clínica',
   sob_medida: 'Na medida',
 };
+
+const PLANS: PlanOption[] = [
+  {
+    key: 'professional',
+    name: 'Profissional',
+    priceLabel: 'R$ 197',
+    amount: 197,
+    description: 'Para quem trabalha de forma independente.',
+    features: ['1 profissional', 'Agendamento via WhatsApp', 'Lembretes automáticos', 'NPS automático'],
+  },
+  {
+    key: 'enterprise',
+    name: 'Clínica',
+    priceLabel: 'R$ 397',
+    amount: 397,
+    description: 'Para equipes de até 5 profissionais.',
+    features: ['Até 5 profissionais', 'Tudo do Profissional', 'Multi-canal', 'Relatórios por profissional'],
+    highlight: true,
+  },
+  {
+    key: 'sob_medida',
+    name: 'Na medida',
+    priceLabel: 'Sob consulta',
+    amount: null,
+    description: 'Pra redes e clínicas com várias unidades.',
+    features: ['Profissionais ilimitados', 'Múltiplas unidades', 'Integrações sob medida', 'Gerente dedicado'],
+  },
+];
 
 function formatBRL(v: number | null): string {
   if (v == null) return '—';
@@ -581,35 +619,101 @@ function formatDateBR(iso: string | null | undefined): string {
   } catch { return '—'; }
 }
 
-function statusBadge(status: string | null | undefined): { label: string; bg: string; fg: string } {
+function statusBadge(status: string | null | undefined): { label: string; dot: string; fg: string } {
   const s = (status ?? '').toLowerCase();
   if (s === 'active' || s === 'paid' || s === 'received' || s === 'confirmed') {
-    return { label: 'Ativa', bg: 'bg-emerald-50', fg: 'text-emerald-700' };
+    return { label: 'Ativa', dot: 'bg-emerald-500', fg: 'text-emerald-700' };
   }
-  if (s.includes('trial')) return { label: 'Em teste', bg: 'bg-violet-50', fg: 'text-violet-700' };
-  if (s === 'pending' || s === 'awaiting_risk_analysis') return { label: 'Aguardando pagamento', bg: 'bg-amber-50', fg: 'text-amber-700' };
-  if (s === 'overdue' || s === 'expired') return { label: 'Em atraso', bg: 'bg-rose-50', fg: 'text-rose-700' };
-  if (s === 'cancelled' || s === 'canceled' || s === 'inactive') return { label: 'Cancelada', bg: 'bg-zinc-100', fg: 'text-zinc-600' };
-  return { label: status ?? '—', bg: 'bg-zinc-100', fg: 'text-zinc-600' };
+  if (s.includes('trial')) return { label: 'Em teste', dot: 'bg-violet-500', fg: 'text-violet-700' };
+  if (s === 'pending' || s === 'awaiting_risk_analysis') return { label: 'Aguardando pagamento', dot: 'bg-amber-500', fg: 'text-amber-700' };
+  if (s === 'overdue' || s === 'expired') return { label: 'Em atraso', dot: 'bg-rose-500', fg: 'text-rose-700' };
+  if (s === 'cancelled' || s === 'canceled' || s === 'inactive') return { label: 'Cancelada', dot: 'bg-zinc-400', fg: 'text-zinc-600' };
+  return { label: status ?? '—', dot: 'bg-zinc-400', fg: 'text-zinc-600' };
+}
+
+function methodLabel(m: string | null): string {
+  if (!m) return 'A definir';
+  const v = m.toUpperCase();
+  if (v === 'CREDIT_CARD') return 'Cartão de crédito';
+  if (v === 'BOLETO') return 'Boleto';
+  if (v === 'PIX') return 'Pix';
+  return m;
 }
 
 function SubscriptionInfoCard() {
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
   const [sub, setSub] = useState<SubscriptionInfo | null>(null);
+
+  const reload = async () => {
+    try {
+      const res = await fetch('/api/painel/subscription');
+      const json = await res.json();
+      if (json.success) setSub(json.subscription ?? null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     (async () => {
-      try {
-        const res = await fetch('/api/painel/subscription');
-        const json = await res.json();
-        if (json.success) setSub(json.subscription ?? null);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
+      await reload();
+      setLoading(false);
     })();
   }, []);
+
+  const start = async (planKey: PlanOption['key']) => {
+    if (planKey === 'sob_medida') {
+      window.open('https://wa.me/5547996800100?text=Olá!%20Quero%20uma%20proposta%20do%20plano%20Sob%20Medida.', '_blank');
+      return;
+    }
+    setBusy(planKey);
+    try {
+      const res = await fetch('/api/painel/subscription/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_type: planKey }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.message || 'Não consegui iniciar a assinatura.');
+        return;
+      }
+      toast.success('Assinatura iniciada. 7 dias grátis começam agora.');
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro inesperado');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const change = async (planKey: PlanOption['key']) => {
+    if (planKey === 'sob_medida') {
+      window.open('https://wa.me/5547996800100?text=Olá!%20Quero%20migrar%20pro%20plano%20Sob%20Medida.', '_blank');
+      return;
+    }
+    if (!confirm(`Mudar pra plano ${PLAN_LABEL[planKey]}? A próxima cobrança será no novo valor.`)) return;
+    setBusy(planKey);
+    try {
+      const res = await fetch('/api/painel/subscription/change-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_type: planKey }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.message || 'Não consegui mudar de plano.');
+        return;
+      }
+      toast.success('Plano atualizado.');
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro inesperado');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -619,38 +723,13 @@ function SubscriptionInfoCard() {
     );
   }
 
-  if (!sub) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="rounded-2xl border border-black/[0.07] bg-white p-5 sm:p-6 mt-8"
-      >
-        <div className="flex items-center gap-2.5 mb-2">
-          <div className="h-8 w-8 rounded-md flex items-center justify-center bg-zinc-100 text-zinc-600">
-            <CreditCard className="w-4 h-4" />
-          </div>
-          <div>
-            <h2 className="text-[15px] font-semibold text-zinc-900">Sua assinatura</h2>
-            <p className="text-[12px] text-zinc-500">Plano e cobrança</p>
-          </div>
-        </div>
-        <p className="text-[13px] text-zinc-600 mt-3">
-          Sem assinatura ativa. Escolha um plano em{' '}
-          <a href="/onboarding" className="text-violet-700 hover:underline font-medium">/onboarding</a>{' '}
-          ou veja opções em{' '}
-          <a href="/#planos" className="text-violet-700 hover:underline font-medium">singulare.org/#planos</a>.
-        </p>
-      </motion.div>
-    );
-  }
-
-  const planLabel = PLAN_LABEL[sub.plan_type] ?? sub.plan_type;
-  const liveStatus = sub.asaas?.status ?? sub.payment_status;
+  const hasSub = !!sub;
+  const liveStatus = sub?.asaas?.status ?? sub?.payment_status;
   const badge = statusBadge(liveStatus);
-  const nextDue = sub.asaas?.next_due_date ?? null;
-  const trialActive = sub.trial_ends_at && new Date(sub.trial_ends_at) > new Date();
+  const nextDue = sub?.asaas?.next_due_date ?? null;
+  const trialActive = sub?.trial_ends_at && new Date(sub.trial_ends_at) > new Date();
+  const currentPlan = sub?.plan_type ?? null;
+  const isCancelled = ['cancelled', 'canceled', 'inactive'].includes((liveStatus ?? '').toLowerCase());
 
   return (
     <motion.div
@@ -659,65 +738,174 @@ function SubscriptionInfoCard() {
       transition={{ duration: 0.4 }}
       className="rounded-2xl border border-black/[0.07] bg-white p-5 sm:p-6 mt-8"
     >
-      <div className="flex items-center gap-2.5 mb-4">
-        <div
-          className="h-8 w-8 rounded-md flex items-center justify-center"
-          style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
-        >
-          <CreditCard className="w-4 h-4" />
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="h-8 w-8 rounded-md flex items-center justify-center"
+            style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
+          >
+            <CreditCard className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-[15px] font-semibold text-zinc-900">Plano e cobrança</h2>
+            <p className="text-[12px] text-zinc-500">Tudo da sua assinatura aqui — sem ir pra outra página.</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-[15px] font-semibold text-zinc-900">Sua assinatura</h2>
-          <p className="text-[12px] text-zinc-500">Plano e cobrança</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-1">Plano</div>
-          <div className="text-[15px] font-semibold text-zinc-900">{planLabel}</div>
-          {sub.amount != null && (
-            <div className="text-[12px] text-zinc-500 mt-0.5">{formatBRL(sub.amount)} / mês</div>
-          )}
-        </div>
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-1">Status</div>
-          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${badge.bg} ${badge.fg}`}>
+        {hasSub && (
+          <span className={`inline-flex items-center gap-1.5 text-[12px] font-medium ${badge.fg}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
             {badge.label}
           </span>
-        </div>
-        {trialActive && (
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-1">Teste grátis até</div>
-            <div className="text-[13px] text-zinc-900">{formatDateBR(sub.trial_ends_at)}</div>
-          </div>
-        )}
-        {nextDue && (
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-1">Próxima cobrança</div>
-            <div className="text-[13px] text-zinc-900">{formatDateBR(nextDue)}</div>
-          </div>
-        )}
-        {sub.payment_method && (
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-1">Forma de pagamento</div>
-            <div className="text-[13px] text-zinc-900 capitalize">{sub.payment_method.toLowerCase()}</div>
-          </div>
-        )}
-        {sub.asaas?.cycle && (
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-1">Ciclo</div>
-            <div className="text-[13px] text-zinc-900 capitalize">{sub.asaas.cycle.toLowerCase()}</div>
-          </div>
         )}
       </div>
 
-      <p className="text-[11px] text-zinc-400 mt-5 leading-relaxed">
-        Quer mudar de plano? Compare em{' '}
-        <a href="/#planos" className="text-violet-700 hover:underline">singulare.org/#planos</a>
-        {' '}— fale com a gente que a gente migra sem perder histórico.
-      </p>
+      {/* Resumo da assinatura ativa */}
+      {hasSub && !isCancelled && (
+        <div className="rounded-xl bg-zinc-50/60 border border-black/[0.05] p-4 mb-6">
+          <div className="flex items-baseline justify-between gap-4 flex-wrap">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Plano atual</div>
+              <div className="text-[20px] font-semibold text-zinc-900 mt-1">
+                {PLAN_LABEL[currentPlan ?? ''] ?? currentPlan}
+                {sub?.amount != null && (
+                  <span className="text-[13px] font-normal text-zinc-500 ml-2">{formatBRL(sub.amount)} / mês</span>
+                )}
+              </div>
+            </div>
+            <div className="text-right">
+              {trialActive && (
+                <>
+                  <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Teste grátis até</div>
+                  <div className="text-[13px] text-zinc-900 mt-1 font-medium">{formatDateBR(sub?.trial_ends_at)}</div>
+                </>
+              )}
+              {!trialActive && nextDue && (
+                <>
+                  <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Próxima cobrança</div>
+                  <div className="text-[13px] text-zinc-900 mt-1 font-medium">{formatDateBR(nextDue)}</div>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 mt-4 pt-4 border-t border-black/[0.05]">
+            <Meta label="Pagamento" value={methodLabel(sub?.payment_method ?? null)} />
+            <Meta label="Ciclo" value={sub?.asaas?.cycle ? sub.asaas.cycle.toLowerCase().replace('monthly', 'Mensal').replace('yearly', 'Anual') : 'Mensal'} />
+            <Meta label="Início" value={formatDateBR(sub?.created_at)} />
+          </div>
+        </div>
+      )}
+
+      {/* Cancelada — banner amber com CTA reativar */}
+      {hasSub && isCancelled && (
+        <div className="rounded-xl bg-amber-50/60 border border-amber-200/60 p-4 mb-6">
+          <p className="text-[13px] text-amber-900 leading-relaxed">
+            Sua assinatura está <strong>cancelada</strong>. Reative escolhendo um plano abaixo — você não perde nenhum dado.
+          </p>
+        </div>
+      )}
+
+      {/* Empty state — onboarding inline */}
+      {!hasSub && (
+        <div className="rounded-xl bg-violet-50/40 border border-violet-200/50 p-4 mb-6">
+          <p className="text-[13px] text-violet-900 leading-relaxed">
+            Você ainda não tem assinatura. Comece com <strong>7 dias grátis</strong> em qualquer plano — sem cartão necessário.
+          </p>
+        </div>
+      )}
+
+      {/* Catálogo de planos inline */}
+      <div>
+        <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-3">
+          {hasSub && !isCancelled ? 'Mudar de plano' : 'Escolher plano'}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {PLANS.map((plan) => {
+            const isCurrent = currentPlan === plan.key && !isCancelled;
+            const isSob = plan.key === 'sob_medida';
+            return (
+              <div
+                key={plan.key}
+                className={`relative rounded-xl border p-4 flex flex-col ${
+                  isCurrent
+                    ? 'border-violet-300 bg-violet-50/30 ring-1 ring-violet-200/60'
+                    : 'border-black/[0.07] bg-white hover:border-black/[0.12] transition-colors'
+                }`}
+              >
+                {isCurrent && (
+                  <span className="absolute -top-2 left-4 px-2 py-0.5 rounded-full bg-violet-600 text-white text-[10px] font-semibold uppercase tracking-wider">
+                    Atual
+                  </span>
+                )}
+                {!isCurrent && plan.highlight && (
+                  <span className="absolute -top-2 left-4 px-2 py-0.5 rounded-full bg-zinc-900 text-white text-[10px] font-semibold uppercase tracking-wider">
+                    Mais escolhido
+                  </span>
+                )}
+                <div className="text-[14px] font-semibold text-zinc-900">{plan.name}</div>
+                <div className="text-[20px] font-semibold text-zinc-900 mt-1">
+                  {plan.priceLabel}
+                  {plan.amount != null && <span className="text-[12px] font-normal text-zinc-500"> / mês</span>}
+                </div>
+                <p className="text-[12px] text-zinc-600 mt-1.5 leading-relaxed">{plan.description}</p>
+                <ul className="mt-3 space-y-1.5">
+                  {plan.features.map((f) => (
+                    <li key={f} className="text-[12px] text-zinc-700 flex items-start gap-1.5">
+                      <span className="h-1 w-1 rounded-full bg-zinc-400 mt-[7px] flex-shrink-0" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4 pt-3 border-t border-black/[0.05]">
+                  {isCurrent ? (
+                    <button
+                      disabled
+                      className="w-full h-9 rounded-lg text-[12px] font-medium text-zinc-400 cursor-default"
+                    >
+                      Você está aqui
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => (hasSub && !isCancelled ? change(plan.key) : start(plan.key))}
+                      disabled={busy !== null}
+                      className={`w-full h-9 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+                        plan.highlight && !isCurrent
+                          ? 'bg-violet-600 text-white hover:bg-violet-700'
+                          : 'border border-black/[0.12] text-zinc-900 hover:bg-zinc-50'
+                      }`}
+                    >
+                      {busy === plan.key ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin inline" />
+                      ) : isSob ? (
+                        'Falar com a equipe'
+                      ) : hasSub && !isCancelled ? (
+                        'Mudar pra esse'
+                      ) : (
+                        'Começar 7 dias grátis'
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {hasSub && !isCancelled && (
+        <p className="text-[11px] text-zinc-400 mt-5 leading-relaxed">
+          Mudou de plano? A próxima cobrança ({nextDue ? formatDateBR(nextDue) : 'do ciclo'}) já vem com o novo valor. Sem cobrança duplicada, sem perder histórico.
+        </p>
+      )}
     </motion.div>
+  );
+}
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-0.5">{label}</div>
+      <div className="text-[13px] text-zinc-900">{value}</div>
+    </div>
   );
 }
 
