@@ -905,9 +905,12 @@ const consultaMarcar: WriteHandler = {
       patientName = matches[0].name;
       patientPhone = matches[0].phone ?? '';
     } else {
-      const { data: pat } = await admin.from('patients').select('name, phone').eq('id', patientId).maybeSingle();
-      patientName = pat?.name ?? patientName;
-      patientPhone = pat?.phone ?? patientPhone;
+      const { data: pat } = await admin.from('patients').select('name, phone').eq('id', patientId).eq('tenant_id', ctx.tenant_id).maybeSingle();
+      if (!pat) {
+        return { ok: false, summary: 'Paciente nao encontrado neste tenant.' };
+      }
+      patientName = pat.name ?? patientName;
+      patientPhone = pat.phone ?? patientPhone;
     }
 
     // Conflitos — overlap real (start < slotEnd AND end > slotStart)
