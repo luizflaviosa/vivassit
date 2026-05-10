@@ -2,17 +2,17 @@
  * GET /api/painel/google-place/autocomplete?q=<query>
  *
  * Type-ahead pra escolher Google Place ID — usuario digita o nome do negocio,
- * Google sugere lugares (igual a barra do Maps). Substitui o fluxo antigo de
- * "tentar achar na heuristica" que falhava quando endereco/dados batiam mal.
+ * Google sugere lugares (igual a barra do Maps).
  *
- * Provider: Google Place Autocomplete (legacy v1) — limitado a Brasil e a
- * estabelecimentos. Custo: $0.00283/request (sem session token nesse design
- * porque nao chamamos Place Details depois — o autocomplete ja devolve place_id).
+ * Provider: Google Places API (New) — POST places:autocomplete.
+ * A legacy /maps/api/place/autocomplete/json foi descartada porque chaves novas
+ * habilitam apenas a "Places API (New)" no Cloud Console (a legacy precisa
+ * ser habilitada separadamente e esta em sunset).
  *
- * Response:
+ * Response (shape estavel pra UI):
  *   { predictions: [{ place_id, description, main_text, secondary_text }] }
  *
- * Setup: GOOGLE_PLACES_API_KEY no Vercel (mesma key do lookup antigo).
+ * Setup: GOOGLE_PLACES_API_KEY no Vercel + "Places API (New)" enabled.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -21,12 +21,14 @@ import { requireTenant } from '@/lib/auth-tenant';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-interface RawPrediction {
-  place_id: string;
-  description: string;
-  structured_formatting?: {
-    main_text?: string;
-    secondary_text?: string;
+interface NewPlacePrediction {
+  placePrediction?: {
+    placeId: string;
+    text?: { text?: string };
+    structuredFormat?: {
+      mainText?: { text?: string };
+      secondaryText?: { text?: string };
+    };
   };
 }
 
@@ -45,56 +47,56 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const q = url.searchParams.get('q')?.trim() ?? '';
 
-  // Minimo 2 chars pra evitar custo desnecessario
   if (q.length < 2) {
     return NextResponse.json({ predictions: [] });
   }
 
-  // SEM types=establishment: profissionais de saude (medicos individuais) sao
-  // frequentemente categorizados pelo Google como "Person/Health professional",
-  // nao "establishment". Filtrar por establishment derruba listings legitimos
-  // de doctor names. Confiamos no input + country=br pra precisao.
-  const apiUrl = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json');
-  apiUrl.searchParams.set('input', q);
-  apiUrl.searchParams.set('components', 'country:br');
-  apiUrl.searchParams.set('language', 'pt-BR');
-  apiUrl.searchParams.set('key', apiKey);
-
-  const res = await fetch(apiUrl.toString(), { cache: 'no-store' });
-  if (!res.ok) {
-    return NextResponse.json(
-      { ok: false, error: 'api_error', message: `Places API ${res.status}` },
-      { status: 502 },
-    );
-  }
-
-  const data = (await res.json()) as {
-    status: string;
-    predictions?: RawPrediction[];
-    error_message?: string;
+  const body = {
+    input: q,
+    languageCode: 'pt-BR',
+    regionCode: 'BR',
+    includedRegionCodes: ['br'],
   };
 
-  if (data.status === 'ZERO_RESULTS') {
-    return NextResponse.json({ predictions: [] });
-  }
+  const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+    },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
 
-  if (data.status !== 'OK') {
+  const data = (await res.json().catch(() => null)) as
+    | { suggestions?: NewPlacePrediction[]; error?: { message?: string } }
+    | null;
+
+  if (!res.ok) {
+    const msg = data?.error?.message ?? `Places API ${res.status}`;
     return NextResponse.json(
-      {
-        ok: false,
-        error: 'api_error',
-        message: data.error_message ?? `Places API status=${data.status}`,
-      },
+      { ok: false, error: 'api_error', message: msg },
       { status: 502 },
     );
   }
 
-  const predictions = (data.predictions ?? []).slice(0, 8).map((p) => ({
-    place_id: p.place_id,
-    description: p.description,
-    main_text: p.structured_formatting?.main_text ?? p.description,
-    secondary_text: p.structured_formatting?.secondary_text ?? '',
-  }));
+  const suggestions = data?.suggestions ?? [];
+  const predictions = suggestions
+    .map((s) => {
+      const p = s.placePrediction;
+      if (!p?.placeId) return null;
+      const main = p.structuredFormat?.mainText?.text ?? p.text?.text ?? '';
+      const secondary = p.structuredFormat?.secondaryText?.text ?? '';
+      const description = p.text?.text ?? `${main}${secondary ? `, ${secondary}` : ''}`;
+      return {
+        place_id: p.placeId,
+        description,
+        main_text: main || description,
+        secondary_text: secondary,
+      };
+    })
+    .filter((p): p is NonNullable<typeof p> => p !== null)
+    .slice(0, 8);
 
   return NextResponse.json({ predictions });
 }
