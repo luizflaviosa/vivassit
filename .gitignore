@@ -48,6 +48,8 @@ master-secretaria-*.json
 # resultados ad-hoc de scripts de teste (DataForSEO, region-demand, etc)
 app/*-result.json
 *-result.json
+app/exports/
+exports/
 
 # arquivo local pra protótipos/HTMLs antigos sem versionar
 archive/
