@@ -6,6 +6,7 @@ import {
   Loader2, TrendingUp, ChevronRight, ChevronDown,
   Sparkles, Star, Globe, MessageSquare, Megaphone,
   CheckCircle, Layout, Settings, ExternalLink, MapPin,
+  Zap, AlertCircle, Users, Target,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -480,6 +481,207 @@ function RegionDemandCard({ d, refreshing, onRefresh }: { d: RegionDemand; refre
   );
 }
 
+// ─── ActivationOpportunities ──────────────────────────────────────────────────
+//
+// Bloco de "alertas inteligentes" close-to-action que combina sinais de várias
+// fontes (DFS Trends, score, posts pendentes) pra surpreender o cliente com
+// insights quantificados + botão de ativação direto.
+
+interface ActivationAlert {
+  icon: React.ReactNode;
+  tone: 'urgent' | 'opportunity' | 'info';
+  title: string;
+  body: React.ReactNode;
+  ctaLabel: string;
+  ctaHref?: string;
+  ctaOnClick?: () => void;
+}
+
+function buildActivationAlerts(args: {
+  scoreData: ScoreData | null;
+  regionDemand: RegionDemand | null;
+  marketTrends: MarketTrends | null;
+  posts: Post[];
+  eligibleReviews: number;
+  primaryKeyword?: string;
+}): ActivationAlert[] {
+  const alerts: ActivationAlert[] = [];
+
+  // Alert 1: Tendência de alta na especialidade — janela de oportunidade
+  const specialtyDelta = args.marketTrends?.explore?.delta_90d_pct?.[0];
+  if (specialtyDelta != null && specialtyDelta >= 15) {
+    alerts.push({
+      icon: <TrendingUp className="w-3.5 h-3.5" />,
+      tone: 'opportunity',
+      title: `Janela de tráfego pago barato — ${specialtyDelta.toFixed(0)}% de alta no trimestre`,
+      body: (
+        <>
+          Buscas por <strong>{args.marketTrends?.primary_keyword?.toLowerCase()}</strong> subiram <strong>{specialtyDelta.toFixed(0)}%</strong> nos últimos 90 dias.
+          Próximas 4-6 semanas valem 2-3× ROI vs aguardar — mercado ainda não percebeu, CPC mais baixo.
+        </>
+      ),
+      ctaLabel: 'Conhecer Plano Ads',
+      ctaHref: '/painel/marketing/configurar',
+    });
+  }
+
+  // Alert 2: Doença vs especialidade gap (se trends disponível)
+  const explore = args.marketTrends?.explore;
+  if (explore?.keywords && explore.avg_90d) {
+    const specialtyAvg = explore.avg_90d[0] ?? 0;
+    // Encontra a maior keyword correlata (índices 1-3 são doenças correlatas)
+    const corrAvgs = explore.avg_90d.slice(1, 4);
+    const maxCorr = Math.max(...corrAvgs);
+    const maxCorrIdx = corrAvgs.indexOf(maxCorr) + 1;
+    const maxCorrKw = explore.keywords[maxCorrIdx];
+
+    if (specialtyAvg > 0 && maxCorr > specialtyAvg * 3) {
+      const ratio = Math.round(maxCorr / specialtyAvg);
+      alerts.push({
+        icon: <Target className="w-3.5 h-3.5" />,
+        tone: 'opportunity',
+        title: `Estratégia de conteúdo: paciente busca doença, não especialidade`,
+        body: (
+          <>
+            Pessoas buscam <strong>&ldquo;{maxCorrKw}&rdquo;</strong> <strong>{ratio}× mais</strong> que &ldquo;{args.marketTrends?.primary_keyword?.toLowerCase()}&rdquo;.
+            Capturar essa intenção via conteúdo educativo dispara conversões para consulta.
+            {args.posts.length > 0 && <> <strong>{args.posts.length} posts gerados pela IA</strong> aguardam aprovação.</>}
+          </>
+        ),
+        ctaLabel: args.posts.length > 0 ? `Revisar ${args.posts.length} posts` : 'Configurar conteúdo',
+        ctaHref: '#posts-section',
+      });
+    }
+  }
+
+  // Alert 3: Brand awareness baseline = 0 (último item do explore.keywords é o nome)
+  const lastKw = explore?.keywords?.[explore.keywords.length - 1];
+  const lastAvg = explore?.avg_90d?.[explore.avg_90d.length - 1] ?? 0;
+  if (lastKw && lastAvg === 0 && lastKw.length >= 6 && !lastKw.includes(' ')) {
+    // só se for nome próprio (uma palavra, ≥6 chars) e zero buscas
+  } else if (lastKw && lastAvg === 0) {
+    alerts.push({
+      icon: <Sparkles className="w-3.5 h-3.5" />,
+      tone: 'info',
+      title: 'Marca pessoal sem awareness mensurável',
+      body: (
+        <>
+          Seu nome <strong>ainda não é buscado no Google</strong> em volume mensurável.
+          Cada review e post sobe esse número — meta de 90 dias: 100 buscas/mês pelo nome → CPL de ads cai ~30%.
+        </>
+      ),
+      ctaLabel: 'Conhecer Plano Social',
+      ctaHref: '/painel/marketing/configurar',
+    });
+  }
+
+  // Alert 4: Gap de reviews (Google = 0)
+  const googleReviews = args.scoreData?.pilares?.google?.reviews ?? 0;
+  if (googleReviews < 5 && args.eligibleReviews > 0) {
+    alerts.push({
+      icon: <Star className="w-3.5 h-3.5" />,
+      tone: 'urgent',
+      title: `${args.eligibleReviews} pacientes elegíveis pra pedido de review automático`,
+      body: (
+        <>
+          Você tem <strong>{googleReviews} reviews no Google</strong> e <strong>{args.eligibleReviews} pacientes com NPS ≥ 9</strong> esperando.
+          Cada review sobe seu Score Singulare ~2 pontos e melhora ranking local. Custo: zero.
+        </>
+      ),
+      ctaLabel: 'Ativar pedidos de review',
+      ctaHref: '#review-section',
+    });
+  }
+
+  // Alert 5: Demografia surpreende (se disponível)
+  const demo = args.marketTrends?.demography?.[0];
+  if (demo?.age) {
+    const youngerShare = (demo.age['18-24'] ?? 0) + (demo.age['25-34'] ?? 0);
+    if (youngerShare > 50) {
+      alerts.push({
+        icon: <Users className="w-3.5 h-3.5" />,
+        tone: 'info',
+        title: 'Audiência mais jovem do que você imagina',
+        body: (
+          <>
+            <strong>{Math.round(youngerShare)}%</strong> das pessoas que buscam sua especialidade têm 18-34 anos
+            ({demo.gender.female > 50 ? `${Math.round(demo.gender.female)}% mulheres` : 'gênero balanceado'}).
+            Conteúdo precisa falar com esse perfil — primeira pessoa, jornada do paciente, tom emocional.
+          </>
+        ),
+        ctaLabel: 'Ver detalhes',
+        ctaHref: '#trends-section',
+      });
+    }
+  }
+
+  return alerts;
+}
+
+function ActivationOpportunitiesCard({ alerts }: { alerts: ActivationAlert[] }) {
+  if (alerts.length === 0) return null;
+
+  const toneColors = {
+    urgent: { bg: '#fef2f2', border: 'rgba(239,68,68,0.25)', accent: '#dc2626', label: 'Urgente' },
+    opportunity: { bg: '#f5f3ff', border: 'rgba(110,86,207,0.25)', accent: ACCENT_DEEP, label: 'Oportunidade' },
+    info: { bg: '#fefce8', border: 'rgba(245,158,11,0.25)', accent: '#b45309', label: 'Insight' },
+  };
+
+  return (
+    <motion.div variants={fadeUp}>
+      <div className="flex items-center gap-2 mb-3">
+        <Zap className="w-3.5 h-3.5" style={{ color: ACCENT }} />
+        <p className="text-[10px] uppercase tracking-[0.14em] font-semibold" style={{ color: ACCENT }}>
+          Oportunidades de ativação
+        </p>
+        <span className="text-[10px] tabular-nums px-1.5 py-0.5 rounded-full" style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}>
+          {alerts.length}
+        </span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {alerts.map((a, i) => {
+          const c = toneColors[a.tone];
+          return (
+            <div
+              key={i}
+              className="rounded-xl p-4 relative overflow-hidden"
+              style={{ background: c.bg, border: `1px solid ${c.border}` }}
+            >
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-md" style={{ background: c.accent, color: 'white' }}>
+                  {a.icon}
+                </span>
+                <span className="text-[9px] font-bold tracking-[0.1em] uppercase" style={{ color: c.accent }}>
+                  {c.label}
+                </span>
+              </div>
+              <p className="text-[13px] font-semibold leading-tight text-zinc-900 mb-1.5">{a.title}</p>
+              <p className="text-[12px] text-zinc-600 leading-relaxed mb-3">{a.body}</p>
+              {a.ctaHref ? (
+                <Link
+                  href={a.ctaHref}
+                  className="inline-flex items-center gap-1 text-[12px] font-semibold transition-colors hover:underline"
+                  style={{ color: c.accent }}
+                >
+                  {a.ctaLabel} <ChevronRight className="w-3 h-3" />
+                </Link>
+              ) : (
+                <button
+                  onClick={a.ctaOnClick}
+                  className="inline-flex items-center gap-1 text-[12px] font-semibold transition-colors hover:underline"
+                  style={{ color: c.accent }}
+                >
+                  {a.ctaLabel} <ChevronRight className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── MarketTrends ─────────────────────────────────────────────────────────────
 interface MarketTrends {
   is_mock: boolean;
@@ -929,6 +1131,17 @@ function MarketingInner() {
               </div>
             </div>
           </motion.div>
+
+          {/* Bloco 1.5 — Oportunidades de ativação (insights close-to-action) */}
+          <ActivationOpportunitiesCard
+            alerts={buildActivationAlerts({
+              scoreData,
+              regionDemand,
+              marketTrends,
+              posts,
+              eligibleReviews,
+            })}
+          />
 
           {/* Bloco 2 — O que está te travando */}
           {sortedRecs.length > 0 && (
