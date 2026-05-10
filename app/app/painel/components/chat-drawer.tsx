@@ -18,6 +18,7 @@ interface ActionCard {
   detail?: string;
   confirm_label?: string;
   cancel_label?: string;
+  confirmation_phrase?: string;  // se presente, painel exige digitação literal antes de habilitar confirm
 }
 
 interface Msg {
@@ -44,6 +45,7 @@ function extractCards(raw: string): { text: string; cards: ActionCard[] } {
           detail: parsed.detail ? String(parsed.detail) : undefined,
           confirm_label: parsed.confirm_label ? String(parsed.confirm_label) : 'Confirmar',
           cancel_label: parsed.cancel_label ? String(parsed.cancel_label) : 'Cancelar',
+          confirmation_phrase: parsed.confirmation_phrase ? String(parsed.confirmation_phrase) : undefined,
         });
         return '';
       }
@@ -53,6 +55,92 @@ function extractCards(raw: string): { text: string; cards: ActionCard[] } {
     return '';
   }).trim();
   return { text, cards };
+}
+
+// Acha o índice imediatamente após o bracket balanceado iniciado em `start`.
+// Respeita strings JSON (escapes incluídos). Retorna -1 se não fechar (streaming
+// parcial).
+function findBalancedBracket(s: string, start: number): number {
+  const open = s[start];
+  if (open !== '{' && open !== '[') return -1;
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (esc) { esc = false; continue; }
+    if (c === '\\') { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{' || c === '[') depth++;
+    else if (c === '}' || c === ']') {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return -1;
+}
+
+// Tira do streaming bruto o que não é resposta natural: anúncios de tool call
+// ("Calling X with input: {...}", "Calling tools: X, Y") e o JSON cru de
+// retorno das tools ("[{"ok":...}]", "{"ok":..."). Markers só são
+// reconhecidos no início de linha (evita falso positivo). Durante streaming
+// parcial, se um bloco abriu mas não fechou, devolve só o que acumulou até
+// ali — segura nos TypingDots em vez de piscar meio-JSON.
+function sanitizeAiText(raw: string): string {
+  if (!raw) return '';
+  const atLineStart = (idx: number) => idx === 0 || raw[idx - 1] === '\n';
+  let result = '';
+  let i = 0;
+  while (i < raw.length) {
+    if (atLineStart(i)) {
+      const slice = raw.slice(i);
+
+      if (slice.startsWith('Calling')) {
+        const callMatch = slice.match(/^Calling\s+[\w_]+\s+with\s+input:\s*/);
+        if (callMatch) {
+          const jsonStart = i + callMatch[0].length;
+          const ch = raw[jsonStart];
+          if (ch === '{' || ch === '[') {
+            const end = findBalancedBracket(raw, jsonStart);
+            if (end === -1) return result.replace(/\s+$/, '');
+            i = end;
+            if (raw[i] === '\n') i++;
+            continue;
+          }
+          return result.replace(/\s+$/, '');
+        }
+        const toolsMatch = slice.match(/^Calling tools:[^\n]*\n/);
+        if (toolsMatch) {
+          i += toolsMatch[0].length;
+          continue;
+        }
+        return result.replace(/\s+$/, '');
+      }
+
+      const ch = raw[i];
+      if (ch === '[' || ch === '{') {
+        const end = findBalancedBracket(raw, i);
+        if (end !== -1) {
+          const content = raw.slice(i, end);
+          if (/"ok"\s*:|"tool"\s*:|"summary"\s*:|"data"\s*:/.test(content)) {
+            i = end;
+            if (raw[i] === '\n') i++;
+            continue;
+          }
+        } else {
+          const peek = raw.slice(i, i + 60);
+          if (/^[\[{]\s*\{?\s*"(ok|tool|summary|data)"/.test(peek)) {
+            return result.replace(/\s+$/, '');
+          }
+        }
+      }
+    }
+
+    result += raw[i];
+    i++;
+  }
+  return result.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 const SUGGESTIONS = [
@@ -274,12 +362,11 @@ export default function ChatDrawer() {
     setMessages((prev) =>
       prev.map((m) => {
         if (m.id !== id) return m;
-        // Durante streaming, ainda mostra texto bruto. Quando contém marker fechado, extrai cards.
         if (text.includes('[[/CARD]]')) {
           const { text: clean, cards } = extractCards(text);
-          return { ...m, text: clean, cards: cards.length ? cards : m.cards };
+          return { ...m, text: sanitizeAiText(clean), cards: cards.length ? cards : m.cards };
         }
-        return { ...m, text };
+        return { ...m, text: sanitizeAiText(text) };
       })
     );
   };
@@ -736,9 +823,12 @@ function ActionCardView({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const [phraseTyped, setPhraseTyped] = useState('');
   const isDone = status === 'done';
   const isCancelled = status === 'cancelled';
   const isExec = status === 'executing';
+  const requiresPhrase = !!card.confirmation_phrase;
+  const phraseOk = !requiresPhrase || phraseTyped.trim() === card.confirmation_phrase;
   return (
     <div
       className="max-w-[88%] w-full rounded-2xl border bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] overflow-hidden"
@@ -760,24 +850,40 @@ function ActionCardView({
         </div>
       )}
       {!isDone && !isCancelled && (
-        <div className="px-4 py-3 border-t flex gap-2" style={{ borderColor: '#0000000A' }}>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isExec}
-            className="flex-1 h-9 rounded-lg text-[13px] font-semibold text-white disabled:opacity-60 transition-all hover:brightness-110"
-            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
-          >
-            {isExec ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (card.confirm_label ?? 'Confirmar')}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isExec}
-            className="h-9 px-4 rounded-lg text-[13px] font-medium text-zinc-700 hover:bg-black/[0.04] disabled:opacity-60 transition-colors"
-          >
-            {card.cancel_label ?? 'Cancelar'}
-          </button>
+        <div className="px-4 py-3 border-t" style={{ borderColor: '#0000000A' }}>
+          {requiresPhrase && (
+            <div className="mb-3">
+              <label className="text-xs text-zinc-400 block mb-1">
+                Pra confirmar, digite: <code className="font-mono">{card.confirmation_phrase}</code>
+              </label>
+              <input
+                type="text"
+                value={phraseTyped}
+                onChange={(e) => setPhraseTyped(e.target.value)}
+                className="w-full rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm font-mono text-zinc-100"
+                placeholder="Digite a frase exata"
+              />
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={isExec || !phraseOk}
+              className="flex-1 h-9 rounded-lg text-[13px] font-semibold text-white disabled:opacity-60 transition-all hover:brightness-110"
+              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+            >
+              {isExec ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (card.confirm_label ?? 'Confirmar')}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isExec}
+              className="h-9 px-4 rounded-lg text-[13px] font-medium text-zinc-700 hover:bg-black/[0.04] disabled:opacity-60 transition-colors"
+            >
+              {card.cancel_label ?? 'Cancelar'}
+            </button>
+          </div>
         </div>
       )}
     </div>

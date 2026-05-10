@@ -620,6 +620,7 @@ export interface ProposalCard {
   detail?: string;
   confirm_label?: string;
   cancel_label?: string;
+  confirmation_phrase?: string;  // se presente, painel exige digitação literal antes de habilitar confirm
   action: { tool: string; params: Record<string, unknown> };
 }
 
@@ -1190,6 +1191,76 @@ const bloquearHorario: WriteHandler = {
 };
 
 // ──────────────────────────────────────────────────────────────────────
+// working_hours_atualizar — altera a rotina semanal fixa do médico.
+// Requer digitação literal da frase de confirmação no painel.
+// Trigger trg_doctor_prompt_rebuild regenera rendered_prompt automaticamente.
+// ──────────────────────────────────────────────────────────────────────
+
+const workingHoursAtualizar: WriteHandler = {
+  async propose(params, ctx) {
+    const day = String(params.day ?? '');
+    const hours = String(params.hours ?? '');
+    const VALID_DAYS = ['seg','ter','qua','qui','sex','sab','dom'];
+    if (!VALID_DAYS.includes(day)) return { ok: false, summary: `day inválido (esperado: ${VALID_DAYS.join('|')}).` };
+    if (hours !== 'fechado' && !/^\d{1,2}:\d{2}-\d{1,2}:\d{2}$/.test(hours)) {
+      return { ok: false, summary: 'hours deve ser "HH:MM-HH:MM" ou "fechado".' };
+    }
+
+    const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
+    if (!scope.doctor_id) return { ok: false, summary: 'Sem médico no escopo.' };
+
+    const admin = supabaseAdmin();
+    const { data: doc } = await admin
+      .from('tenant_doctors')
+      .select('id, doctor_name, working_hours')
+      .eq('id', scope.doctor_id).eq('tenant_id', ctx.tenant_id).maybeSingle();
+    if (!doc) return { ok: false, summary: 'Médico não encontrado.' };
+
+    const wh = (doc.working_hours as Record<string, unknown>) ?? {};
+    const before = String(wh[day] ?? 'fechado');
+
+    return {
+      ok: true,
+      summary: `Mudar ${day} de "${before}" → "${hours}"?`,
+      card: {
+        summary: `Atualizar horário fixo`,
+        detail: `Médico: ${doc.doctor_name}\nDia: ${day}\nAntes: ${before}\nDepois: ${hours}\n\nIMPACTO: o agente WhatsApp passa a informar este novo horário aos pacientes.`,
+        confirm_label: 'Aplicar mudança',
+        cancel_label: 'Voltar',
+        confirmation_phrase: 'CONFIRMAR MUDANCA HORARIO',
+        action: {
+          tool: 'working_hours_atualizar',
+          params: { day, hours, doctor_id: scope.doctor_id },
+        },
+      },
+      data: { before, after: hours },
+    };
+  },
+
+  async execute(params, ctx) {
+    const day = String(params.day);
+    const hours = String(params.hours);
+    const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
+    if (!scope.doctor_id) return { ok: false, summary: 'Sem médico no escopo.' };
+
+    const admin = supabaseAdmin();
+    const { data: doc } = await admin
+      .from('tenant_doctors')
+      .select('working_hours')
+      .eq('id', scope.doctor_id).eq('tenant_id', ctx.tenant_id).maybeSingle();
+    const wh = { ...((doc?.working_hours as Record<string, unknown>) ?? {}) };
+    wh[day] = hours;
+    const { error } = await admin
+      .from('tenant_doctors')
+      .update({ working_hours: wh, updated_at: new Date().toISOString() })
+      .eq('id', scope.doctor_id).eq('tenant_id', ctx.tenant_id);
+    if (error) return { ok: false, summary: 'Falha ao atualizar.', error: error.message };
+    // Trigger trg_doctor_prompt_rebuild regenera rendered_prompt automaticamente.
+    return { ok: true, summary: `${day} agora é "${hours}". Prompt do WhatsApp regenerado.`, data: { day, hours } };
+  },
+};
+
+// ──────────────────────────────────────────────────────────────────────
 // medicos_listar — sempre respeita scope: doctor vê só ele mesmo,
 // admin/owner/staff vê todos os médicos do tenant.
 // ──────────────────────────────────────────────────────────────────────
@@ -1267,6 +1338,7 @@ export const WRITE_HANDLERS: Record<string, WriteHandler> = {
   documento_gerar: documentoGerar,
   documento_assinar: documentoAssinar,
   bloquear_horario: bloquearHorario,
+  working_hours_atualizar: workingHoursAtualizar,
 };
 
 export function getHandler(name: string): Handler | null {

@@ -255,6 +255,17 @@ export const TOOL_CATALOG: ToolDef[] = [
       doctor_id: { type: 'string', description: 'UUID do médico (admin/owner; doctor é o próprio)' },
     },
   },
+  {
+    name: 'working_hours_atualizar',
+    description: 'Atualiza working_hours[dia] do médico (mudança PERMANENTE da rotina semanal). Para ausência pontual use bloquear_horario. Aviso ao usuário: muda o que o agente WhatsApp informa aos pacientes.',
+    mode: 'write',
+    min_role: 'doctor',
+    params: {
+      day:    { type: 'enum', required: true, enum: ['seg','ter','qua','qui','sex','sab','dom'], description: 'Dia da semana' },
+      hours:  { type: 'string', required: true, description: '"HH:MM-HH:MM" ou "fechado"' },
+      doctor_id: { type: 'string', description: 'UUID (admin/owner; doctor é o próprio)' },
+    },
+  },
 ];
 
 export function getToolDef(name: string): ToolDef | null {
@@ -277,6 +288,7 @@ const PARAM_ALIASES: Record<string, Record<string, string>> = {
   paciente_criar:    { nome: 'name', telefone: 'phone', data_nascimento: 'birthdate', nascimento: 'birthdate' },
   cobranca_avulsa:   { valor_reais: 'valor', metodo_pagamento: 'metodo' },
   bloquear_horario:  { inicio: 'start', fim: 'end', motivo: 'reason' },
+  working_hours_atualizar: { dia: 'day', horario: 'hours', horarios: 'hours' },
 };
 
 export function normalizeParams(
