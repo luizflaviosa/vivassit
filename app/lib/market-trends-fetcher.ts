@@ -165,8 +165,18 @@ export async function refreshMarketTrendsForTenant(supabase: SB, tenantId: strin
       date_to: today(),
     }]);
 
+    const exploreTaskStatus = exploreRes.tasks?.[0]?.status_code;
     const exploreItem = exploreRes.tasks?.[0]?.result?.[0]?.items?.find((i: { type: string }) => i.type === 'dataforseo_trends_graph');
     const exploreSection: ExploreSection = exploreItem ? buildExploreSection(exploreKeywords, exploreItem.data ?? []) : emptyExplore(exploreKeywords);
+
+    // Guard: DFS explore falhou (40501 rate limit, 5xx, etc) ou devolveu série vazia.
+    // Não persistir lixo — devolver erro pro caller pra mantermos snapshot bom anterior.
+    if (exploreTaskStatus !== 20000 || exploreSection.series.length === 0) {
+      return {
+        status: 'error',
+        reason: `dfs explore failed: status=${exploreTaskStatus} series_len=${exploreSection.series.length}`,
+      };
+    }
 
     // 2) Subregion interests pra keyword principal (especialidade)
     const subregionRes = await callTrends(login, password, '/v3/keywords_data/dataforseo_trends/subregion_interests/live', [{
@@ -231,14 +241,24 @@ export async function refreshMarketTrendsForTenant(supabase: SB, tenantId: strin
 }
 
 export async function loadLatestMarketTrends(supabase: SB, tenantId: string): Promise<MarketTrendsPayload | null> {
+  // Pega últimos 5 snapshots e prefere o mais recente com série não-vazia.
+  // Defesa contra rows com explore vazio (DFS rate-limit/falha transiente)
+  // que poderiam ter sido gravadas antes do guard atual.
   const { data } = await supabase
     .from('tenant_market_trends_history')
     .select('payload, collected_at')
     .eq('tenant_id', tenantId)
     .order('collected_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return (data?.payload as MarketTrendsPayload) ?? null;
+    .limit(5);
+
+  if (!data || data.length === 0) return null;
+
+  const firstNonEmpty = data.find(row => {
+    const p = row.payload as MarketTrendsPayload | null;
+    return p?.explore?.series && p.explore.series.length > 0;
+  });
+
+  return ((firstNonEmpty ?? data[0]).payload as MarketTrendsPayload) ?? null;
 }
 
 export function ephemeralMarketTrendsMock(specialty: string, city: string, doctorName?: string | null): MarketTrendsPayload {
