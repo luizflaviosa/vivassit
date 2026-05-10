@@ -11,6 +11,7 @@
 import { supabaseAdmin } from './supabase';
 import { deleteEvent, updateEvent } from './google-calendar';
 import type { AgentRole } from './internal-agent-tools';
+import { calcAvailableSlots } from './agenda-availability';
 
 // Lookup interno: pega calendar_id do doctor pra propagar mudança no Google.
 async function getDoctorCalendarId(tenantId: string, doctorId: string): Promise<string | null> {
@@ -524,6 +525,90 @@ const documentosListar: Handler = async (params, ctx) => {
   };
 };
 
+const horariosLivres: Handler = async (params, ctx) => {
+  const startStr = String(params.start ?? '');
+  const endStr = String(params.end ?? '');
+  if (!startStr || !endStr) {
+    return { ok: false, summary: 'Faltam start e end (YYYY-MM-DD).' };
+  }
+  const start = new Date(`${startStr}T00:00:00-03:00`);
+  const end = new Date(`${endStr}T23:59:59-03:00`);
+  if (isNaN(+start) || isNaN(+end)) {
+    return { ok: false, summary: 'Datas inválidas.' };
+  }
+  const diffDays = Math.floor((+end - +start) / 86_400_000);
+  if (diffDays < 0 || diffDays > 28) {
+    return { ok: false, summary: 'Janela inválida (0-28 dias).' };
+  }
+  const slotMinutes = Math.max(15, Math.min(120, Number(params.slot_minutes ?? 30)));
+
+  const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
+  const admin = supabaseAdmin();
+
+  // Resolve médico(s) e working_hours
+  let doctorsQuery = admin
+    .from('tenant_doctors')
+    .select('id, doctor_name, working_hours')
+    .eq('tenant_id', ctx.tenant_id)
+    .eq('active', true);
+  if (scope.doctor_id) doctorsQuery = doctorsQuery.eq('id', scope.doctor_id);
+  const { data: doctors, error: docErr } = await doctorsQuery;
+  if (docErr) return { ok: false, summary: 'Erro ao buscar médicos', error: docErr.message };
+  if (!doctors || doctors.length === 0) {
+    return { ok: true, summary: 'Nenhum médico encontrado.', data: { slots: [], total: 0 } };
+  }
+
+  const result: Array<{ doctor_id: string; doctor_name: string; start: string; end: string }> = [];
+
+  for (const doc of doctors) {
+    // Bookings ocupados
+    const { data: bookings } = await admin
+      .from('doctor_bookings')
+      .select('slot_start, slot_end')
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('doctor_id', doc.id)
+      .neq('status', 'cancelled')
+      .gte('slot_start', start.toISOString())
+      .lte('slot_start', end.toISOString());
+
+    // Bloqueios
+    const { data: blocks } = await admin
+      .from('doctor_schedule_blocks')
+      .select('start_at, end_at')
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('doctor_id', doc.id)
+      .gte('start_at', start.toISOString())
+      .lte('start_at', end.toISOString());
+
+    const busy = [
+      ...(bookings ?? []).map((b) => ({ start: new Date(b.slot_start), end: new Date(b.slot_end) })),
+      ...(blocks ?? []).map((b) => ({ start: new Date(b.start_at), end: new Date(b.end_at) })),
+    ];
+
+    const free = calcAvailableSlots({
+      start, end,
+      workingHours: (doc.working_hours as Record<string, unknown>) ?? {},
+      busy,
+      slotMinutes,
+    });
+
+    for (const s of free) {
+      result.push({
+        doctor_id: doc.id,
+        doctor_name: doc.doctor_name,
+        start: s.start.toISOString(),
+        end: s.end.toISOString(),
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    summary: `${result.length} slot(s) livre(s) entre ${startStr} e ${endStr}.`,
+    data: { slots: result, total: result.length },
+  };
+};
+
 // ──────────────────────────────────────────────────────────────────────
 // WRITE HANDLERS (Sprint 2)
 // Cada write tem .propose() (preview, sem mutação) e .execute() (mutação real).
@@ -955,6 +1040,7 @@ export const HANDLERS: Record<string, Handler> = {
   reviews_externos: reviewsExternos,
   documentos_listar: documentosListar,
   medicos_listar: medicosListar,
+  horarios_livres: horariosLivres,
 };
 
 export const WRITE_HANDLERS: Record<string, WriteHandler> = {

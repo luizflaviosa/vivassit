@@ -71,6 +71,18 @@ export const TOOL_CATALOG: ToolDef[] = [
     },
   },
   {
+    name: 'horarios_livres',
+    description: 'Lista slots livres (default 30min) num intervalo, intersectando working_hours menos consultas e bloqueios. Use pra "tem vaga", "horários livres", "quando posso encaixar".',
+    mode: 'read',
+    min_role: 'viewer',
+    params: {
+      start: { type: 'date', required: true, description: 'Data inicial ISO YYYY-MM-DD' },
+      end:   { type: 'date', required: true, description: 'Data final ISO YYYY-MM-DD (inclusiva, máx 28 dias após start)' },
+      slot_minutes: { type: 'number', default: 30, description: 'Granularidade dos slots em minutos (default 30)' },
+      doctor_id: { type: 'string', description: 'UUID do médico (admin/owner pode filtrar; doctor é sempre filtrado pelo próprio)' },
+    },
+  },
+  {
     name: 'medicos_listar',
     description: 'Lista médicos ativos do tenant. Doctor vê apenas o próprio; admin/owner/staff vê todos. Use antes de filtrar agenda/documentos por nome de médico pra resolver doctor_id.',
     mode: 'read',
