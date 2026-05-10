@@ -3,13 +3,34 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { requireTenant } from '@/lib/auth-tenant';
 import { listEvents, createEvent, getServiceAccountEmail } from '@/lib/google-calendar';
 
-// Lista eventos do Google Calendar de UM doctor específico (ou primário do tenant).
+// Lista eventos do calendário do doctor primário (ou ?doctor=id).
 //
-// Arquitetura nova:
-//   - Login do painel é independente (sem scope calendar.readonly)
-//   - Usa Service Account compartilhado (env GOOGLE_SERVICE_ACCOUNT_JSON)
-//   - calendar_id vem de tenant_doctors.calendar_id (ou ?doctor=ID na query)
-//   - Se múltiplos doctors, frontend mostra dropdown e passa ?doctor=ID
+// Fonte de dados:
+//   - Default: tenant_calendar_events (DB local, ~10x mais rápido)
+//   - Fallback: Google Calendar API direto (?source=gcal ou se DB vazio)
+//
+// O sync DB ↔ GCal acontece via webhook /api/webhooks/google-calendar em <5s
+// pra qualquer mudança. Painel passa a ler DB pra:
+//   - Velocidade (~50ms vs ~500ms da Google API)
+//   - Funcionar mesmo se Google API estiver fora
+//   - JOIN com doctor_bookings pra mostrar dados do paciente direto
+
+interface EventRow {
+  event_id: string;
+  summary: string | null;
+  description: string | null;
+  event_start: string;
+  event_end: string;
+  source: string | null;
+  booking_id: string | null;
+  calendar_id: string | null;
+  doctor_bookings: {
+    id: string;
+    patient_name: string | null;
+    patient_phone: string | null;
+    status: string;
+  } | null;
+}
 
 export async function GET(req: NextRequest) {
   const auth = await requireTenant();
@@ -19,6 +40,7 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const doctorIdParam = url.searchParams.get('doctor');
+  const sourceParam = url.searchParams.get('source'); // 'db' | 'gcal'
   const daysBack = parseInt(url.searchParams.get('back') ?? '7', 10);
   const daysForward = parseInt(url.searchParams.get('forward') ?? '60', 10);
 
@@ -55,6 +77,58 @@ export async function GET(req: NextRequest) {
   const timeMin = new Date(Date.now() - daysBack * 86_400_000).toISOString();
   const timeMax = new Date(Date.now() + daysForward * 86_400_000).toISOString();
 
+  // ── Caminho default: lê do DB (rápido, com info do paciente) ──
+  if (sourceParam !== 'gcal') {
+    const { data, error } = await supabase
+      .from('tenant_calendar_events')
+      .select(
+        'event_id, summary, description, event_start, event_end, source, booking_id, calendar_id, doctor_bookings(id, patient_name, patient_phone, status)',
+      )
+      .eq('doctor_id', doctor.id)
+      .gte('event_end', timeMin)
+      .lt('event_start', timeMax)
+      .order('event_start', { ascending: true })
+      .returns<EventRow[]>();
+
+    if (!error && data && data.length > 0) {
+      // Normaliza pro shape que o frontend espera (compatível com listEvents output)
+      const events = data.map((ev) => {
+        const booking = ev.doctor_bookings;
+        const isCancelled = booking?.status === 'cancelled';
+        return {
+          id: ev.event_id,
+          title: ev.summary ?? '(sem título)',
+          description: ev.description ?? null,
+          location: null,
+          start: ev.event_start,
+          end: ev.event_end,
+          all_day: ev.summary?.toLowerCase().includes('dia todo') ?? false,
+          attendees: booking?.patient_name ? [booking.patient_name] : [],
+          status: isCancelled ? 'cancelled' : 'confirmed',
+          link: `https://calendar.google.com/calendar/event?eid=${ev.event_id}`,
+          meet_link: null,
+          color_id: null,
+          color_hex: booking ? '#5746AF' /* roxo Singulare pra consultas */ : null,
+          // Extras: úteis pro UI distinguir consulta vs bloco
+          booking_id: ev.booking_id,
+          patient_phone: booking?.patient_phone ?? null,
+          source: ev.source,
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        events,
+        doctor: { id: doctor.id, name: doctor.doctor_name, calendar_id: doctor.calendar_id },
+        window: { from: timeMin, to: timeMax },
+        source: 'db',
+        count: events.length,
+      });
+    }
+    // Fall-through pra GCal se DB vazio ou erro (resiliência durante warmup)
+  }
+
+  // ── Caminho fallback: Google Calendar direto ──
   const result = await listEvents({
     calendarId: doctor.calendar_id,
     timeMin,
@@ -90,6 +164,8 @@ export async function GET(req: NextRequest) {
     events: result.events,
     doctor: { id: doctor.id, name: doctor.doctor_name, calendar_id: doctor.calendar_id },
     window: { from: timeMin, to: timeMax },
+    source: 'gcal',
+    count: result.events.length,
   });
 }
 
