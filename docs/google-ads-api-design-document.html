@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Singulare — Google Ads API Tool Design Document</title>
+<style>
+  body { font-family: Helvetica, Arial, sans-serif; line-height: 1.55; max-width: 720px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; }
+  h1 { font-size: 22px; border-bottom: 2px solid #333; padding-bottom: 8px; margin-top: 0; }
+  h2 { font-size: 17px; margin-top: 28px; color: #1a1a1a; }
+  h3 { font-size: 14px; margin-top: 18px; color: #333; }
+  p, li { font-size: 12px; }
+  code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; font-size: 11px; font-family: Menlo, Monaco, monospace; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  .meta { font-size: 11px; color: #666; margin-bottom: 24px; }
+  .meta strong { color: #1a1a1a; }
+  hr { border: 0; border-top: 1px solid #ddd; margin: 24px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 11px; }
+  th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>Singulare — Google Ads API Tool Design Document</h1>
+
+<div class="meta">
+  <p>
+    <strong>Submitted to:</strong> Google Ads API Access Review<br>
+    <strong>Manager Account (MCC) ID:</strong> 131-855-2890<br>
+    <strong>Application date:</strong> 2026-05-09<br>
+    <strong>Tool name:</strong> Singulare Marketing Intelligence
+  </p>
+</div>
+
+<hr>
+
+<h2>1. Company &amp; Tool Overview</h2>
+
+<p><strong>Singulare</strong> is a B2B SaaS platform for medical clinics in Brazil. We provide a unified dashboard combining clinic operations (appointment management, patient communications via WhatsApp, electronic medical documents, automated patient review collection via NPS) and marketing intelligence (online presence score, social media post generation, search demand insights for the clinic's medical specialty within its city/region).</p>
+
+<p>Our typical user is a medical clinic owner or manager — non-technical healthcare professional. We currently serve approximately 50–200 clinics, with steady growth.</p>
+
+<ul>
+  <li><strong>Application URL:</strong> <code>https://app.singulare.org</code></li>
+  <li><strong>Privacy policy:</strong> <code>https://app.singulare.org/privacidade</code></li>
+  <li><strong>Terms of service:</strong> <code>https://app.singulare.org/termos</code></li>
+</ul>
+
+<h2>2. Purpose of Google Ads API Access</h2>
+
+<p>We will use <strong>only</strong> the Keyword Plan Idea Service of the Google Ads API to provide aggregated, regional search-volume insights to our medical-clinic customers as part of a "Market Intelligence" feature in their dashboard.</p>
+
+<p>We are <strong>not</strong> building an advertising campaign management tool. We will not create, modify, pause, resume, or report on Google Ads campaigns via the API.</p>
+
+<h3>2.1 Methods used</h3>
+<ul>
+  <li><code>KeywordPlanIdeaService.generateKeywordIdeas</code></li>
+  <li><code>KeywordPlanIdeaService.generateKeywordHistoricalMetrics</code></li>
+  <li><code>CustomerService.listAccessibleCustomers</code> (sanity checks only)</li>
+</ul>
+
+<h3>2.2 Data fields consumed</h3>
+<p>For each keyword:</p>
+<ul>
+  <li><code>avgMonthlySearches</code></li>
+  <li><code>lowTopOfPageBidMicros</code> / <code>highTopOfPageBidMicros</code> (CPC range)</li>
+  <li><code>competition</code>, <code>competitionIndex</code></li>
+  <li><code>monthlySearchVolumes</code> (for trend visualization)</li>
+</ul>
+
+<h2>3. User-Facing Feature</h2>
+
+<p>In the customer dashboard, the user (clinic owner/manager) sees a card titled <strong>"Oportunidade na sua região"</strong> (<em>Opportunity in your region</em>) that displays:</p>
+
+<ul>
+  <li>Number of monthly searches in their city for their specialty (e.g., "1,400 searches/month for 'reumatologista' in Jundiaí")</li>
+  <li>Average CPC range</li>
+  <li>Top related queries with volume</li>
+</ul>
+
+<p>This is <strong>read-only display</strong>. There is no UI that triggers Google Ads campaigns or modifies any campaign data.</p>
+
+<p>The clinic owner uses this data to inform their content/marketing strategy — for example, deciding to publish blog posts about high-volume conditions or to evaluate whether running paid ads is worthwhile (campaigns themselves are managed by the clinic separately, outside our platform).</p>
+
+<h2>4. Architecture and Data Flow</h2>
+
+<h3>4.1 Authentication</h3>
+<ul>
+  <li>OAuth 2.0 server-to-server flow</li>
+  <li>Single refresh token (stored as encrypted environment variable on Vercel)</li>
+  <li>Token belongs to the Singulare admin Google account that has access to the Manager (131-855-2890)</li>
+  <li>Each API request includes:
+    <ul>
+      <li><code>Authorization: Bearer &lt;access_token&gt;</code> (refreshed as needed)</li>
+      <li><code>developer-token: &lt;approved-developer-token&gt;</code></li>
+      <li><code>login-customer-id: 1318552890</code> (Manager)</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>4.2 Server architecture</h3>
+<ul>
+  <li>Backend: Next.js 14 deployed on Vercel</li>
+  <li>Database: Supabase Postgres</li>
+  <li>All Google Ads API calls are made server-side from <code>lib/google-ads.ts</code> helpers</li>
+  <li>No client-side calls to Google Ads API</li>
+</ul>
+
+<h3>4.3 Caching</h3>
+<p>To minimize API call volume:</p>
+<ul>
+  <li>API responses cached in <code>tenant_region_demand_cache</code> table (Postgres) with 30-day TTL</li>
+  <li>A monthly Vercel cron job refreshes data for all active tenants</li>
+  <li>Manual refresh available via "atualizar" button (admin role only) — bounded by 30-day TTL</li>
+</ul>
+
+<h3>4.4 Rate-limit and quota plan</h3>
+<ul>
+  <li>Estimated volume: under 1,000 API operations per day</li>
+  <li>Concurrency limit: 3 parallel requests</li>
+  <li>Exponential backoff on rate-limit errors (429) and transient errors (500/503)</li>
+</ul>
+
+<h2>5. Data Storage and Privacy</h2>
+
+<ul>
+  <li>API responses are cached in our Supabase Postgres database with row-level security</li>
+  <li>Data is associated with <code>tenant_id</code> (clinic ID), not with patient or doctor PII</li>
+  <li>Keywords queried are medical-specialty terms — not patient-specific or commercially sensitive</li>
+  <li>We do not share Google Ads API data with third parties</li>
+  <li>We do not combine Google Ads API data with personally identifiable information of patients</li>
+  <li>Compliance with Brazilian LGPD (Lei Geral de Proteção de Dados)</li>
+</ul>
+
+<h2>6. Compliance with Google Ads API Policies</h2>
+
+<p>We commit to:</p>
+<ul>
+  <li><strong>Required Minimum Functionality (RMF):</strong> while we do not build a campaign management tool, our use of read-only Keyword Planner is consistent with the Allowed Use Cases policy</li>
+  <li><strong>Google Ads API Terms of Service:</strong> full compliance</li>
+  <li><strong>Privacy &amp; Security:</strong> data encrypted in transit (HTTPS), refresh tokens stored in encrypted environment variable system (Vercel)</li>
+  <li><strong>No prohibited use cases:</strong> no scraping, no automation that violates Google policies, no resale of API data</li>
+</ul>
+
+<h2>7. Access Control</h2>
+
+<ul>
+  <li>The Google Ads API token is used <strong>only</strong> by Singulare's server backend, not exposed to end users</li>
+  <li>Clinic users (external) view aggregated insights through Singulare's dashboard</li>
+  <li>Internal access to environment variables and tokens is limited to Singulare administrators</li>
+</ul>
+
+<h2>8. Future Plans</h2>
+
+<p><strong>Scope of this application:</strong> Keyword Planning Services only — read-only access to keyword search-volume, CPC, and competition data via the Keyword Plan Idea Service.</p>
+
+<p><strong>Possible future expansion (not part of this application):</strong></p>
+<ul>
+  <li>We may, in a future release, build a feature that helps our clinic customers run Google Search campaigns directly from our platform (campaign creation, management, and reporting).</li>
+  <li>When that feature is built and ready for review, we will submit a <strong>separate application</strong> with updated design documentation and UI screenshots, requesting expanded capabilities (Campaign Creation, Campaign Management, Reporting).</li>
+</ul>
+
+<p><strong>Out of scope (now and in foreseeable future):</strong></p>
+<ul>
+  <li>App Conversion Tracking or Remarketing API</li>
+  <li>Reselling, repackaging, or granting external developers access to our token</li>
+  <li>Account Creation</li>
+</ul>
+
+<h2>9. Contact</h2>
+
+<table>
+  <tr><th>API contact email</th><td>api@singulare.org (alternate: singulareempresa@gmail.com)</td></tr>
+  <tr><th>Manager Account (MCC) ID</th><td>131-855-2890</td></tr>
+  <tr><th>Singulare admin</th><td>Luiz Flavio Xavier de Sá</td></tr>
+  <tr><th>Application URL</th><td>https://app.singulare.org</td></tr>
+</table>
+
+<p style="margin-top: 32px; font-size: 11px; color: #666; text-align: center;"><em>End of design document.</em></p>
+
+</body>
+</html>
