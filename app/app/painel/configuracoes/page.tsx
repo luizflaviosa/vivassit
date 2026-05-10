@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import {
   Sparkles, Save, Loader2, Building2, Bot, ChevronDown, ChevronUp,
   Phone, MapPin, Receipt, MessageCircle, Music, Globe, Instagram,
+  Search, CheckCircle2, XCircle, Star,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import BackToChecklist from '../components/back-to-checklist';
@@ -85,6 +86,47 @@ function ConfigInner() {
 
   const setField = <K extends keyof FormData>(key: K, v: FormData[K]) =>
     setForm((f) => ({ ...f, [key]: v }));
+
+  // Auto-lookup Google Place ID a partir dos dados do tenant
+  const [placeLookupLoading, setPlaceLookupLoading] = useState(false);
+  const [placeLookupResult, setPlaceLookupResult] = useState<
+    | null
+    | { found: true; place: { place_id: string; name: string; formatted_address: string; rating?: number; user_ratings_total?: number } }
+    | { found: false; message: string; create_url?: string }
+    | { error: string; message: string }
+  >(null);
+
+  const lookupPlace = async () => {
+    setPlaceLookupLoading(true);
+    setPlaceLookupResult(null);
+    try {
+      const res = await fetch('/api/painel/google-place/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        setPlaceLookupResult({ error: json.error ?? 'erro', message: json.message ?? 'Erro ao buscar' });
+      } else if (json.found) {
+        setPlaceLookupResult({ found: true, place: json.place });
+      } else {
+        setPlaceLookupResult({ found: false, message: json.message, create_url: json.create_url });
+      }
+    } catch (e) {
+      setPlaceLookupResult({ error: 'network', message: (e as Error).message });
+    } finally {
+      setPlaceLookupLoading(false);
+    }
+  };
+
+  const acceptPlaceSuggestion = () => {
+    if (placeLookupResult && 'found' in placeLookupResult && placeLookupResult.found) {
+      setField('google_place_id', placeLookupResult.place.place_id);
+      toast.success('Place ID preenchido. Não esqueça de salvar.');
+      setPlaceLookupResult(null);
+    }
+  };
 
   useEffect(() => {
     if (!tenantId) {
@@ -312,18 +354,116 @@ function ConfigInner() {
           </div>
           <Field
             label="Google Place ID"
-            hint="Pega em google.com/business → Sobre a empresa → Place ID. Habilita o card de Reviews na Performance."
+            hint="Habilita o card de Reviews na Performance. Use o botão Buscar pra preencher automaticamente."
           >
-            <input
-              value={form.google_place_id}
-              onChange={(e) => setField('google_place_id', e.target.value)}
-              placeholder="ChIJxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              className={inputClasses()}
-            />
+            <div className="flex gap-2">
+              <input
+                value={form.google_place_id}
+                onChange={(e) => setField('google_place_id', e.target.value)}
+                placeholder="ChIJxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                className={inputClasses() + ' flex-1'}
+              />
+              <button
+                type="button"
+                onClick={lookupPlace}
+                disabled={placeLookupLoading}
+                className="px-3 h-10 inline-flex items-center gap-1.5 rounded-md text-[13px] font-semibold text-white hover:brightness-110 transition-all disabled:opacity-50"
+                style={{ background: ACCENT }}
+              >
+                {placeLookupLoading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando…
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-3.5 h-3.5" /> Buscar
+                  </>
+                )}
+              </button>
+            </div>
           </Field>
+
+          {/* Resultado da busca automática */}
+          {placeLookupResult && 'found' in placeLookupResult && placeLookupResult.found && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-700 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-semibold text-emerald-900">{placeLookupResult.place.name}</div>
+                  <div className="text-[12px] text-emerald-800 mt-0.5">{placeLookupResult.place.formatted_address}</div>
+                  {placeLookupResult.place.rating != null && (
+                    <div className="text-[12px] text-emerald-700 mt-1 inline-flex items-center gap-1">
+                      <Star className="w-3 h-3 fill-current" />
+                      {placeLookupResult.place.rating.toFixed(1)}
+                      {placeLookupResult.place.user_ratings_total != null && (
+                        <span className="text-emerald-600">({placeLookupResult.place.user_ratings_total} reviews)</span>
+                      )}
+                    </div>
+                  )}
+                  <div className="text-[11px] text-emerald-700 mt-1.5 font-mono break-all">{placeLookupResult.place.place_id}</div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={acceptPlaceSuggestion}
+                  className="px-3 h-9 rounded-md text-[12px] font-semibold text-white hover:brightness-110"
+                  style={{ background: ACCENT }}
+                >
+                  Usar este
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlaceLookupResult(null)}
+                  className="px-3 h-9 rounded-md text-[12px] font-medium text-zinc-600 hover:bg-zinc-100"
+                >
+                  Não é esse
+                </button>
+              </div>
+            </div>
+          )}
+
+          {placeLookupResult && 'found' in placeLookupResult && !placeLookupResult.found && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+              <div className="flex items-start gap-2.5">
+                <XCircle className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <div className="text-[13px] font-semibold text-amber-900">Não achamos perfil Google Meu Negócio</div>
+                  <p className="text-[12px] text-amber-800 mt-1 leading-relaxed">{placeLookupResult.message}</p>
+                  {placeLookupResult.create_url && (
+                    <a
+                      href={placeLookupResult.create_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-2 text-[12px] font-semibold text-amber-900 underline hover:text-amber-700"
+                    >
+                      Criar Google Meu Negócio →
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {placeLookupResult && 'error' in placeLookupResult && (
+            <div className="rounded-xl border border-red-200 bg-red-50/60 p-4 flex items-start gap-2.5">
+              <XCircle className="w-4 h-4 text-red-700 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-red-900">
+                  {placeLookupResult.error === 'no_api_key' ? 'Places API não configurada' : 'Erro na busca'}
+                </div>
+                <p className="text-[12px] text-red-800 mt-1 leading-relaxed">{placeLookupResult.message}</p>
+              </div>
+            </div>
+          )}
+
           <p className="text-[11px] text-zinc-400 leading-relaxed">
-            Sem o Place ID, o card "Reviews Google" no painel Performance fica vazio. Não tem ainda?
-            Crie em <a href="https://business.google.com" target="_blank" rel="noopener noreferrer" className="text-violet-700 hover:underline">business.google.com</a>.
+            Sem Place ID, o card "Reviews Google" no painel Performance fica vazio. Já tem GMN? Clica
+            "Buscar" — usamos seus dados pra achar automaticamente. Não tem?{' '}
+            <a href="https://business.google.com/create" target="_blank" rel="noopener noreferrer" className="text-violet-700 hover:underline">
+              Crie em 5min em business.google.com
+            </a>{' '}
+            (Google verifica em 5-7 dias por carta postal).
           </p>
         </div>
       </Card>
