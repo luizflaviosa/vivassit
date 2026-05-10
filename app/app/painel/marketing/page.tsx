@@ -284,32 +284,32 @@ function AtributoRow({
   const ordinal = String(index).padStart(2, '0');
 
   return (
-    <div className="group grid grid-cols-[36px_1fr] sm:grid-cols-[44px_minmax(0,1.4fr)_minmax(0,1fr)_120px] gap-x-4 sm:gap-x-6 gap-y-2 px-5 sm:px-6 py-5 border-t border-black/[0.05] first:border-t-0 transition-colors hover:bg-zinc-50/50">
+    <div className="group grid grid-cols-[32px_1fr] sm:grid-cols-[36px_minmax(0,1.3fr)_minmax(0,1.1fr)_88px] gap-x-3 sm:gap-x-5 gap-y-1.5 px-4 sm:px-5 py-3.5 border-t border-black/[0.05] first:border-t-0 transition-colors hover:bg-zinc-50/50">
 
       {/* Numeração editorial */}
       <div className="row-span-2 sm:row-span-1 flex items-start sm:items-center pt-0.5 sm:pt-0">
-        <span className="text-[18px] sm:text-[20px] font-light tabular-nums text-zinc-300 tracking-tight">
+        <span className="text-[16px] sm:text-[17px] font-light tabular-nums text-zinc-300 tracking-tight">
           {ordinal}
         </span>
       </div>
 
       {/* Conceito + subtítulo conceitual */}
       <div className="min-w-0">
-        <h3 className="text-[15px] sm:text-[16px] font-semibold text-zinc-900 tracking-[-0.012em] mb-0.5">
+        <h3 className="text-[14px] sm:text-[15px] font-semibold text-zinc-900 tracking-[-0.012em] mb-0.5">
           {name}
         </h3>
-        <p className="text-[12px] text-zinc-500 leading-[1.45]">
+        <p className="text-[11.5px] text-zinc-500 leading-[1.4]">
           {subtitle}
         </p>
       </div>
 
-      {/* Maturidade · barra + pontos + summary técnico */}
-      <div className="hidden sm:flex flex-col gap-1.5 justify-center min-w-0">
+      {/* Maturidade · barra + pontos + summary técnico (texto quebra em mais linhas se preciso) */}
+      <div className="hidden sm:flex flex-col gap-1 justify-center min-w-0">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-zinc-400">
+          <span className="text-[9.5px] uppercase tracking-[0.12em] font-semibold text-zinc-400">
             Maturidade
           </span>
-          <span className="text-[12px] tabular-nums font-semibold" style={{ color: stage.color }}>
+          <span className="text-[11.5px] tabular-nums font-semibold" style={{ color: stage.color }}>
             {score}<span className="text-zinc-300 font-normal">/{max}</span>
           </span>
         </div>
@@ -324,7 +324,7 @@ function AtributoRow({
           />
         </div>
         <p
-          className="text-[11px] text-zinc-400 leading-relaxed truncate"
+          className="text-[10.5px] text-zinc-400 leading-[1.45] break-words"
           title={summary}
         >
           {summary}
@@ -332,9 +332,9 @@ function AtributoRow({
       </div>
 
       {/* Estágio (chip) */}
-      <div className="hidden sm:flex items-center justify-end">
+      <div className="hidden sm:flex items-start justify-end pt-0.5">
         <span
-          className="text-[10px] font-semibold uppercase tracking-[0.12em] px-2.5 py-1 rounded-full whitespace-nowrap"
+          className="text-[9.5px] font-semibold uppercase tracking-[0.1em] px-2 py-0.5 rounded-full whitespace-nowrap"
           style={{ background: stage.bg, color: stage.color }}
         >
           {stage.label}
@@ -343,7 +343,7 @@ function AtributoRow({
 
       {/* Mobile · barra compacta + estágio */}
       <div className="sm:hidden col-start-2 flex flex-col gap-1.5">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <div className="flex-1 h-[3px] bg-zinc-100 rounded-full overflow-hidden">
             <div
               className="h-full rounded-full"
@@ -354,7 +354,7 @@ function AtributoRow({
               }}
             />
           </div>
-          <span className="text-[11px] tabular-nums font-semibold flex-shrink-0" style={{ color: stage.color }}>
+          <span className="text-[10.5px] tabular-nums font-semibold flex-shrink-0" style={{ color: stage.color }}>
             {score}/{max}
           </span>
           <span
@@ -364,7 +364,7 @@ function AtributoRow({
             {stage.label}
           </span>
         </div>
-        <p className="text-[11px] text-zinc-400 leading-relaxed">{summary}</p>
+        <p className="text-[10.5px] text-zinc-400 leading-[1.5] break-words">{summary}</p>
       </div>
     </div>
   );

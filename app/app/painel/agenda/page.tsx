@@ -788,12 +788,18 @@ function AgendaInner() {
               onClick={() => !createSaving && setCreating(null)}
             />
             <motion.div
-              className="fixed top-0 right-0 bottom-0 z-50 w-full sm:w-[480px] bg-white p-6 overflow-y-auto"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+              className="fixed z-50 bg-white overflow-y-auto shadow-[0_-12px_40px_-8px_rgba(0,0,0,0.18)] sm:shadow-none
+                         inset-x-0 bottom-0 max-h-[90dvh] rounded-t-2xl px-5 pt-3 pb-6
+                         sm:inset-y-0 sm:bottom-auto sm:right-0 sm:left-auto sm:top-0 sm:w-[480px] sm:max-h-none sm:rounded-none sm:p-6"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+              style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
             >
+              <div className="sm:hidden flex justify-center pb-2">
+                <span className="block w-10 h-1 rounded-full bg-zinc-300" />
+              </div>
               <div className="flex items-start justify-between gap-3 mb-5">
                 <div
                   className="inline-flex h-9 w-9 items-center justify-center rounded-lg"
@@ -935,12 +941,18 @@ function AgendaInner() {
               onClick={() => !editSaving && !deleting && setSelected(null)}
             />
             <motion.div
-              className="fixed top-0 right-0 bottom-0 z-50 w-full sm:w-[480px] bg-white p-6 overflow-y-auto"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+              className="fixed z-50 bg-white overflow-y-auto shadow-[0_-12px_40px_-8px_rgba(0,0,0,0.18)] sm:shadow-none
+                         inset-x-0 bottom-0 max-h-[90dvh] rounded-t-2xl px-5 pt-3 pb-6
+                         sm:inset-y-0 sm:bottom-auto sm:right-0 sm:left-auto sm:top-0 sm:w-[480px] sm:max-h-none sm:rounded-none sm:p-6"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+              style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
             >
+              <div className="sm:hidden flex justify-center pb-2">
+                <span className="block w-10 h-1 rounded-full bg-zinc-300" />
+              </div>
               <div className="flex items-start justify-between gap-3 mb-5">
                 <div
                   className="inline-flex h-9 w-9 items-center justify-center rounded-lg"
