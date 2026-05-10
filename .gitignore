@@ -44,3 +44,10 @@ master-secretaria-*.json
 .claude/scheduled_tasks.lock
 .claude/worktrees/
 .claude/.DS_Store
+
+# resultados ad-hoc de scripts de teste (DataForSEO, region-demand, etc)
+app/*-result.json
+*-result.json
+
+# arquivo local pra protótipos/HTMLs antigos sem versionar
+archive/

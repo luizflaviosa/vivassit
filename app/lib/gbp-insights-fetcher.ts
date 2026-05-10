@@ -122,8 +122,16 @@ export async function loadGbpPainelPayload(supabase: SB, tenantId: string): Prom
 
   if (!history || history.length === 0) return null;
 
-  const current = history[0].payload as GbpInsightsPayload;
-  const previous = history[1]?.payload as GbpInsightsPayload | undefined;
+  // Defesa contra snapshot ruim: prefere snapshot não-vazio entre os 6 últimos.
+  // GBP zerado em todos os snapshots → conta nova/sem visibilidade, exibe zero.
+  const idxNonEmpty = history.findIndex(row => {
+    const p = row.payload as GbpInsightsPayload | null;
+    return (p?.totals?.impressions_total ?? 0) > 0 || (p?.totals?.call_clicks ?? 0) > 0;
+  });
+  const currentIdx = idxNonEmpty >= 0 ? idxNonEmpty : 0;
+
+  const current = history[currentIdx].payload as GbpInsightsPayload;
+  const previous = history[currentIdx + 1]?.payload as GbpInsightsPayload | undefined;
 
   const currentImpr = current.totals.impressions_total ?? 0;
   const currentCalls = current.totals.call_clicks ?? 0;
@@ -133,7 +141,7 @@ export async function loadGbpPainelPayload(supabase: SB, tenantId: string): Prom
   const trend: GbpTrendInfo = {
     previous_impressions_total: previous ? previousImpr : null,
     previous_call_clicks: previous ? previousCalls : null,
-    previous_collected_at: history[1]?.collected_at as string | undefined ?? null,
+    previous_collected_at: history[currentIdx + 1]?.collected_at as string | undefined ?? null,
     delta_impressions_pct: previous ? pctDelta(currentImpr, previousImpr) : null,
     delta_calls_pct: previous ? pctDelta(currentCalls, previousCalls) : null,
     history_points: history

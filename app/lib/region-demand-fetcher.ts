@@ -243,8 +243,17 @@ export async function loadPainelPayload(supabase: SB, tenantId: string): Promise
 
   if (!history || history.length === 0) return null;
 
-  const current = history[0].payload as RegionDemandPayload;
-  const previous = history[1]?.payload as RegionDemandPayload | undefined;
+  // Defesa contra snapshot ruim: se mais recente é vazio mas existe um anterior
+  // não-vazio entre os 6 últimos, prefere o não-vazio. Tenants com zero legítimo
+  // (todos os snapshots vazios) caem no history[0] e exibem zero, como deveriam.
+  const idxNonEmpty = history.findIndex(row => {
+    const p = row.payload as RegionDemandPayload | null;
+    return (p?.total_monthly_volume ?? 0) > 0 || (p?.keywords?.length ?? 0) > 0;
+  });
+  const currentIdx = idxNonEmpty >= 0 ? idxNonEmpty : 0;
+
+  const current = history[currentIdx].payload as RegionDemandPayload;
+  const previous = history[currentIdx + 1]?.payload as RegionDemandPayload | undefined;
 
   const currentMarket = current.total_monthly_volume ?? 0;
   const currentName = current.name_search?.total_volume ?? 0;
@@ -254,7 +263,7 @@ export async function loadPainelPayload(supabase: SB, tenantId: string): Promise
   const trend: TrendInfo = {
     previous_total_monthly_volume: previous ? previousMarket : null,
     previous_total_name_volume: previous ? previousName : null,
-    previous_collected_at: history[1]?.collected_at as string | undefined ?? null,
+    previous_collected_at: history[currentIdx + 1]?.collected_at as string | undefined ?? null,
     delta_market_pct: previous ? pctDelta(currentMarket, previousMarket) : null,
     delta_name_pct: previous ? pctDelta(currentName, previousName) : null,
     history_points: history

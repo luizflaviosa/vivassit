@@ -102,8 +102,16 @@ export async function loadCompetitorsPainelPayload(supabase: SB, tenantId: strin
 
   if (!history || history.length === 0) return null;
 
-  const current = history[0].payload as CompetitorsPayload;
-  const previous = history[1]?.payload as CompetitorsPayload | undefined;
+  // Defesa contra snapshot ruim: prefere snapshot não-vazio entre os 6 últimos.
+  // Zero competitors em todos os snapshots → tenant em nicho real, exibe zero.
+  const idxNonEmpty = history.findIndex(row => {
+    const p = row.payload as CompetitorsPayload | null;
+    return (p?.market_stats?.total_competitors ?? 0) > 0 || (p?.competitors?.length ?? 0) > 0;
+  });
+  const currentIdx = idxNonEmpty >= 0 ? idxNonEmpty : 0;
+
+  const current = history[currentIdx].payload as CompetitorsPayload;
+  const previous = history[currentIdx + 1]?.payload as CompetitorsPayload | undefined;
 
   const currentAvg = current.market_stats.avg_reviews;
   const currentPct = current.market_stats.self_percentile_by_reviews;
@@ -113,7 +121,7 @@ export async function loadCompetitorsPainelPayload(supabase: SB, tenantId: strin
   const trend: CompetitorsTrendInfo = {
     previous_avg_reviews: prevAvg,
     previous_self_percentile: prevPct,
-    previous_collected_at: history[1]?.collected_at as string | undefined ?? null,
+    previous_collected_at: history[currentIdx + 1]?.collected_at as string | undefined ?? null,
     delta_self_percentile: prevPct != null && currentPct != null ? currentPct - prevPct : null,
     history_points: history
       .map(h => {
