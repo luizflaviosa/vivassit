@@ -173,14 +173,14 @@ const WIZARD_STEPS: WizardStep[] = [
   {
     id: 3,
     title: 'Como atende',
-    description: 'Duração, horários e convênios',
-    fields: ['consultation_duration'], // working_hours/insurance optional, configurável depois
+    description: 'Duração, dias, horários e janela de retorno',
+    fields: ['consultation_duration'], // working_hours/followup optional, configurável depois
     optional: true,
   },
   {
     id: 4,
     title: 'Cobrança e IA',
-    description: 'Valor, métodos, prompt da IA',
+    description: 'Valor, métodos, convênios e prompt da IA',
     fields: ['lgpd_accepted'],
     optional: true,
   },
@@ -1093,8 +1093,26 @@ function OnboardingPageInner() {
           </div>
         );
 
-      // ── Step 2: Como atende (duração — convênios e horários no próximo step)
-      case 2:
+      // ── Step 2: Como atende (duração, horários, retorno)
+      case 2: {
+        const isSolo = formData.establishment_type === 'private_practice';
+        const workingHours = (formData.working_hours ?? {}) as Record<string, string>;
+        const days: Array<{ key: string; label: string }> = [
+          { key: 'seg', label: 'Seg' },
+          { key: 'ter', label: 'Ter' },
+          { key: 'qua', label: 'Qua' },
+          { key: 'qui', label: 'Qui' },
+          { key: 'sex', label: 'Sex' },
+          { key: 'sab', label: 'Sáb' },
+          { key: 'dom', label: 'Dom' },
+        ];
+        const setWorkingHour = (day: string, value: string) => {
+          setFormData(prev => ({
+            ...prev,
+            working_hours: { ...workingHours, [day]: value } as never,
+          }));
+        };
+
         return (
           <div className="space-y-7">
             <Field label="Duração padrão da consulta" hint="Você pode ajustar caso a caso depois">
@@ -1118,8 +1136,131 @@ function OnboardingPageInner() {
                 })}
               </div>
             </Field>
+
+            {/* Dias e horários de atendimento — só se private_practice */}
+            {isSolo && (
+              <Field
+                label="Dias e horários de atendimento"
+                hint="Adicione mais de um intervalo se houver pausa pro almoço"
+              >
+                <div className="space-y-2">
+                  {days.map(d => {
+                    const raw = workingHours[d.key] ?? 'fechado';
+                    const intervals = parseDayIntervals(raw);
+                    const isClosed = intervals.length === 0;
+                    return (
+                      <div
+                        key={d.key}
+                        className={`rounded-lg border p-3 transition-colors ${
+                          isClosed ? 'bg-zinc-50 border-black/[0.06]' : 'bg-white border-black/10'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setWorkingHour(d.key, isClosed ? '08:00-18:00' : 'fechado')}
+                            className={`flex-shrink-0 inline-flex items-center justify-center w-12 h-9 rounded-md text-[12px] font-semibold transition-all ${
+                              isClosed
+                                ? 'bg-white border border-black/[0.10] text-zinc-400'
+                                : 'text-white'
+                            }`}
+                            style={!isClosed ? { background: ACCENT_DEEP } : undefined}
+                            aria-label={isClosed ? `${d.label} fechado` : `${d.label} aberto`}
+                          >
+                            {d.label}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            {isClosed ? (
+                              <span className="text-[12px] text-zinc-400 italic block mt-2">fechado</span>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {intervals.map((iv, idx) => (
+                                  <div key={idx} className="flex items-center gap-1.5">
+                                    <input
+                                      type="time"
+                                      value={iv.start}
+                                      onChange={e => {
+                                        const next = [...intervals];
+                                        next[idx] = { ...next[idx], start: e.target.value };
+                                        setWorkingHour(d.key, serializeDayIntervals(next));
+                                      }}
+                                      className="h-9 px-2 text-[13px] rounded-md border border-black/10 bg-white focus:outline-none focus:border-zinc-900"
+                                    />
+                                    <span className="text-[12px] text-zinc-400">–</span>
+                                    <input
+                                      type="time"
+                                      value={iv.end}
+                                      onChange={e => {
+                                        const next = [...intervals];
+                                        next[idx] = { ...next[idx], end: e.target.value };
+                                        setWorkingHour(d.key, serializeDayIntervals(next));
+                                      }}
+                                      className="h-9 px-2 text-[13px] rounded-md border border-black/10 bg-white focus:outline-none focus:border-zinc-900"
+                                    />
+                                    {intervals.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setWorkingHour(d.key, serializeDayIntervals(intervals.filter((_, i) => i !== idx)))}
+                                        className="h-8 w-8 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                        aria-label="Remover intervalo"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => setWorkingHour(d.key, serializeDayIntervals([...intervals, { start: '14:00', end: '18:00' }]))}
+                                  className="inline-flex items-center gap-1 text-[12px] font-medium text-violet-700 hover:text-violet-900 transition-colors"
+                                >
+                                  <Plus className="w-3 h-3" /> intervalo
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-zinc-400 mt-1.5">
+                  A IA usa esses horários pra propor encaixes aos pacientes via WhatsApp.
+                </p>
+              </Field>
+            )}
+
+            {/* Janela de retorno */}
+            <Field
+              label="Janela de retorno (dias)"
+              hint="Retorno é gratuito"
+            >
+              <div className="grid grid-cols-2 gap-2">
+                {[30, 45].map(days => {
+                  const selected = (formData.followup_window_days ?? 30) === days;
+                  return (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => handleInputChange('followup_window_days', String(days))}
+                      className={`h-12 rounded-md text-[13px] font-semibold transition-all ${
+                        selected
+                          ? 'bg-zinc-900 text-white'
+                          : 'bg-white border border-black/[0.08] text-zinc-700 hover:border-black/20'
+                      }`}
+                    >
+                      {days} dias
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-1.5">
+                Período em que o paciente pode marcar retorno gratuito após a consulta.
+              </p>
+            </Field>
+
             <p className="text-[13px] text-zinc-500 leading-relaxed">
-              Próximo passo: você define dias e horários de trabalho, formas de cobrança e se atende convênios.
+              Próximo passo: valor, formas de cobrança, convênios e personalização da IA.
             </p>
 
             <div className="pt-2">
@@ -1167,22 +1308,12 @@ function OnboardingPageInner() {
             )}
           </div>
         );
+      }
 
       // ── Step 3: Cobranca + IA + LGPD ───────────────────────────────────────
       case 3: {
-        const isSolo = formData.establishment_type === 'private_practice';
         const acceptedMethods = (formData.payment_methods ?? []) as string[];
         const insuranceList = (formData.insurance_list ?? []) as string[];
-        const workingHours = (formData.working_hours ?? {}) as Record<string, string>;
-        const days: Array<{ key: string; label: string }> = [
-          { key: 'seg', label: 'Seg' },
-          { key: 'ter', label: 'Ter' },
-          { key: 'qua', label: 'Qua' },
-          { key: 'qui', label: 'Qui' },
-          { key: 'sex', label: 'Sex' },
-          { key: 'sab', label: 'Sáb' },
-          { key: 'dom', label: 'Dom' },
-        ];
 
         const toggleMethod = (m: string) => {
           const next = acceptedMethods.includes(m)
@@ -1196,13 +1327,6 @@ function OnboardingPageInner() {
             ? insuranceList.filter(x => x !== name)
             : [...insuranceList, name];
           setFormData(prev => ({ ...prev, insurance_list: next as never }));
-        };
-
-        const setWorkingHour = (day: string, value: string) => {
-          setFormData(prev => ({
-            ...prev,
-            working_hours: { ...workingHours, [day]: value } as never,
-          }));
         };
 
         return (
@@ -1400,128 +1524,6 @@ function OnboardingPageInner() {
                 />
               )}
             </div>
-
-            {/* Working hours — só se private_practice */}
-            {isSolo && (
-              <Field
-                label="Dias e horários de atendimento"
-                hint="Adicione mais de um intervalo se houver pausa pro almoço"
-              >
-                <div className="space-y-2">
-                  {days.map(d => {
-                    const raw = workingHours[d.key] ?? 'fechado';
-                    const intervals = parseDayIntervals(raw);
-                    const isClosed = intervals.length === 0;
-                    return (
-                      <div
-                        key={d.key}
-                        className={`rounded-lg border p-3 transition-colors ${
-                          isClosed ? 'bg-zinc-50 border-black/[0.06]' : 'bg-white border-black/10'
-                        }`}
-                      >
-                        <div className="flex items-start gap-2.5">
-                          <button
-                            type="button"
-                            onClick={() => setWorkingHour(d.key, isClosed ? '08:00-18:00' : 'fechado')}
-                            className={`flex-shrink-0 inline-flex items-center justify-center w-12 h-9 rounded-md text-[12px] font-semibold transition-all ${
-                              isClosed
-                                ? 'bg-white border border-black/[0.10] text-zinc-400'
-                                : 'text-white'
-                            }`}
-                            style={!isClosed ? { background: ACCENT_DEEP } : undefined}
-                            aria-label={isClosed ? `${d.label} fechado` : `${d.label} aberto`}
-                          >
-                            {d.label}
-                          </button>
-                          <div className="flex-1 min-w-0">
-                            {isClosed ? (
-                              <span className="text-[12px] text-zinc-400 italic block mt-2">fechado</span>
-                            ) : (
-                              <div className="space-y-1.5">
-                                {intervals.map((iv, idx) => (
-                                  <div key={idx} className="flex items-center gap-1.5">
-                                    <input
-                                      type="time"
-                                      value={iv.start}
-                                      onChange={e => {
-                                        const next = [...intervals];
-                                        next[idx] = { ...next[idx], start: e.target.value };
-                                        setWorkingHour(d.key, serializeDayIntervals(next));
-                                      }}
-                                      className="h-9 px-2 text-[13px] rounded-md border border-black/10 bg-white focus:outline-none focus:border-zinc-900"
-                                    />
-                                    <span className="text-[12px] text-zinc-400">–</span>
-                                    <input
-                                      type="time"
-                                      value={iv.end}
-                                      onChange={e => {
-                                        const next = [...intervals];
-                                        next[idx] = { ...next[idx], end: e.target.value };
-                                        setWorkingHour(d.key, serializeDayIntervals(next));
-                                      }}
-                                      className="h-9 px-2 text-[13px] rounded-md border border-black/10 bg-white focus:outline-none focus:border-zinc-900"
-                                    />
-                                    {intervals.length > 1 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => setWorkingHour(d.key, serializeDayIntervals(intervals.filter((_, i) => i !== idx)))}
-                                        className="h-8 w-8 inline-flex items-center justify-center rounded-md text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                                        aria-label="Remover intervalo"
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
-                                  </div>
-                                ))}
-                                <button
-                                  type="button"
-                                  onClick={() => setWorkingHour(d.key, serializeDayIntervals([...intervals, { start: '14:00', end: '18:00' }]))}
-                                  className="inline-flex items-center gap-1 text-[12px] font-medium text-violet-700 hover:text-violet-900 transition-colors"
-                                >
-                                  <Plus className="w-3 h-3" /> intervalo
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="text-[11px] text-zinc-400 mt-1.5">
-                  A IA usa esses horários pra propor encaixes aos pacientes via WhatsApp.
-                </p>
-              </Field>
-            )}
-
-            {/* Janela de retorno */}
-            <Field
-              label="Janela de retorno (dias)"
-              hint="Retorno é gratuito"
-            >
-              <div className="grid grid-cols-2 gap-2">
-                {[30, 45].map(days => {
-                  const selected = (formData.followup_window_days ?? 30) === days;
-                  return (
-                    <button
-                      key={days}
-                      type="button"
-                      onClick={() => handleInputChange('followup_window_days', String(days))}
-                      className={`h-12 rounded-md text-[13px] font-semibold transition-all ${
-                        selected
-                          ? 'bg-zinc-900 text-white'
-                          : 'bg-white border border-black/[0.08] text-zinc-700 hover:border-black/20'
-                      }`}
-                    >
-                      {days} dias
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[11px] text-zinc-400 mt-1.5">
-                Período em que o paciente pode marcar retorno gratuito após a consulta.
-              </p>
-            </Field>
 
             {/* Personalize sua IA */}
             <Field label="Personalize sua IA" hint="Opcional">
