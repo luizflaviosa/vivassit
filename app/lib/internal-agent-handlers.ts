@@ -550,7 +550,7 @@ const horariosLivres: Handler = async (params, ctx) => {
     .from('tenant_doctors')
     .select('id, doctor_name, working_hours')
     .eq('tenant_id', ctx.tenant_id)
-    .eq('active', true);
+    .eq('status', 'active');
   if (scope.doctor_id) doctorsQuery = doctorsQuery.eq('id', scope.doctor_id);
   const { data: doctors, error: docErr } = await doctorsQuery;
   if (docErr) return { ok: false, summary: 'Erro ao buscar médicos', error: docErr.message };
