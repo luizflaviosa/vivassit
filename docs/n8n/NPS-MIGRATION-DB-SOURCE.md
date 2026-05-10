@@ -1,34 +1,26 @@
-# Migração workflow NPS — Fonte GCal → DB (5 min manual)
+# NPS workflow migrado pra DB-source — APLICADO 2026-05-09 via API
 
-Workflow: `3. NPS Pesquisa Pós-Consulta` (`87vZl62KFCOqFbyI`)
+**Workflow:** `3. NPS Pesquisa Pós-Consulta` (`87vZl62KFCOqFbyI`)
+**Status:** ATIVO, mudanças via PUT API n8n
 
-## Por quê
+## O que mudou
 
-Hoje o workflow lê de Google Calendar (`List Events Today` node), então
-bookings sem `calendar_event_id` (~9 dos 22 da Paula) **nunca disparam NPS**.
+### Removido (4 nós)
+- `List Events Today` (googleCalendar)
+- `Filter + Extract` (code)
+- `Dedupe` (postgres)
+- `Já enviou hoje?` (if)
 
-Migração faz fonte ser `doctor_bookings.status='completed'` — pega 100%.
-
-## Mudanças no workflow (n8n UI)
-
-### 1. Renomear nó "List Events Today"
-
-Em `https://n8n.singulare.org/workflow/87vZl62KFCOqFbyI`:
-
-- Acha o nó **"List Events Today"** (tipo googleCalendar)
-- Clica nele → muda para **Postgres** node
-- Renomeia pra **"List Completed Bookings Today"**
-- Cola query SQL abaixo
-
-### 2. Query SQL nova
+### Adicionado (1 nó)
+- `List Bookings Completed Today` (postgres) — substitui os 4 acima com query única
 
 ```sql
 SELECT
-  b.id                   AS booking_id,
+  b.id::text                AS booking_id,
   b.tenant_id,
   b.patient_name,
   b.patient_phone,
-  b.slot_start           AS appointment_date,
+  b.slot_start              AS appointment_date,
   d.doctor_name,
   t.evolution_instance_name,
   t.chatwoot_url,
@@ -38,98 +30,77 @@ FROM public.doctor_bookings b
 JOIN public.tenant_doctors d ON d.id = b.doctor_id
 JOIN public.tenants t        ON t.tenant_id = b.tenant_id
 WHERE b.doctor_id = '{{ $json.doctor_id }}'
-  AND b.status   = 'completed'
-  AND b.slot_start::date = ((now() AT TIME ZONE 'America/Sao_Paulo')::date)
+  AND b.status = 'completed'
+  AND (b.slot_start AT TIME ZONE 'America/Sao_Paulo')::date
+      = ((now() AT TIME ZONE 'America/Sao_Paulo')::date)
   AND NOT EXISTS (
     SELECT 1 FROM public.patient_feedback f
     WHERE f.booking_id = b.id
   );
 ```
 
-**O que a query faz:**
-- Filtra `doctor_bookings.status='completed'` (não depende de GCal)
-- `slot_start::date = hoje em BRT` (mesma janela do antigo)
-- `NOT EXISTS` no `patient_feedback.booking_id` evita reenvio (dedupe via FK
-  nova adicionada pela migration `patient_feedback_booking_link`)
-- Já traz tenant + chatwoot pra próximos nós
+A query já filtra (status=completed + hoje em BRT) E faz dedupe via NOT EXISTS
+em `patient_feedback.booking_id`. Não precisa mais dos 3 nós intermediários.
 
-### 3. Atualizar nó "Filter + Extract"
+### Atualizado
+- `Insert Pending` → agora inclui campo `booking_id` no INSERT (FK pra `doctor_bookings`)
 
-Como a query nova já filtra e extrai, esse nó vira simples passagem. Ou pode
-**deletar** e conectar direto `List Completed Bookings Today → Insert Pending`.
-
-### 4. Atualizar nó "Insert Pending"
-
-Adiciona o campo `booking_id` no INSERT:
-
-```sql
-INSERT INTO public.patient_feedback
-  (tenant_id, patient_name, patient_phone, doctor_name,
-   appointment_date, status, sent_at, booking_id)
-VALUES
-  ('{{ $('List Completed Bookings Today').item.json.tenant_id }}',
-   '{{ $('List Completed Bookings Today').item.json.patient_name }}',
-   '{{ $('List Completed Bookings Today').item.json.patient_phone }}',
-   '{{ $('List Completed Bookings Today').item.json.doctor_name }}',
-   '{{ $('List Completed Bookings Today').item.json.appointment_date }}',
-   'pending',
-   NOW(),
-   '{{ $('List Completed Bookings Today').item.json.booking_id }}')
-RETURNING id;
-```
-
-### 5. Deletar nó "Dedupe"
-
-A query nova já dedupe via `NOT EXISTS`. Apaga o nó "Dedupe" + o IF "Já enviou hoje?".
-
-Conexão fica:
+## Topologia nova
 
 ```
-Cron → List Doctors → Loop → List Completed Bookings Today
-                              → Insert Pending → Chatwoot Send → ...
+Cron 19:00 BRT → List Doctors → Loop Doctors[1] → List Bookings Completed Today
+                                                  ↓
+                                                Insert Pending → Chatwoot Send
+                                                  ↓
+                                                Send OK? → [ok] Loop Doctors
+                                                          → [fail] Mark Send Failed → Loop Doctors
 ```
 
-## Migration de DB já aplicada
+(Loop Doctors[0] continua → Done quando termina iteração)
 
-```sql
--- Já rodada em 2026-05-09
-ALTER TABLE patient_feedback
-  ADD COLUMN booking_id uuid REFERENCES doctor_bookings(id) ON DELETE SET NULL;
-CREATE INDEX idx_patient_feedback_booking ON patient_feedback(booking_id) WHERE booking_id IS NOT NULL;
+## Workflow Marketing → Review GATILHO criado
+
+**Workflow:** `Master Secretária — NPS Pre-Router` (`ZWzRBjClOdA5xRNQ`)
+
+Adicionado nó **`Trigger Marketing Review`** (httpRequest) entre `Reply Thanks`
+e `Return: handled score`. Topologia:
+
+```
+Save NPS Score → Score <= 6?
+  [0] true  → Reply Followup Ask → Return
+  [1] false → Reply Thanks → Trigger Marketing Review → Return
 ```
 
-## Backfill imediato pros 22→1 da Paula
+Ou seja: SÓ dispara webhook Marketing quando paciente respondeu NPS >= 7. O
+webhook M01 (`marketing-nps-review`) internamente filtra >= 9 e
+`google_place_id IS NOT NULL` antes de enviar a mensagem de pedir review.
 
-Pra disparar NPS pros bookings completed que ficaram pendentes:
+**HTTP config:**
+- Method: POST
+- URL: `http://n8n:5678/webhook/marketing-nps-review` (interno, mesma rede)
+- Body: `{ "feedback_id": {{ $('Lookup Pending NPS').item.json.id }} }`
+- onError: `continueRegularOutput` — falha não quebra o fluxo NPS
 
-```sql
-INSERT INTO patient_feedback (
-  tenant_id, patient_phone, patient_name, doctor_name,
-  appointment_date, sent_at, status, booking_id
-)
-SELECT
-  b.tenant_id, b.patient_phone, b.patient_name, d.doctor_name,
-  b.slot_start, NOW(), 'pending', b.id
-FROM doctor_bookings b
-JOIN tenant_doctors d ON d.id = b.doctor_id
-WHERE b.tenant_id = 'singulare'
-  AND b.status = 'completed'
-  AND NOT EXISTS (
-    SELECT 1 FROM patient_feedback f WHERE f.booking_id = b.id
-  );
-```
+## Validação
 
-Roda 1× — próxima execução do cron 19h vai mandar WhatsApp pra essas rows.
+Todos workflows ATIVOS após mudanças. Próxima execução automática:
+- NPS workflow: hoje 19h BRT (cron diário)
+- NPS Pre-Router: a cada mensagem de paciente recebida
 
-## Validação pós-migration
+Pra teste manual sem aguardar:
+1. https://n8n.singulare.org/workflow/87vZl62KFCOqFbyI → **Execute Workflow**
+2. Inspeciona output do nó `List Bookings Completed Today` — deve listar
+   bookings completed de hoje com `booking_id` populado
+3. Inspeciona `Insert Pending` — INSERT deve incluir `booking_id`
+4. Confere `patient_feedback` no DB:
+   ```sql
+   SELECT id, patient_name, booking_id, sent_at, status
+   FROM patient_feedback
+   WHERE sent_at::date = CURRENT_DATE
+   ORDER BY id DESC LIMIT 10;
+   ```
 
-1. **Save** o workflow no n8n
-2. **Execute Workflow** manualmente uma vez (botão no canto superior)
-3. Inspeciona output do nó "List Completed Bookings Today" — deve listar
-   bookings de hoje completed sem feedback
-4. Confere `patient_feedback` no DB tem novas rows com `status='pending'` +
-   `booking_id` populado
-5. Aguarda Chatwoot/Evolution disparar mensagem
+## Rollback
 
-Se algo falhar, o original vai estar no histórico de versões do n8n —
-basta restaurar.
+Histórico de versão do n8n preserva versão anterior. Restaurar via:
+- Workflow → menu (⋯) → "Workflow versions" → versão anterior a 2026-05-09 → Restore
