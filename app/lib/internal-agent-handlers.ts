@@ -561,24 +561,24 @@ const horariosLivres: Handler = async (params, ctx) => {
   const result: Array<{ doctor_id: string; doctor_name: string; start: string; end: string }> = [];
 
   for (const doc of doctors) {
-    // Bookings ocupados
+    // Bookings ocupados — captura qualquer overlap com a janela
     const { data: bookings } = await admin
       .from('doctor_bookings')
       .select('slot_start, slot_end')
       .eq('tenant_id', ctx.tenant_id)
       .eq('doctor_id', doc.id)
       .neq('status', 'cancelled')
-      .gte('slot_start', start.toISOString())
-      .lte('slot_start', end.toISOString());
+      .lt('slot_start', end.toISOString())
+      .gt('slot_end', start.toISOString());
 
-    // Bloqueios
+    // Bloqueios — idem (block longo tipo ferias precisa ser pego mesmo se start_at < janela)
     const { data: blocks } = await admin
       .from('doctor_schedule_blocks')
       .select('start_at, end_at')
       .eq('tenant_id', ctx.tenant_id)
       .eq('doctor_id', doc.id)
-      .gte('start_at', start.toISOString())
-      .lte('start_at', end.toISOString());
+      .lt('start_at', end.toISOString())
+      .gt('end_at', start.toISOString());
 
     const busy = [
       ...(bookings ?? []).map((b) => ({ start: new Date(b.slot_start), end: new Date(b.slot_end) })),
