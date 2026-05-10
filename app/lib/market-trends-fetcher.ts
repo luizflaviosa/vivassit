@@ -7,6 +7,15 @@
  *   - explore        → série temporal de interesse 0–100 por keyword
  *   - subregion      → ranking de estados/regiões BR onde mais buscam
  *   - demography     → idade × gênero (nacional)
+ *
+ * Estratégia de coleta (otimizada):
+ *   1) Cache compartilhado por especialidade (BR-level — todos os tenants
+ *      cardiologistas compartilham o mesmo snapshot). Reduz custo em escala.
+ *      TTL 30d (mensal, alinhado ao cron).
+ *   2) Cache miss → 1 chamada DFS `merged_data/live` (combina explore + subregion +
+ *      demography num único response). Custo $0.002 vs 3× $0.002 do esquema antigo.
+ *   3) Hit ou novo snapshot é gravado em `tenant_market_trends_history` por tenant
+ *      pra preservar séries temporais individualizadas.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -53,6 +62,14 @@ export interface MarketTrendsPayload {
   _debug?: unknown;
 }
 
+interface SharedTrendsPayload {
+  keywords: string[];
+  explore: ExploreSection;
+  subregion: SubregionRow[];
+  demography: DemographyRow[];
+  collected_at: string;
+}
+
 interface DfsTrendsResponse {
   status_code: number;
   status_message: string;
@@ -64,8 +81,11 @@ interface DfsTrendsResponse {
   }>;
 }
 
+const CACHE_SOURCE = 'market_trends';
+const CACHE_TTL_DAYS = 30;
+
 function mockTrends(specialty: string, city: string, doctorName?: string | null): MarketTrendsPayload {
-  const kws = [specialty.toLowerCase(), 'fibromialgia', 'artrite reumatoide', 'lupus', doctorName?.toLowerCase() ?? specialty.toLowerCase()];
+  const kws = [specialty.toLowerCase(), 'fibromialgia', 'artrite reumatoide', 'lupus', doctorName?.toLowerCase() ?? `${specialty.toLowerCase()} sintomas`];
   const series: ExplorePoint[] = Array.from({ length: 12 }, (_, i) => ({
     date_from: `2025-${String((i % 12) + 1).padStart(2, '0')}-01`,
     date_to: `2025-${String((i % 12) + 1).padStart(2, '0')}-28`,
@@ -116,27 +136,119 @@ async function callTrends(login: string, password: string, path: string, body: u
   return (await res.json()) as DfsTrendsResponse;
 }
 
+// ── Cache compartilhado por especialidade ───────────────────────────────────
+
+function normalizeCacheKey(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+async function loadSharedTrendsCache(supabase: SB, cacheKey: string, ttlDays: number): Promise<SharedTrendsPayload | null> {
+  const cutoff = new Date(Date.now() - ttlDays * 86400000).toISOString();
+  const { data } = await supabase
+    .from('market_data_cache')
+    .select('payload, collected_at')
+    .eq('source', CACHE_SOURCE)
+    .eq('cache_key', cacheKey)
+    .gte('collected_at', cutoff)
+    .maybeSingle();
+  return (data?.payload as SharedTrendsPayload | null) ?? null;
+}
+
+async function saveSharedTrendsCache(supabase: SB, cacheKey: string, payload: SharedTrendsPayload): Promise<void> {
+  await supabase
+    .from('market_data_cache')
+    .upsert({
+      source: CACHE_SOURCE,
+      cache_key: cacheKey,
+      payload,
+      collected_at: new Date().toISOString(),
+    }, { onConflict: 'source,cache_key' });
+}
+
+// ── DFS merged_data: 1 chamada → explore + subregion + demography ───────────
+
+async function fetchTrendsMerged(
+  login: string,
+  password: string,
+  exploreKeywords: string[],
+  specialty: string,
+): Promise<{ ok: true; payload: SharedTrendsPayload } | { ok: false; reason: string }> {
+  // merged_data combina os 3 sub-tipos num único task. 1 call $0.002 vs 3× $0.002.
+  // Sem `type` o endpoint pode devolver só o explore — listamos os 3 explicitamente.
+  const mergedRes = await callTrends(login, password, '/v3/keywords_data/dataforseo_trends/merged_data/live', [{
+    keywords: exploreKeywords,
+    location_name: 'Brazil',
+    date_from: dateMonthsAgo(12),
+    date_to: today(),
+    type: ['google_trends_explore', 'google_trends_subregion_interests', 'google_trends_demography'],
+  }]);
+
+  const status = mergedRes.tasks?.[0]?.status_code;
+  const items = (mergedRes.tasks?.[0]?.result?.[0]?.items ?? []) as Array<{ type: string; data?: unknown; interests?: unknown; demography?: unknown }>;
+
+  if (status !== 20000 || items.length === 0) {
+    return { ok: false, reason: `dfs merged_data status=${status} items=${items.length}` };
+  }
+
+  const exploreItem = items.find(i => i.type === 'dataforseo_trends_graph');
+  const subregionItem = items.find(i => i.type === 'subregion_interests') as undefined | { interests?: Array<{ values?: Array<{ value: number; geo_name: string }> }> };
+  const demographyItem = items.find(i => i.type === 'demography');
+
+  const exploreSection: ExploreSection = exploreItem
+    ? buildExploreSection(exploreKeywords, ((exploreItem.data ?? []) as Array<{ date_from: string; date_to: string; timestamp: number; values: number[] }>))
+    : emptyExplore(exploreKeywords);
+
+  if (exploreSection.series.length === 0) {
+    return { ok: false, reason: 'empty explore series in merged_data response' };
+  }
+
+  // interests[0] e demography[0] são pra exploreKeywords[0] = especialidade.
+  const subregionRaw = (subregionItem?.interests?.[0]?.values ?? []) as Array<{ value: number; geo_name: string }>;
+  const subregion: SubregionRow[] = [{
+    keyword: specialty.toLowerCase(),
+    regions: subregionRaw
+      .filter(r => (r.value ?? 0) > 0)
+      .map(r => ({ name: cleanBrazilStateName(r.geo_name), value: r.value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10),
+  }];
+
+  const demography: DemographyRow[] = [extractDemography(specialty.toLowerCase(), demographyItem ? [demographyItem] : [])];
+
+  return {
+    ok: true,
+    payload: {
+      keywords: exploreKeywords,
+      explore: exploreSection,
+      subregion,
+      demography,
+      collected_at: new Date().toISOString(),
+    },
+  };
+}
+
+// ── Refresh por tenant ──────────────────────────────────────────────────────
+
 export async function refreshMarketTrendsForTenant(supabase: SB, tenantId: string): Promise<{
   status: 'ok' | 'skipped' | 'error';
   reason?: string;
   is_mock?: boolean;
+  cache_hit?: boolean;
 }> {
-  const [tenantRes, doctorRes, kwRes] = await Promise.all([
-    supabase.from('tenants').select('city, state').eq('tenant_id', tenantId).maybeSingle(),
+  const [tenantRes, doctorRes] = await Promise.all([
+    supabase.from('tenants').select('city').eq('tenant_id', tenantId).maybeSingle(),
     supabase
       .from('tenant_doctors')
-      .select('specialty, doctor_name')
+      .select('specialty')
       .eq('tenant_id', tenantId)
       .not('specialty', 'is', null)
       .order('id', { ascending: true })
       .limit(1)
       .maybeSingle(),
-    supabase.from('tenant_market_keywords').select('market_keywords, name_keywords').eq('tenant_id', tenantId).maybeSingle(),
   ]);
 
   const city = tenantRes.data?.city as string | null | undefined;
   const specialty = doctorRes.data?.specialty as string | null | undefined;
-  const doctorName = doctorRes.data?.doctor_name as string | null | undefined;
 
   if (!specialty || !city) {
     return { status: 'skipped', reason: 'missing city or specialty' };
@@ -145,89 +257,48 @@ export async function refreshMarketTrendsForTenant(supabase: SB, tenantId: strin
   const login = process.env.DATAFORSEO_LOGIN;
   const password = process.env.DATAFORSEO_PASSWORD;
 
-  let payload: MarketTrendsPayload;
-
   if (!login || !password) {
     return { status: 'skipped', reason: 'no DataForSEO credentials configured' };
   }
 
-  // Pra Trends explore: até 5 keywords por chamada (limite Google Trends).
-  // Estratégia: especialidade + 3 sintomas/condições correlatas + nome (ou variação)
-  const cleanName = doctorName?.replace(/^(Doutora|Doutor|Dra\.?|Dr\.?)\s*\.?\s*/i, '').trim().toLowerCase();
-  const exploreKeywords = buildExploreKeywords(specialty, cleanName);
+  const cacheKey = normalizeCacheKey(specialty);
+  const exploreKeywords = buildExploreKeywords(specialty);
 
-  try {
-    // 1) Explore (12 meses, BR)
-    const exploreRes = await callTrends(login, password, '/v3/keywords_data/dataforseo_trends/explore/live', [{
-      keywords: exploreKeywords,
-      location_name: 'Brazil',
-      date_from: dateMonthsAgo(12),
-      date_to: today(),
-    }]);
+  // 1) Cache compartilhado: hit zero custo DFS
+  let shared = await loadSharedTrendsCache(supabase, cacheKey, CACHE_TTL_DAYS);
+  const cacheHit = !!shared;
 
-    const exploreTaskStatus = exploreRes.tasks?.[0]?.status_code;
-    const exploreItem = exploreRes.tasks?.[0]?.result?.[0]?.items?.find((i: { type: string }) => i.type === 'dataforseo_trends_graph');
-    const exploreSection: ExploreSection = exploreItem ? buildExploreSection(exploreKeywords, exploreItem.data ?? []) : emptyExplore(exploreKeywords);
-
-    // Guard: DFS explore falhou (40501 rate limit, 5xx, etc) ou devolveu série vazia.
-    // Não persistir lixo — devolver erro pro caller pra mantermos snapshot bom anterior.
-    if (exploreTaskStatus !== 20000 || exploreSection.series.length === 0) {
-      return {
-        status: 'error',
-        reason: `dfs explore failed: status=${exploreTaskStatus} series_len=${exploreSection.series.length}`,
-      };
+  // 2) Cache miss → DFS merged_data (1 call vs 3 antigamente)
+  if (!shared) {
+    try {
+      const result = await fetchTrendsMerged(login, password, exploreKeywords, specialty);
+      if (!result.ok) {
+        return { status: 'error', reason: result.reason };
+      }
+      shared = result.payload;
+      // 3) Salva cache pra próximos tenants da mesma especialidade
+      await saveSharedTrendsCache(supabase, cacheKey, shared);
+    } catch (e) {
+      return { status: 'error', reason: `dfs trends: ${(e as Error).message}` };
     }
-
-    // 2) Subregion interests pra keyword principal (especialidade)
-    const subregionRes = await callTrends(login, password, '/v3/keywords_data/dataforseo_trends/subregion_interests/live', [{
-      keywords: [specialty.toLowerCase()],
-      location_name: 'Brazil',
-    }]);
-
-    const subregionItems = subregionRes.tasks?.[0]?.result?.[0]?.items ?? [];
-    const subregionItem = subregionItems.find((i: { type: string }) => i.type === 'subregion_interests');
-    const subregionRaw = (subregionItem?.interests?.[0]?.values ?? []) as Array<{ value: number; geo_name: string }>;
-    const subregion: SubregionRow[] = [{
-      keyword: specialty.toLowerCase(),
-      regions: subregionRaw
-        .filter(r => (r.value ?? 0) > 0)
-        .map(r => ({ name: cleanBrazilStateName(r.geo_name), value: r.value }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 10),
-    }];
-
-    // 3) Demography pra keyword principal
-    const demoRes = await callTrends(login, password, '/v3/keywords_data/dataforseo_trends/demography/live', [{
-      keywords: [specialty.toLowerCase()],
-      location_name: 'Brazil',
-    }]);
-
-    const demoItems = demoRes.tasks?.[0]?.result?.[0]?.items ?? [];
-    const demography: DemographyRow[] = [extractDemography(specialty.toLowerCase(), demoItems)];
-
-    payload = {
-      collected_at: new Date().toISOString(),
-      is_mock: false,
-      location: 'Brasil',
-      primary_keyword: specialty,
-      explore: exploreSection,
-      subregion,
-      demography,
-      _debug: {
-        explore_keywords: exploreKeywords,
-        explore_status: exploreRes.tasks?.[0]?.status_code,
-        subregion_status: subregionRes.tasks?.[0]?.status_code,
-        demography_status: demoRes.tasks?.[0]?.status_code,
-        sample_explore: exploreItem?.data?.slice(0, 2),
-        sample_subregion: subregionRaw.slice(0, 3),
-        // Raw responses pra inspecionar estrutura quando parser falha
-        raw_subregion_task: subregionRes.tasks?.[0],
-        raw_demography_task: demoRes.tasks?.[0],
-      },
-    };
-  } catch (e) {
-    return { status: 'error', reason: `dfs trends: ${(e as Error).message}` };
   }
+
+  // 4) Per-tenant history (preserva série temporal individualizada)
+  const payload: MarketTrendsPayload = {
+    collected_at: new Date().toISOString(),
+    is_mock: false,
+    location: 'Brasil',
+    primary_keyword: specialty,
+    explore: shared.explore,
+    subregion: shared.subregion,
+    demography: shared.demography,
+    _debug: {
+      cache_hit: cacheHit,
+      cache_key: cacheKey,
+      cache_collected_at: shared.collected_at,
+      explore_keywords: shared.keywords,
+    },
+  };
 
   const { error: histErr } = await supabase
     .from('tenant_market_trends_history')
@@ -237,7 +308,7 @@ export async function refreshMarketTrendsForTenant(supabase: SB, tenantId: strin
     return { status: 'error', reason: `history insert: ${histErr.message}` };
   }
 
-  return { status: 'ok', is_mock: false };
+  return { status: 'ok', is_mock: false, cache_hit: cacheHit };
 }
 
 export async function loadLatestMarketTrends(supabase: SB, tenantId: string): Promise<MarketTrendsPayload | null> {
@@ -267,12 +338,14 @@ export function ephemeralMarketTrendsMock(specialty: string, city: string, docto
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function buildExploreKeywords(specialty: string, cleanName: string | undefined): string[] {
+function buildExploreKeywords(specialty: string): string[] {
   const s = specialty.toLowerCase();
   // Estratégia de produto:
-  //  [0] especialidade — referência
+  //  [0] especialidade — referência (também usado pra subregion/demography)
   //  [1-3] sintomas/condições correlatas — pra o cliente ver onde está a demanda
-  //  [4] nome do médico (se válido) ou variação da especialidade
+  //  [4] variação da especialidade — completa o contexto sem quebrar cache compartilhado
+  // Doctor name foi removido daqui (era a chave que quebrava o cache); region-demand
+  // já cobre name search com Google Ads volume (mais robusto que clickstream Trends).
   const correlations: Record<string, string[]> = {
     reumatologia: ['fibromialgia', 'artrite reumatoide', 'lupus'],
     cardiologia: ['arritmia', 'pressão alta', 'infarto'],
@@ -283,8 +356,7 @@ function buildExploreKeywords(specialty: string, cleanName: string | undefined):
     psiquiatria: ['ansiedade', 'depressão', 'tdah'],
   };
   const corrList = correlations[s] ?? ['dor', 'tratamento', 'sintomas'];
-  const last = cleanName && cleanName.length >= 6 ? cleanName : `${s} sintomas`;
-  return [s, corrList[0], corrList[1], corrList[2], last];
+  return [s, corrList[0], corrList[1], corrList[2], `${s} sintomas`];
 }
 
 function dateMonthsAgo(months: number): string {
