@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   Sparkles, Save, Loader2, Building2, Bot, ChevronDown, ChevronUp,
   Phone, MapPin, Receipt, MessageCircle, Music, Globe, Instagram,
-  Search, CheckCircle2, XCircle, Star,
+  Search,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import BackToChecklist from '../components/back-to-checklist';
@@ -87,47 +87,65 @@ function ConfigInner() {
   const setField = <K extends keyof FormData>(key: K, v: FormData[K]) =>
     setForm((f) => ({ ...f, [key]: v }));
 
-  // Auto-lookup Google Place ID a partir dos dados do tenant
-  type PlaceItem = { place_id: string; name: string; formatted_address: string; rating?: number; user_ratings_total?: number; business_status?: string };
-  const [placeLookupLoading, setPlaceLookupLoading] = useState(false);
-  const [placeLookupResult, setPlaceLookupResult] = useState<
-    | null
-    | { found: true; place: PlaceItem; candidates: PlaceItem[] }
-    | { found: false; message: string; create_url?: string }
-    | { error: string; message: string }
-  >(null);
-  const [customQuery, setCustomQuery] = useState('');
+  // Type-ahead Google Place ID — usuario digita nome do negocio, Google sugere
+  type Prediction = { place_id: string; description: string; main_text: string; secondary_text: string };
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [predictionsLoading, setPredictionsLoading] = useState(false);
+  const [predictionsOpen, setPredictionsOpen] = useState(false);
+  const [placeApiError, setPlaceApiError] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const placeBoxRef = useRef<HTMLDivElement | null>(null);
 
-  const lookupPlace = async (queryOverride?: string) => {
-    setPlaceLookupLoading(true);
-    setPlaceLookupResult(null);
+  const fetchPredictions = async (q: string) => {
+    if (q.trim().length < 2) {
+      setPredictions([]);
+      return;
+    }
+    setPredictionsLoading(true);
+    setPlaceApiError(null);
     try {
-      const res = await fetch('/api/painel/google-place/lookup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(queryOverride ? { query: queryOverride } : {}),
-      });
+      const res = await fetch(`/api/painel/google-place/autocomplete?q=${encodeURIComponent(q)}`);
       const json = await res.json();
       if (!res.ok || json.error) {
-        setPlaceLookupResult({ error: json.error ?? 'erro', message: json.message ?? 'Erro ao buscar' });
-      } else if (json.found) {
-        setPlaceLookupResult({ found: true, place: json.place, candidates: json.candidates ?? [json.place] });
+        setPlaceApiError(json.message ?? 'Erro ao buscar');
+        setPredictions([]);
       } else {
-        setPlaceLookupResult({ found: false, message: json.message, create_url: json.create_url });
+        setPredictions(json.predictions ?? []);
       }
     } catch (e) {
-      setPlaceLookupResult({ error: 'network', message: (e as Error).message });
+      setPlaceApiError((e as Error).message);
+      setPredictions([]);
     } finally {
-      setPlaceLookupLoading(false);
+      setPredictionsLoading(false);
     }
   };
 
-  const acceptCandidate = (c: PlaceItem) => {
-    setField('google_place_id', c.place_id);
-    toast.success(`Place ID preenchido (${c.name}). Não esqueça de salvar.`);
-    setPlaceLookupResult(null);
-    setCustomQuery('');
+  const onPlaceQueryChange = (v: string) => {
+    setPlaceQuery(v);
+    setPredictionsOpen(true);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchPredictions(v), 300);
   };
+
+  const selectPrediction = (p: Prediction) => {
+    setField('google_place_id', p.place_id);
+    setPlaceQuery(p.description);
+    setPredictions([]);
+    setPredictionsOpen(false);
+    toast.success('Place ID preenchido. Nao esqueca de salvar.');
+  };
+
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (placeBoxRef.current && !placeBoxRef.current.contains(e.target as Node)) {
+        setPredictionsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   useEffect(() => {
     if (!tenantId) {
@@ -354,145 +372,78 @@ function ConfigInner() {
             </Field>
           </div>
           <Field
-            label="Google Place ID"
-            hint="Habilita o card de Reviews na Performance. Use o botão Buscar pra preencher automaticamente."
+            label="Google Meu Negócio"
+            hint="Digite o nome do profissional ou da clínica. Sugestões aparecem do próprio Google Maps."
           >
-            <div className="flex gap-2">
-              <input
-                value={form.google_place_id}
-                onChange={(e) => setField('google_place_id', e.target.value)}
-                placeholder="ChIJxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                className={inputClasses() + ' flex-1'}
-              />
-              <button
-                type="button"
-                onClick={() => lookupPlace()}
-                disabled={placeLookupLoading}
-                className="px-3 h-10 inline-flex items-center gap-1.5 rounded-md text-[13px] font-semibold text-white hover:brightness-110 transition-all disabled:opacity-50"
-                style={{ background: ACCENT }}
-              >
-                {placeLookupLoading ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando…
-                  </>
-                ) : (
-                  <>
-                    <Search className="w-3.5 h-3.5" /> Buscar
-                  </>
+            <div ref={placeBoxRef} className="relative">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                <input
+                  value={placeQuery}
+                  onChange={(e) => onPlaceQueryChange(e.target.value)}
+                  onFocus={() => { if (predictions.length > 0) setPredictionsOpen(true); }}
+                  placeholder='Ex: "Dra. Paula Franzon" ou "Clínica Reumatos São Paulo"'
+                  className={inputClasses() + ' pl-9 pr-9'}
+                  autoComplete="off"
+                />
+                {predictionsLoading && (
+                  <Loader2 className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 animate-spin" />
                 )}
-              </button>
-            </div>
-          </Field>
-
-          {/* Resultado da busca automática — 1 ou mais candidatos */}
-          {placeLookupResult && 'found' in placeLookupResult && placeLookupResult.found && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-3">
-              <div className="text-[12px] font-semibold text-emerald-900 inline-flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                {placeLookupResult.candidates.length === 1
-                  ? 'Encontramos seu perfil'
-                  : `Encontramos ${placeLookupResult.candidates.length} possíveis — escolha o seu`}
               </div>
-              <div className="space-y-2">
-                {placeLookupResult.candidates.map((c) => (
-                  <div key={c.place_id} className="rounded-lg bg-white border border-emerald-200/60 p-3 flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[13px] font-semibold text-zinc-900">{c.name}</div>
-                      <div className="text-[12px] text-zinc-600 mt-0.5">{c.formatted_address}</div>
-                      {c.rating != null && (
-                        <div className="text-[12px] text-zinc-600 mt-1 inline-flex items-center gap-1">
-                          <Star className="w-3 h-3 fill-current text-amber-500" />
-                          {c.rating.toFixed(1)}
-                          {c.user_ratings_total != null && (
-                            <span className="text-zinc-500">({c.user_ratings_total} reviews)</span>
-                          )}
-                        </div>
-                      )}
-                      <div className="text-[10px] text-zinc-400 mt-1 font-mono break-all">{c.place_id}</div>
+
+              {predictionsOpen && (predictions.length > 0 || (placeQuery.trim().length >= 2 && !predictionsLoading)) && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-black/[0.08] rounded-md shadow-lg max-h-80 overflow-auto z-20" style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.08)' }}>
+                  {predictions.length === 0 ? (
+                    <div className="px-3 py-3 text-[12px] text-zinc-500">
+                      Nenhum resultado. Tente outro termo ou{' '}
+                      <a href="https://business.google.com/create" target="_blank" rel="noopener noreferrer" className="text-violet-700 hover:underline">
+                        criar perfil em business.google.com
+                      </a>.
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => acceptCandidate(c)}
-                      className="px-3 h-8 rounded-md text-[12px] font-semibold text-white hover:brightness-110 flex-shrink-0"
-                      style={{ background: ACCENT }}
-                    >
-                      Usar este
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => { setPlaceLookupResult(null); setCustomQuery(''); }}
-                className="text-[12px] font-medium text-zinc-500 hover:text-zinc-700 underline"
-              >
-                Nenhum é o meu — buscar de novo
-              </button>
-            </div>
-          )}
-
-          {placeLookupResult && 'found' in placeLookupResult && !placeLookupResult.found && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
-              <div className="flex items-start gap-2.5">
-                <XCircle className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <div className="text-[13px] font-semibold text-amber-900">Não achamos perfil Google Meu Negócio</div>
-                  <p className="text-[12px] text-amber-800 mt-1 leading-relaxed">{placeLookupResult.message}</p>
-                </div>
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-amber-900 mb-1">Buscar com outro termo</label>
-                <div className="flex gap-2">
-                  <input
-                    value={customQuery}
-                    onChange={(e) => setCustomQuery(e.target.value)}
-                    placeholder='Ex: "Dra. Paula Franzon Reumatologista"'
-                    className="flex-1 h-9 px-3 rounded-md border border-amber-300 bg-white text-[13px] focus:outline-none focus:ring-2 focus:ring-amber-300"
-                    onKeyDown={(e) => { if (e.key === 'Enter' && customQuery.trim()) { e.preventDefault(); lookupPlace(customQuery.trim()); } }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => customQuery.trim() && lookupPlace(customQuery.trim())}
-                    disabled={!customQuery.trim() || placeLookupLoading}
-                    className="px-3 h-9 inline-flex items-center gap-1.5 rounded-md text-[12px] font-semibold text-white hover:brightness-110 disabled:opacity-50"
-                    style={{ background: ACCENT }}
-                  >
-                    {placeLookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                    Buscar
-                  </button>
-                </div>
-                <p className="text-[11px] text-amber-800/80 mt-1.5">Dica: copie o nome exato do seu listing no Google Maps (ex: &quot;Dra. Paula Franzon | Reumatologista&quot;).</p>
-              </div>
-              {placeLookupResult.create_url && (
-                <div className="pt-2 border-t border-amber-200/60">
-                  <a
-                    href={placeLookupResult.create_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block text-[12px] font-semibold text-amber-900 underline hover:text-amber-700"
-                  >
-                    Ainda não tem GMN? Criar agora →
-                  </a>
+                  ) : (
+                    predictions.map((p) => (
+                      <button
+                        key={p.place_id}
+                        type="button"
+                        onClick={() => selectPrediction(p)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-violet-50/60 border-b border-black/[0.04] last:border-b-0 transition-colors"
+                      >
+                        <div className="text-[13px] font-medium text-zinc-900">{p.main_text}</div>
+                        {p.secondary_text && (
+                          <div className="text-[11px] text-zinc-500 mt-0.5">{p.secondary_text}</div>
+                        )}
+                      </button>
+                    ))
+                  )}
                 </div>
               )}
             </div>
+          </Field>
+
+          {form.google_place_id && (
+            <div className="rounded-md bg-emerald-50/60 border border-emerald-200/60 px-3 py-2 flex items-center gap-2 justify-between">
+              <div className="min-w-0">
+                <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-emerald-700">Place ID conectado</div>
+                <div className="text-[11px] text-emerald-800 mt-0.5 font-mono break-all">{form.google_place_id}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setField('google_place_id', ''); setPlaceQuery(''); }}
+                className="text-[11px] font-medium text-zinc-500 hover:text-zinc-700 flex-shrink-0"
+              >
+                Limpar
+              </button>
+            </div>
           )}
 
-          {placeLookupResult && 'error' in placeLookupResult && (
-            <div className="rounded-xl border border-red-200 bg-red-50/60 p-4 flex items-start gap-2.5">
-              <XCircle className="w-4 h-4 text-red-700 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
-                <div className="text-[13px] font-semibold text-red-900">
-                  {placeLookupResult.error === 'no_api_key' ? 'Places API não configurada' : 'Erro na busca'}
-                </div>
-                <p className="text-[12px] text-red-800 mt-1 leading-relaxed">{placeLookupResult.message}</p>
-              </div>
+          {placeApiError && (
+            <div className="rounded-md bg-red-50/60 border border-red-200/60 px-3 py-2 text-[12px] text-red-800">
+              {placeApiError}
             </div>
           )}
 
           <p className="text-[11px] text-zinc-400 leading-relaxed">
-            Sem Place ID, o card "Reviews Google" no painel Performance fica vazio. Já tem GMN? Clica
-            "Buscar" — usamos seus dados pra achar automaticamente. Não tem?{' '}
+            Sem Place ID o card "Reviews Google" no painel Performance fica vazio. Não tem perfil ainda?{' '}
             <a href="https://business.google.com/create" target="_blank" rel="noopener noreferrer" className="text-violet-700 hover:underline">
               Crie em 5min em business.google.com
             </a>{' '}
