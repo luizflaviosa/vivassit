@@ -256,17 +256,39 @@ const pacientesProximos: Handler = async (params, ctx) => {
     byWeek[wk]++;
   });
 
-  // pacientes únicos: usa patient_name (denormalizado) como chave fallback
-  // quando patient_id é null (bookings antigos sem FK)
-  const unique = new Set(list.map((a) => a.patient_id ?? a.patient_name)).size;
+  // pacientes únicos: dedupe por patient_name (denormalizado), guardando
+  // primeiro slot futuro de cada um pra o agente conseguir listar nominalmente
+  const seen = new Map<string, { name: string; next_slot: string; appointments: number }>();
+  for (const a of list) {
+    const key = (a.patient_name || a.patient_id || '').trim();
+    if (!key) continue;
+    const existing = seen.get(key);
+    if (!existing || new Date(a.slot_start) < new Date(existing.next_slot)) {
+      seen.set(key, {
+        name: a.patient_name || key,
+        next_slot: a.slot_start,
+        appointments: (existing?.appointments ?? 0) + 1,
+      });
+    } else {
+      existing.appointments += 1;
+    }
+  }
+  const patients = Array.from(seen.values())
+    .sort((a, b) => new Date(a.next_slot).getTime() - new Date(b.next_slot).getTime())
+    .map((p) => ({
+      name: p.name,
+      next_slot: new Date(p.next_slot).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }),
+      appointments: p.appointments,
+    }));
 
   return {
     ok: true,
-    summary: `${list.length} consulta(s) marcada(s) nas próximas ${weeks} semana(s) — ${unique} pacientes únicos.`,
+    summary: `${list.length} consulta(s) marcada(s) nas próximas ${weeks} semana(s) — ${patients.length} pacientes únicos.`,
     data: {
       total_appointments: list.length,
-      unique_patients: unique,
+      unique_patients: patients.length,
       by_week: byWeek.map((count, i) => ({ week: i + 1, appointments: count })),
+      patients,
     },
   };
 };
