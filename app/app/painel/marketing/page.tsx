@@ -88,6 +88,32 @@ interface RegionDemand {
   };
 }
 
+interface FinancialScenario {
+  ok: boolean;
+  capacity: { slots_per_week: number; monthly: number; doctors_count: number };
+  ticket: {
+    value: number | null;
+    source: 'realized' | 'configured' | 'unknown';
+    realized_payment_count: number;
+    realized_revenue_6m: number;
+  };
+  volume: {
+    bookings_30d: number;
+    bookings_90d: number;
+    monthly_avg: number;
+    utilization_pct: number | null;
+  };
+  annual: { tam: number | null; realized: number | null; gap: number | null };
+  retention: {
+    total_patients: number;
+    recurrent_patients: number;
+    retention_pct: number | null;
+    at_risk: number;
+  };
+  recommendations: Array<{ priority: 'high' | 'medium' | 'low'; title: string; body: string }>;
+  collected_at: string;
+}
+
 interface Competitors {
   is_mock: boolean;
   is_cached?: boolean;
@@ -750,6 +776,113 @@ function ActivationOpportunitiesCard({ alerts }: { alerts: ActivationAlert[] }) 
   );
 }
 
+// ─── FinancialScenario (TAM + Retenção) ──────────────────────────────────────
+function FinancialScenarioCard({ d }: { d: FinancialScenario }) {
+  const fmtBRL = (n: number | null) =>
+    n == null ? '—' : `R$ ${Math.round(n).toLocaleString('pt-BR')}`;
+  const fmtNum = (n: number | null) => (n == null ? '—' : Math.round(n).toLocaleString('pt-BR'));
+  const fmtPct = (n: number | null) => (n == null ? '—' : `${Math.round(n)}%`);
+
+  const ticketLabel = d.ticket.source === 'realized'
+    ? `Ticket médio (real, ${d.ticket.realized_payment_count} pagamentos)`
+    : d.ticket.source === 'configured'
+    ? 'Ticket médio (configurado, sem pagamentos rastreados ainda)'
+    : 'Ticket médio (não configurado)';
+
+  const utilTone = d.volume.utilization_pct == null ? 'neutral'
+    : d.volume.utilization_pct >= 80 ? 'good'
+    : d.volume.utilization_pct >= 50 ? 'warn'
+    : 'bad';
+
+  const utilColor = utilTone === 'good' ? '#22c55e'
+    : utilTone === 'warn' ? '#f59e0b'
+    : utilTone === 'bad' ? '#ef4444' : '#a1a1aa';
+
+  const recTone: Record<string, { bg: string; accent: string; label: string }> = {
+    high: { bg: '#fef2f2', accent: '#dc2626', label: 'Alta prioridade' },
+    medium: { bg: '#fefce8', accent: '#b45309', label: 'Média' },
+    low: { bg: '#f5f3ff', accent: ACCENT_DEEP, label: 'Baixa' },
+  };
+
+  return (
+    <motion.div variants={fadeUp} className="rounded-2xl border border-black/[0.07] bg-white overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}>
+      <div className="px-5 pt-4 pb-3 border-b border-black/[0.05]">
+        <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-zinc-400">Cenário financeiro · TAM + Retenção</p>
+        <p className="text-[12px] text-zinc-500 mt-0.5">{ticketLabel}</p>
+      </div>
+
+      {/* Linha principal: Capacidade · Volume · TAM · Realizado · Gap */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y divide-black/[0.04]">
+        <div className="p-4">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-1">Capacidade/mês</p>
+          <p className="text-[20px] tabular-nums font-semibold">{fmtNum(d.capacity.monthly)}</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">{d.capacity.doctors_count} prof · {d.capacity.slots_per_week}/sem</p>
+        </div>
+        <div className="p-4">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-1">Volume médio/mês</p>
+          <p className="text-[20px] tabular-nums font-semibold" style={{ color: utilColor }}>
+            {fmtNum(d.volume.monthly_avg)}
+          </p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">utilização {fmtPct(d.volume.utilization_pct)}</p>
+        </div>
+        <div className="p-4">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-1">Ticket médio</p>
+          <p className="text-[20px] tabular-nums font-semibold">{fmtBRL(d.ticket.value)}</p>
+          {d.ticket.realized_revenue_6m > 0 && (
+            <p className="text-[10px] text-zinc-500 mt-0.5">{fmtBRL(d.ticket.realized_revenue_6m)} em 6m</p>
+          )}
+        </div>
+        <div className="p-4">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-1">Receita potencial/ano</p>
+          <p className="text-[20px] tabular-nums font-semibold" style={{ color: ACCENT }}>{fmtBRL(d.annual.tam)}</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">100% capacidade</p>
+        </div>
+        <div className="p-4">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-1">Gap anual</p>
+          <p className="text-[20px] tabular-nums font-semibold" style={{ color: '#dc2626' }}>{fmtBRL(d.annual.gap)}</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">deixado na mesa</p>
+        </div>
+      </div>
+
+      {/* Linha de retenção */}
+      <div className="grid grid-cols-3 divide-x divide-black/[0.04] border-t border-black/[0.05]">
+        <div className="p-4">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-1">Pacientes ativos</p>
+          <p className="text-[18px] tabular-nums font-semibold">{fmtNum(d.retention.total_patients)}</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">{fmtNum(d.retention.recurrent_patients)} recorrentes</p>
+        </div>
+        <div className="p-4">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-1">Retenção</p>
+          <p className="text-[18px] tabular-nums font-semibold">{fmtPct(d.retention.retention_pct)}</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">2+ visitas</p>
+        </div>
+        <div className="p-4">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-1">Em risco</p>
+          <p className="text-[18px] tabular-nums font-semibold" style={{ color: d.retention.at_risk > 0 ? '#dc2626' : '#22c55e' }}>
+            {fmtNum(d.retention.at_risk)}
+          </p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">90+d sem retorno</p>
+        </div>
+      </div>
+
+      {d.recommendations.length > 0 && (
+        <div className="px-5 py-3 border-t border-black/[0.05] space-y-2">
+          {d.recommendations.map((r, i) => {
+            const c = recTone[r.priority];
+            return (
+              <div key={i} className="rounded-lg p-3" style={{ background: c.bg, border: `1px solid ${c.accent}25` }}>
+                <p className="text-[9px] font-bold tracking-[0.1em] uppercase mb-1" style={{ color: c.accent }}>{c.label}</p>
+                <p className="text-[13px] font-semibold text-zinc-900 mb-0.5">{r.title}</p>
+                <p className="text-[12px] text-zinc-600">{r.body}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 // ─── Competitors ──────────────────────────────────────────────────────────────
 function CompetitorsCard({ d, refreshing, onRefresh }: { d: Competitors; refreshing: boolean; onRefresh: () => void }) {
   const stats = d.market_stats;
@@ -1184,13 +1317,14 @@ function MarketingInner() {
   const [gbpRefreshing, setGbpRefreshing] = useState(false);
   const [competitors, setCompetitors] = useState<Competitors | null>(null);
   const [competitorsRefreshing, setCompetitorsRefreshing] = useState(false);
+  const [financial, setFinancial] = useState<FinancialScenario | null>(null);
   const [loading, setLoading] = useState(true);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewDone, setReviewDone] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [sRes, pRes, rRes, dRes, tRes, gRes, cRes] = await Promise.all([
+      const [sRes, pRes, rRes, dRes, tRes, gRes, cRes, fRes] = await Promise.all([
         fetch('/api/painel/marketing/score'),
         fetch('/api/painel/marketing/posts?status=pending_approval&limit=6'),
         fetch('/api/painel/marketing/reviews'),
@@ -1198,6 +1332,7 @@ function MarketingInner() {
         fetch('/api/painel/marketing/market-trends'),
         fetch('/api/painel/marketing/gbp-insights'),
         fetch('/api/painel/marketing/competitors'),
+        fetch('/api/painel/marketing/financial-scenario'),
       ]);
       if (sRes.ok) { const d = await sRes.json(); setScoreData(d.current); setRecs(d.recommendations || []); }
       if (pRes.ok) { const d = await pRes.json(); setPosts(d.posts || []); }
@@ -1257,6 +1392,10 @@ function MarketingInner() {
               .finally(() => setCompetitorsRefreshing(false));
           }
         }
+      }
+      if (fRes.ok) {
+        const f = await fRes.json();
+        if (f?.ok) setFinancial(f);
       }
     } catch (e) {
       console.error(e);
@@ -1412,6 +1551,9 @@ function MarketingInner() {
               eligibleReviews,
             })}
           />
+
+          {/* Bloco 1.6 — Cenário financeiro (TAM + retenção) */}
+          {financial && <FinancialScenarioCard d={financial} />}
 
           {/* Bloco 2 — O que está te travando */}
           {sortedRecs.length > 0 && (

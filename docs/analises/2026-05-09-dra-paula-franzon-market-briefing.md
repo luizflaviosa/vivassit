@@ -272,7 +272,7 @@ Pra chegar em "100% close-to-action", precisamos integrar:
 | Concorrentes reais de reumato em Jundiaí (n, reviews, rating) | Google Places API | Sprint 1.2 ← entregue (deploy 2026-05-09) |
 | Performance Google Business da Paula (impressões, cliques, queries) | Google Business Profile API | Sprint 1.1 ← entregue (deploy 2026-05-09, requer OAuth da Paula) |
 | Volume absoluto de buscas (vs índice relativo atual) | Google Ads Basic Access | Aguardando aprovação |
-| Histórico de NPS dos pacientes | Singulare workflow NPS | Sprint 1.3 |
+| Histórico de NPS dos pacientes | Singulare workflow NPS | Sprint 1.3 — workflow `87vZl62KFCOqFbyI` existe no n8n mas está INATIVO. Ativar manualmente via UI (`https://n8n.singulare.org/workflow/87vZl62KFCOqFbyI`) — toggle Active no canto superior direito |
 | Histórico de retenção real dos 2 pacientes existentes | Supabase appointments | Pronto, depende volume |
 | Concorrência de SEO/Ads (quem rankeia "reumatologista jundiai") | DFS Labs serp_competitors | Sprint 2 |
 | Demografia específica de Jundiaí (não Brasil-wide) | DFS subregion_interests local | Sprint 2 |
@@ -311,6 +311,7 @@ Quando a Paula abrir `/painel/marketing`, ela vê:
 | Oportunidade na região | DataForSEO Google Ads search_volume | Real (limitado por YMYL — específicos médicos rejeitados) |
 | Performance Google Meu Negócio | Google Business Profile Performance API | Pronto, **falta OAuth da Paula** em /painel/marketing/configurar |
 | Competidores próximos | Google Places API (New) searchText | Pronto — refresh automático na 1ª visita pós-deploy |
+| Cenário financeiro (TAM + retenção) | tenant_doctors + doctor_bookings + tenant_payments + patients | Real, calculado no GET — capacidade × ticket médio × 12 meses, retention = % com 2+ visitas, em risco = 90+d sem retorno |
 | Inteligência de Mercado · Brasil | DFS Trends (explore + subregion + demography) | Real, mensal |
 
 Refresh: cron mensal em `vercel.json` (cada cartão tem botão de "atualizar" manual).
