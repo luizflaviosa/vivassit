@@ -14,12 +14,42 @@ import {
   TrendingDown,
   Minus,
   AlertCircle,
+  CalendarRange,
+  LineChart,
+  RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
+
+interface FinancialScenario {
+  ok: boolean;
+  capacity: { slots_per_week: number; monthly: number; doctors_count: number };
+  ticket: {
+    value: number | null;
+    source: 'realized' | 'configured' | 'unknown';
+    realized_payment_count: number;
+    realized_revenue_6m: number;
+  };
+  volume: {
+    bookings_30d: number;
+    bookings_90d: number;
+    monthly_avg: number;
+    utilization_pct: number | null;
+  };
+  annual: { tam: number | null; realized: number | null; gap: number | null };
+  retention: {
+    total_patients: number;
+    recurrent_patients: number;
+    retention_pct: number | null;
+    at_risk: number;
+  };
+  recommendations: Array<{ priority: 'high' | 'medium' | 'low'; title: string; body: string }>;
+  collected_at: string;
+}
 
 interface PerformanceData {
   generated_at: string;
@@ -111,18 +141,21 @@ function PerformanceInner() {
   const me = useMe();
   const tenantId = me?.tenant_id ?? '';
   const [data, setData] = useState<PerformanceData | null>(null);
+  const [financial, setFinancial] = useState<FinancialScenario | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!tenantId) return;
-    fetch('/api/painel/performance', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.success) setData(j as PerformanceData);
-        else setError(j.message ?? 'Erro ao carregar');
+    Promise.all([
+      fetch('/api/painel/performance', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
+      fetch('/api/painel/marketing/financial-scenario', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
+    ])
+      .then(([perf, fin]) => {
+        if (perf?.success) setData(perf as PerformanceData);
+        else setError(perf?.message ?? 'Erro ao carregar');
+        if (fin?.ok) setFinancial(fin as FinancialScenario);
       })
-      .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
   }, [tenantId]);
 
@@ -411,7 +444,186 @@ function PerformanceInner() {
             </div>
           )}
         </CardShell>
+
+        {/* 8. CAPACIDADE MENSAL (financial-scenario) */}
+        {financial && (
+          <CardShell
+            title="Capacidade mensal"
+            icon={<CalendarRange className="w-4 h-4" />}
+            footer={
+              financial.capacity.doctors_count > 0 ? (
+                <span>
+                  {financial.capacity.doctors_count} profissional{financial.capacity.doctors_count > 1 ? 'is' : ''} · {financial.capacity.slots_per_week} slots/semana
+                </span>
+              ) : (
+                <span className="text-zinc-400">Configure horários em /painel/configuracoes</span>
+              )
+            }
+          >
+            <div className="flex items-end gap-2 mb-4">
+              <span className="text-[44px] leading-none font-medium tracking-[-0.03em] text-zinc-900">
+                {financial.capacity.monthly}
+              </span>
+              <span className="text-[14px] text-zinc-500 mb-2">slots/mês</span>
+            </div>
+            <div className="space-y-2 text-[13px]">
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Volume médio/mês</span>
+                <span className="font-semibold text-zinc-900">{financial.volume.monthly_avg}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Utilização</span>
+                <span className="font-semibold text-zinc-900">
+                  {financial.volume.utilization_pct != null ? `${Math.round(financial.volume.utilization_pct)}%` : '—'}
+                </span>
+              </div>
+            </div>
+          </CardShell>
+        )}
+
+        {/* 9. CENÁRIO ANUAL (TAM + crescimento projetado) */}
+        {financial && financial.annual.tam != null && (
+          <CardShell
+            title="Cenário anual"
+            icon={<LineChart className="w-4 h-4" />}
+            footer={
+              financial.annual.gap != null && financial.annual.gap > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span>Crescimento projetado</span>
+                  <span className="font-semibold" style={{ color: ACCENT_DEEP }}>
+                    {brl(financial.annual.gap)}
+                  </span>
+                </div>
+              ) : financial.ticket.source === 'unknown' ? (
+                <a href="/painel/configuracoes" className="text-violet-700 font-semibold hover:underline">
+                  Configurar ticket médio →
+                </a>
+              ) : null
+            }
+          >
+            <div className="flex items-end gap-2 mb-1">
+              <span className="text-[36px] leading-none font-medium tracking-[-0.03em] text-zinc-900">
+                {brl(financial.annual.tam)}
+              </span>
+            </div>
+            <p className="text-[12px] text-zinc-500 mb-4">
+              Receita potencial a 100% da capacidade
+              {financial.ticket.value != null && (
+                <> · ticket {brl(financial.ticket.value)}</>
+              )}
+            </p>
+            {financial.annual.realized != null && (
+              <>
+                <div className="flex items-center justify-between text-[12px] mb-1.5">
+                  <span className="text-zinc-500">Realizado projetado</span>
+                  <span className="font-semibold text-zinc-700">{brl(financial.annual.realized)}</span>
+                </div>
+                <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(100, (financial.annual.realized / financial.annual.tam) * 100)}%`,
+                      background: ACCENT,
+                    }}
+                  />
+                </div>
+              </>
+            )}
+          </CardShell>
+        )}
+
+        {/* 10. RETENÇÃO */}
+        {financial && (
+          <CardShell
+            title="Retenção"
+            icon={<RotateCcw className="w-4 h-4" />}
+            footer={
+              financial.retention.at_risk > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span>Em risco (90+ dias)</span>
+                  <span className="font-semibold" style={{ color: STATUS_COLORS.amber.fg }}>
+                    {financial.retention.at_risk}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-zinc-400">Sem pacientes em risco</span>
+              )
+            }
+          >
+            {financial.retention.total_patients === 0 ? (
+              <div>
+                <span className="text-[36px] leading-none font-medium tracking-[-0.03em] text-zinc-300">—</span>
+                <p className="text-[12px] text-zinc-500 mt-3">Sem pacientes registrados ainda.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-end gap-2 mb-4">
+                  <span className="text-[44px] leading-none font-medium tracking-[-0.03em] text-zinc-900">
+                    {financial.retention.retention_pct != null ? `${Math.round(financial.retention.retention_pct)}%` : '—'}
+                  </span>
+                  <span className="text-[14px] text-zinc-500 mb-2">com 2+ visitas</span>
+                </div>
+                <div className="space-y-2 text-[13px]">
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">Pacientes ativos</span>
+                    <span className="font-semibold text-zinc-900">{financial.retention.total_patients}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">Recorrentes</span>
+                    <span className="font-semibold text-zinc-900">{financial.retention.recurrent_patients}</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardShell>
+        )}
       </div>
+
+      {/* Painel "Onde focar" — recomendações financeiras */}
+      {financial && financial.recommendations.length > 0 && (
+        <div className="rounded-2xl border border-black/[0.07] bg-white p-5 sm:p-6">
+          <div className="flex items-center gap-2.5 mb-4">
+            <div
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
+              style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
+            >
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <h3 className="text-[13px] uppercase tracking-[0.08em] font-semibold text-zinc-500">
+              Onde focar
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {financial.recommendations.map((rec, idx) => {
+              const tone = rec.priority === 'high'
+                ? STATUS_COLORS.amber
+                : rec.priority === 'medium'
+                ? { fg: ACCENT_DEEP, bg: ACCENT_SOFT, border: 'rgba(110,86,207,0.25)' }
+                : STATUS_COLORS.green;
+              return (
+                <div
+                  key={idx}
+                  className="rounded-xl p-4"
+                  style={{ background: tone.bg, border: `1px solid ${tone.border}` }}
+                >
+                  <p
+                    className="text-[10px] uppercase tracking-[0.1em] font-semibold mb-1.5"
+                    style={{ color: tone.fg }}
+                  >
+                    {rec.priority === 'high' ? 'Alta prioridade' : rec.priority === 'medium' ? 'Atenção' : 'Otimização'}
+                  </p>
+                  <p className="text-[14px] font-semibold text-zinc-900 mb-1 leading-tight">
+                    {rec.title}
+                  </p>
+                  <p className="text-[12px] text-zinc-600 leading-relaxed">
+                    {rec.body}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {data.scope.is_doctor && (
         <p className="text-[12px] text-zinc-400 italic">

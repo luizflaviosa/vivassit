@@ -174,10 +174,10 @@ export async function GET() {
     const receitaPotencial = slotsLivres * (ticketMedio ?? 0) * 12;
     recommendations.push({
       priority: 'high',
-      title: `${slotsLivres} slots livres por mês — capacidade ociosa`,
+      title: `${slotsLivres} slots disponíveis por mês`,
       body: ticketMedio != null
-        ? `Ocupando esses slots você adiciona R$ ${Math.round(receitaPotencial).toLocaleString('pt-BR')} ao ano. Ative Plano Ads pra preencher rápido.`
-        : `Ocupando esses slots você sobe receita proporcionalmente. Configure ticket médio em /painel/configuracoes pra ver projeção.`,
+        ? `Preenchendo esses horários, sua receita anual cresce em R$ ${Math.round(receitaPotencial).toLocaleString('pt-BR')}. Ative o Plano Ads pra acelerar a aquisição.`
+        : `Esses horários abertos representam crescimento direto. Configure o ticket médio em /painel/configuracoes pra ver a projeção.`,
     });
   }
 
@@ -185,15 +185,15 @@ export async function GET() {
     recommendations.push({
       priority: 'medium',
       title: `${atRisk} paciente${atRisk > 1 ? 's' : ''} sem retorno há 90+ dias`,
-      body: `Recall via WhatsApp converte ~30% dos pacientes em risco. Receita estimada: R$ ${Math.round(atRisk * 0.3 * (ticketMedio ?? 0)).toLocaleString('pt-BR')}.`,
+      body: `Recall via WhatsApp costuma reativar ~30% desses pacientes. Receita projetada: R$ ${Math.round(atRisk * 0.3 * (ticketMedio ?? 0)).toLocaleString('pt-BR')}.`,
     });
   }
 
   if (totalPatients < 10 && monthlyCapacity > 50) {
     recommendations.push({
       priority: 'high',
-      title: 'Base de pacientes ainda pequena pra escala',
-      body: 'Com capacidade alta e poucos pacientes registrados, o gargalo é aquisição (não capacidade). Foque Ads + Reviews pra dobrar volume mês a mês.',
+      title: 'Base de pacientes em formação',
+      body: 'Com a capacidade já estruturada, o foco da etapa atual é aquisição. Ads + Reviews + Social tendem a dobrar o volume mês a mês até preencher a agenda.',
     });
   }
 
