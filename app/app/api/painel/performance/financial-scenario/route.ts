@@ -1,5 +1,5 @@
 /**
- * GET /api/painel/marketing/financial-scenario
+ * GET /api/painel/performance/financial-scenario
  *
  * Cenário financeiro do tenant: TAM (capacidade × ticket médio × 12) vs receita
  * realizada, gap, recomendações de ativação. Mais bloco de retenção

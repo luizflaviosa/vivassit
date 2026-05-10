@@ -149,7 +149,7 @@ function PerformanceInner() {
     if (!tenantId) return;
     Promise.all([
       fetch('/api/painel/performance', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
-      fetch('/api/painel/marketing/financial-scenario', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
+      fetch('/api/painel/performance/financial-scenario', { cache: 'no-store' }).then((r) => r.json()).catch(() => null),
     ])
       .then(([perf, fin]) => {
         if (perf?.success) setData(perf as PerformanceData);
