@@ -24,8 +24,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'Singulare';
   const options = {
     body: payload.body || '',
-    icon: '/logos/icon.svg',
-    badge: '/logos/icon.svg',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     tag: payload.tag || payload.type || 'default',
     data: { url: payload.url || '/painel', type: payload.type, ...payload.data },
     requireInteraction: payload.priority === 'high',
