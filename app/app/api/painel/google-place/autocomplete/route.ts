@@ -50,9 +50,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ predictions: [] });
   }
 
+  // SEM types=establishment: profissionais de saude (medicos individuais) sao
+  // frequentemente categorizados pelo Google como "Person/Health professional",
+  // nao "establishment". Filtrar por establishment derruba listings legitimos
+  // de doctor names. Confiamos no input + country=br pra precisao.
   const apiUrl = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json');
   apiUrl.searchParams.set('input', q);
-  apiUrl.searchParams.set('types', 'establishment');
   apiUrl.searchParams.set('components', 'country:br');
   apiUrl.searchParams.set('language', 'pt-BR');
   apiUrl.searchParams.set('key', apiKey);
