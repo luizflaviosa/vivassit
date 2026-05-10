@@ -1,27 +1,34 @@
 /**
  * POST /api/painel/google-place/lookup
  *
- * Busca o Google Place ID da clínica automaticamente via Google Places API,
- * combinando dados do tenant (clinic_name, doctor_name, address, city).
+ * Busca o Google Place ID da clínica via Google Places API com cascata de
+ * queries (mais específica → mais ampla) usando Text Search, que é mais
+ * tolerante a query "humana" que findplacefromtext.
  *
- * Removes a fricção de "abrir Place ID Finder, achar pin, copiar ID" da
- * configuração inicial. Usuário só clica "Buscar automaticamente" em
- * /painel/configuracoes.
+ * Estratégia (em ordem):
+ *   1. Query custom do usuário (body.query), se houver
+ *   2. doctor_name + speciality + city  (alinhado com nome típico no GMN:
+ *      "Dr. Fulano | Cardiologia")
+ *   3. clinic_name + city                (se clinic_name existir)
+ *   4. doctor_name + city                (sem speciality)
+ *   5. doctor_name                       (último recurso)
+ *
+ * Endereço NÃO entra na query — é a fonte mais frequente de mismatch (o que
+ * está cadastrado no painel raramente bate com o pin do GMN).
+ *
+ * Devolve até 5 candidatos pra UI escolher quando há ambiguidade.
  *
  * Body opcional:
- *   { query?: string }  // sobrescreve a query padrão (clinic+address)
+ *   { query?: string }  // sobrescreve a query padrão
  *
  * Response:
- *   - { ok: true, found: true, place: { place_id, name, address, rating } }
- *   - { ok: true, found: false, message, suggestions: [{name, address, place_id}] }
- *   - { ok: false, error: 'no_api_key' | 'no_address' | 'api_error' }
+ *   - { ok: true, found: true, place: <melhor>, candidates: [...], query }
+ *   - { ok: true, found: false, message, create_url, queries_tried: [...] }
+ *   - { ok: false, error: 'no_api_key' | 'no_query' | 'api_error' }
  *
  * Setup necessário (1x na vida):
- *   1. https://console.cloud.google.com/apis/library/places-backend.googleapis.com
- *      → Enable Places API (New) — projeto grand-quarter-462319-i7
- *   2. https://console.cloud.google.com/apis/credentials
- *      → Create credentials → API Key → restrinja pra Places API
- *   3. Vercel env var: GOOGLE_PLACES_API_KEY = <a key gerada>
+ *   1. Enable Places API em https://console.cloud.google.com/apis/library/places-backend.googleapis.com
+ *   2. Vercel env var: GOOGLE_PLACES_API_KEY
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -40,6 +47,46 @@ interface PlaceCandidate {
   business_status?: string;
 }
 
+function stripDoctorPrefix(name: string | null | undefined): string {
+  if (!name) return '';
+  return name.replace(/^(Dra?\.?|Doutora?|Dr\.?)\s*\.?\s*/i, '').trim();
+}
+
+async function textSearch(apiKey: string, query: string): Promise<PlaceCandidate[]> {
+  const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
+  url.searchParams.set('query', query);
+  url.searchParams.set('language', 'pt-BR');
+  url.searchParams.set('region', 'br');
+  url.searchParams.set('key', apiKey);
+
+  const res = await fetch(url.toString(), { cache: 'no-store' });
+  if (!res.ok) return [];
+
+  const data = (await res.json()) as {
+    status: string;
+    results?: Array<{
+      place_id: string;
+      name: string;
+      formatted_address: string;
+      rating?: number;
+      user_ratings_total?: number;
+      business_status?: string;
+    }>;
+    error_message?: string;
+  };
+
+  if (data.status !== 'OK' || !data.results) return [];
+
+  return data.results.slice(0, 5).map(r => ({
+    place_id: r.place_id,
+    name: r.name,
+    formatted_address: r.formatted_address,
+    rating: r.rating,
+    user_ratings_total: r.user_ratings_total,
+    business_status: r.business_status,
+  }));
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireTenant();
   if (!auth.ok) return auth.response;
@@ -50,28 +97,23 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         error: 'no_api_key',
-        message:
-          'Places API não configurada. Adicione GOOGLE_PLACES_API_KEY no Vercel. Doc: app/docs/GOOGLE-PLACES-SETUP.md',
+        message: 'Places API não configurada. Adicione GOOGLE_PLACES_API_KEY no Vercel.',
       },
       { status: 503 },
     );
   }
 
-  // Pega contexto do tenant pra montar query
   const supabase = supabaseAdmin();
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('clinic_name, doctor_name, speciality, address, city, state, phone, real_phone')
+    .select('clinic_name, doctor_name, speciality, city, state')
     .eq('tenant_id', auth.ctx.tenant.tenant_id)
     .maybeSingle<{
       clinic_name: string | null;
       doctor_name: string | null;
       speciality: string | null;
-      address: string | null;
       city: string | null;
       state: string | null;
-      phone: string | null;
-      real_phone: string | null;
     }>();
 
   if (!tenant) {
@@ -85,116 +127,91 @@ export async function POST(req: NextRequest) {
     /* body opcional */
   }
 
-  // Query default: prioriza nome do médico (mais específico que da clínica),
-  // depois especialidade, depois localização. Trim duplicatas.
-  const parts = [
-    body.query?.trim(),
-    tenant.doctor_name,
-    tenant.clinic_name,
-    tenant.speciality,
-    tenant.address,
-    tenant.city,
-    tenant.state,
-  ]
-    .filter((s): s is string => !!s && s.trim().length > 0)
-    .map((s) => s.trim());
+  const doctorClean = stripDoctorPrefix(tenant.doctor_name);
+  const clinicClean = (tenant.clinic_name ?? '').trim();
+  const speciality = (tenant.speciality ?? '').trim();
+  const city = (tenant.city ?? '').trim();
 
-  // Dedupe substrings (ex: address já contém city)
-  const seen = new Set<string>();
-  const uniqueParts: string[] = [];
-  for (const p of parts) {
-    const lower = p.toLowerCase();
-    if (!Array.from(seen).some((s) => s.includes(lower) || lower.includes(s))) {
-      seen.add(lower);
-      uniqueParts.push(p);
-    }
+  // Cascata de queries — mais específica → mais ampla.
+  // Endereço fica de fora intencionalmente (raramente bate com pin do GMN).
+  const queries: string[] = [];
+  if (body.query?.trim()) queries.push(body.query.trim());
+  if (doctorClean && speciality && city) queries.push(`${doctorClean} ${speciality} ${city}`);
+  if (clinicClean && city && clinicClean.toLowerCase() !== doctorClean.toLowerCase()) {
+    queries.push(`${clinicClean} ${city}`);
   }
+  if (doctorClean && city) queries.push(`${doctorClean} ${city}`);
+  if (doctorClean) queries.push(doctorClean);
 
-  const query = uniqueParts.join(' ');
-  if (!query.trim()) {
+  // Dedupe preservando ordem
+  const seen = new Set<string>();
+  const uniqueQueries = queries.filter(q => {
+    const k = q.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  if (uniqueQueries.length === 0) {
     return NextResponse.json(
       {
         ok: false,
         error: 'no_query',
-        message: 'Sem dados pra buscar. Preencha pelo menos nome + endereço da clínica.',
+        message: 'Sem dados pra buscar. Preencha pelo menos nome do médico + cidade.',
       },
       { status: 400 },
     );
   }
 
-  // Chama Places API "Find Place from Text" — barato (~$0.017 por chamada)
-  const url = new URL('https://maps.googleapis.com/maps/api/place/findplacefromtext/json');
-  url.searchParams.set('input', query);
-  url.searchParams.set('inputtype', 'textquery');
-  url.searchParams.set('fields', 'place_id,name,formatted_address,rating,user_ratings_total,business_status');
-  url.searchParams.set('language', 'pt-BR');
-  url.searchParams.set('locationbias', 'ipbias');
-  url.searchParams.set('key', apiKey);
+  // Roda em cascata. Para na primeira que devolve resultado válido,
+  // mas acumula candidatos das primeiras 2 tentativas pra dar opções
+  // ao usuário quando o match não é óbvio.
+  const candidates: PlaceCandidate[] = [];
+  const placeIdSeen = new Set<string>();
+  const queriesTried: string[] = [];
 
-  const res = await fetch(url.toString(), { cache: 'no-store' });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => '');
-    console.error('[google-place/lookup] Places API erro', res.status, txt.slice(0, 200));
-    return NextResponse.json(
-      { ok: false, error: 'api_error', message: `Places API ${res.status}` },
-      { status: 502 },
-    );
-  }
-
-  const data = (await res.json()) as {
-    status: string;
-    candidates?: PlaceCandidate[];
-    error_message?: string;
-  };
-
-  if (data.status === 'ZERO_RESULTS' || !data.candidates?.length) {
-    // Tenta fallback: query mais ampla só com doctor_name + city
-    if (tenant.doctor_name && tenant.city && !body.query) {
-      const fallbackQuery = `${tenant.doctor_name} ${tenant.city}`;
-      const fbUrl = new URL('https://maps.googleapis.com/maps/api/place/findplacefromtext/json');
-      fbUrl.searchParams.set('input', fallbackQuery);
-      fbUrl.searchParams.set('inputtype', 'textquery');
-      fbUrl.searchParams.set('fields', 'place_id,name,formatted_address,rating,user_ratings_total,business_status');
-      fbUrl.searchParams.set('language', 'pt-BR');
-      fbUrl.searchParams.set('key', apiKey);
-      const fbRes = await fetch(fbUrl.toString(), { cache: 'no-store' });
-      const fbData = (await fbRes.json()) as { candidates?: PlaceCandidate[] };
-      if (fbData.candidates?.length) {
-        return NextResponse.json({
-          ok: true,
-          found: true,
-          place: fbData.candidates[0],
-          query: fallbackQuery,
-          fallback: true,
-        });
+  for (const q of uniqueQueries) {
+    queriesTried.push(q);
+    const found = await textSearch(apiKey, q);
+    for (const c of found) {
+      if (!placeIdSeen.has(c.place_id)) {
+        placeIdSeen.add(c.place_id);
+        candidates.push(c);
       }
     }
+    // Para cedo se já achamos pelo menos 1 candidato + tentamos 2 queries
+    if (candidates.length > 0 && queriesTried.length >= 2) break;
+    // Ou se já temos 5+ candidatos
+    if (candidates.length >= 5) break;
+  }
 
+  if (candidates.length === 0) {
     return NextResponse.json({
       ok: true,
       found: false,
-      query,
+      queries_tried: queriesTried,
       message:
-        'Não achamos perfil do Google Meu Negócio com esses dados. Você pode criar grátis em business.google.com — leva 5min de cadastro + 5-7 dias pra Google verificar (carta postal).',
+        'Não achamos perfil do Google Meu Negócio com esses dados. Tente buscar com outro termo (ex: nome exato do listing) ou crie grátis em business.google.com — leva 5min de cadastro + 5-7 dias pra Google verificar (carta postal).',
       create_url: 'https://business.google.com/create',
     });
   }
 
-  if (data.status !== 'OK') {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: 'api_error',
-        message: data.error_message ?? `Places API status=${data.status}`,
-      },
-      { status: 502 },
-    );
-  }
+  // Ranking: candidatos cujo nome contém doctorClean (ou substring significativa)
+  // ficam acima. Empate desempata por user_ratings_total.
+  const doctorLower = doctorClean.toLowerCase();
+  const ranked = candidates.slice().sort((a, b) => {
+    const aMatch = doctorLower && a.name.toLowerCase().includes(doctorLower) ? 1 : 0;
+    const bMatch = doctorLower && b.name.toLowerCase().includes(doctorLower) ? 1 : 0;
+    if (aMatch !== bMatch) return bMatch - aMatch;
+    return (b.user_ratings_total ?? 0) - (a.user_ratings_total ?? 0);
+  });
 
   return NextResponse.json({
     ok: true,
     found: true,
-    place: data.candidates[0],
-    query,
+    place: ranked[0],
+    candidates: ranked.slice(0, 5),
+    query: queriesTried[0],
+    queries_tried: queriesTried,
   });
 }
