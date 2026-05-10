@@ -224,6 +224,84 @@ E adicionar redirect URI no OAuth Client `n8n-google`:
   - `dataforseo_labs/google/search_intent` — classificação de intent
   - `dataforseo_labs/google/serp_competitors` — análise de concorrentes
 
+### Instagram Graph API (Meta)
+
+- **App Meta**: criado em [developers.facebook.com](https://developers.facebook.com/apps), produto "Facebook Login for Business" + "Instagram Graph API"
+- **Tipo**: Business
+- **Status**: Development mode até Business Verification + App Review concluírem
+  - Em Development: só Admins/Developers/Testers do app conseguem fazer OAuth
+  - Em Live: qualquer tenant pode conectar
+- **Redirect URI cadastrada**: `https://app.singulare.org/api/painel/marketing/oauth/instagram`
+- **Graph version fixa**: v21.0
+- **Token model**: long-lived user access token (60 dias) trocado via `fb_exchange_token`. Renovação mensal via cron.
+
+#### Permissions / Scopes solicitados
+
+| Scope | Pra quê | Status app review |
+|---|---|---|
+| `instagram_business_basic` | ler perfil, media list | sensível — Standard Access |
+| `instagram_business_content_publish` | publicar posts/carousels | sensível — Standard Access |
+| `pages_show_list` | listar páginas FB do user | basic |
+| `pages_read_engagement` | ler insights de página | sensível |
+| `pages_manage_posts` | publicar via página FB | sensível |
+| `business_management` | descobrir IG Business via Page | sensível |
+
+Scopes "sensíveis" exigem App Review da Meta antes de Live. Em Development, todos funcionam pra Admin/Tester do app.
+
+#### Env vars (Vercel)
+
+| Var | Onde usa |
+|---|---|
+| `META_APP_ID` | OAuth route + token refresh route |
+| `META_APP_SECRET` | OAuth route + token refresh route |
+| `ENCRYPTION_KEY` | criptografar/descriptografar `instagram_token_enc` (já existente, AES-256-GCM) |
+
+#### Endpoints
+
+| Path | Método | Função | Auth |
+|---|---|---|---|
+| `/api/painel/marketing/oauth/instagram` | GET | Redireciona pro Meta OAuth (sem `code`) ou processa callback (com `code`) | `requireTenant` |
+| `/api/interno/instagram-token-refresh` | GET/POST | Loop em todos tenants, estende long-lived token | Bearer `N8N_TO_VERCEL_TOKEN` ou `CRON_SECRET` |
+| `/api/painel/marketing/subscription` | GET | Retorna estado de conexão (inclui campos IG/GBP) | `requireTenant` |
+
+#### Schema (`marketing_subscriptions`)
+
+| Coluna | Tipo |
+|---|---|
+| `instagram_token_enc` | text — long-lived token criptografado (AES-256-GCM) |
+| `instagram_business_account_id` | text — ID do IG Business (não confundir com user ID) |
+| `instagram_username` | text — handle visível no painel |
+| `facebook_page_id` | text — ID da Page que tem o IG Business linkado |
+| `instagram_token_expires_at` | timestamptz — expiração calculada (used_iat + expires_in) |
+
+#### Library (server-side)
+
+`lib/instagram-publisher.ts` expõe:
+
+- `loadIgConnection(supabase, tenantId)` — fetch + decrypt token
+- `getProfile(supabase, tenantId)` — basic profile + counts
+- `getAccountInsights(supabase, tenantId, metrics, period)` — reach, profile_views, etc
+- `publishImagePost(supabase, tenantId, imageUrl, caption)` — Container API 2-step
+- `publishCarousel(supabase, tenantId, items, caption)` — multi-item carousel
+- `refreshLongLivedToken(supabase, tenantId, appId, appSecret)` — usado pelo cron
+
+#### Cron
+
+`/api/interno/instagram-token-refresh` em `vercel.json`: `0 5 1 * *` (mensal, dia 1, 05:00 UTC). Refresh mensal vs expiração de 60 dias = sempre ≥ 30 dias de buffer.
+
+#### UI
+
+Página `/painel/marketing/configurar` ([app/app/painel/marketing/configurar/page.tsx](../app/app/painel/marketing/configurar/page.tsx)) mostra status (conectado/não, expiração do token) e botão "Conectar/Reconectar Instagram" → linka pra `/api/painel/marketing/oauth/instagram`.
+
+#### Para promover pra Live (publicar app Meta)
+
+- [ ] Business Verification concluída
+- [ ] Privacy Policy URL publicada
+- [ ] Terms of Service URL publicada
+- [ ] Data Deletion URL ou instruções
+- [ ] App Review submetido pros 6 scopes acima (cada um precisa caso de uso + screencast)
+- [ ] Webhook subscription opcional (DM, comentários — futuro)
+
 ### Chatwoot
 
 - **URL**: `chatwoot.singulare.org` (self-hosted)

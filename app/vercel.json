@@ -15,6 +15,10 @@
     {
       "path": "/api/interno/competitors-refresh",
       "schedule": "30 4 1 * *"
+    },
+    {
+      "path": "/api/interno/instagram-token-refresh",
+      "schedule": "0 5 1 * *"
     }
   ]
 }

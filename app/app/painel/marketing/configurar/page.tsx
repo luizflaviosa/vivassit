@@ -1,28 +1,76 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Loader2,
   ArrowLeft,
   Save,
   ExternalLink,
   Star,
+  Instagram,
+  MapPin,
+  CheckCircle2,
+  AlertTriangle,
+  RotateCw,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import type { MarketingSubscription } from '@/lib/marketing-types';
 
 const ACCENT_DEEP = '#5746AF';
 
-export default function MarketingConfigurarPage() {
+interface SubExtra {
+  instagram_business_account_id?: string | null;
+  instagram_username?: string | null;
+  instagram_token_expires_at?: string | null;
+  facebook_page_id?: string | null;
+  gbp_account_id?: string | null;
+  gbp_location_id?: string | null;
+  gbp_location_name?: string | null;
+  gbp_connected_at?: string | null;
+}
+
+type ExtendedSub = MarketingSubscription & SubExtra;
+
+function tokenStatus(expiresAt?: string | null): { label: string; tone: 'ok' | 'warn' | 'danger' } | null {
+  if (!expiresAt) return null;
+  const days = Math.round((new Date(expiresAt).getTime() - Date.now()) / 86_400_000);
+  if (days < 0) return { label: `expirado há ${Math.abs(days)}d`, tone: 'danger' };
+  if (days < 7) return { label: `expira em ${days}d`, tone: 'danger' };
+  if (days < 14) return { label: `expira em ${days}d`, tone: 'warn' };
+  return { label: `válido por ${days}d`, tone: 'ok' };
+}
+
+function PageInner() {
   const me = useMe();
   const router = useRouter();
+  const params = useSearchParams();
 
-  const [sub, setSub] = useState<MarketingSubscription | null>(null);
+  const [sub, setSub] = useState<ExtendedSub | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
   const [googleReviewUrl, setGoogleReviewUrl] = useState('');
+
+  useEffect(() => {
+    const errKey = params.get('error');
+    const connected = params.get('connected');
+    if (connected === 'instagram') {
+      const u = params.get('username');
+      setNotice({ kind: 'success', text: `Instagram conectado${u ? ` (@${u})` : ''}.` });
+    } else if (connected === 'gbp') {
+      const loc = params.get('location');
+      setNotice({ kind: 'success', text: `Google Business conectado${loc ? ` (${loc})` : ''}.` });
+    } else if (errKey) {
+      setNotice({ kind: 'error', text: `Erro: ${errKey}` });
+    }
+    if (errKey || connected) {
+      const url = new URL(window.location.href);
+      url.search = '';
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [params]);
 
   useEffect(() => {
     if (!me?.tenant_id) return;
@@ -86,6 +134,10 @@ export default function MarketingConfigurarPage() {
     );
   }
 
+  const igConnected = !!(sub.instagram_business_account_id && sub.instagram_token_expires_at);
+  const gbpConnected = !!sub.gbp_account_id;
+  const igStatus = tokenStatus(sub.instagram_token_expires_at);
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Back */}
@@ -105,6 +157,93 @@ export default function MarketingConfigurarPage() {
         <p className="text-[14px] text-zinc-500 mt-1">
           Configure as integrações do Singulare Presença.
         </p>
+      </div>
+
+      {notice && (
+        <div
+          className={`rounded-xl border px-4 py-3 text-[13px] flex items-start gap-2 ${
+            notice.kind === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-red-200 bg-red-50 text-red-800'
+          }`}
+        >
+          {notice.kind === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          )}
+          <span>{notice.text}</span>
+        </div>
+      )}
+
+      {/* Instagram OAuth */}
+      <div className="rounded-xl border border-black/[0.07] bg-white p-5 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="h-8 w-8 rounded-full bg-violet-50 flex items-center justify-center">
+              <Instagram className="w-4 h-4 text-violet-600" />
+            </div>
+            <div>
+              <p className="text-[15px] font-semibold text-zinc-900">Instagram</p>
+              <p className="text-[12px] text-zinc-500 mt-0.5">
+                {igConnected
+                  ? `Conectado como @${sub.instagram_username ?? sub.instagram_business_account_id}`
+                  : 'Permite publicar posts e ler engajamento'}
+              </p>
+              {igStatus && (
+                <span
+                  className={`inline-block mt-1.5 text-[11px] px-2 py-0.5 rounded ${
+                    igStatus.tone === 'ok'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : igStatus.tone === 'warn'
+                      ? 'bg-amber-50 text-amber-700'
+                      : 'bg-red-50 text-red-700'
+                  }`}
+                >
+                  Token {igStatus.label}
+                </span>
+              )}
+            </div>
+          </div>
+          <a
+            href="/api/painel/marketing/oauth/instagram"
+            className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg text-[13px] font-medium text-white hover:brightness-110 transition-all"
+            style={{ background: ACCENT_DEEP }}
+          >
+            {igConnected ? <RotateCw className="w-3.5 h-3.5" /> : <Instagram className="w-3.5 h-3.5" />}
+            {igConnected ? 'Reconectar' : 'Conectar'}
+          </a>
+        </div>
+        <p className="text-[11px] text-zinc-400">
+          Requer Instagram Business linkado a uma página Facebook. Token long-lived (60d) renovado mensalmente.
+        </p>
+      </div>
+
+      {/* Google Business Profile OAuth */}
+      <div className="rounded-xl border border-black/[0.07] bg-white p-5 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center">
+              <MapPin className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-[15px] font-semibold text-zinc-900">Google Business Profile</p>
+              <p className="text-[12px] text-zinc-500 mt-0.5">
+                {gbpConnected
+                  ? `Conectado: ${sub.gbp_location_name ?? sub.gbp_location_id}`
+                  : 'Insights de visualizações, chamadas, direções e cliques'}
+              </p>
+            </div>
+          </div>
+          <a
+            href="/api/painel/marketing/oauth/gbp"
+            className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg text-[13px] font-medium text-white hover:brightness-110 transition-all"
+            style={{ background: ACCENT_DEEP }}
+          >
+            {gbpConnected ? <RotateCw className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
+            {gbpConnected ? 'Reconectar' : 'Conectar'}
+          </a>
+        </div>
       </div>
 
       {/* Google Review URL */}
@@ -176,5 +315,13 @@ export default function MarketingConfigurarPage() {
         )}
       </button>
     </div>
+  );
+}
+
+export default function MarketingConfigurarPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-5 h-5 text-zinc-400 animate-spin" /></div>}>
+      <PageInner />
+    </Suspense>
   );
 }
