@@ -1,0 +1,117 @@
+{
+  "id": "vYfZEv1lmDpHwxZg",
+  "name": "PJe — Descoberta de Endpoints REST",
+  "description": "Analisa o bundle JS do PJe consultaprocessual para descobrir os endpoints REST internos usados para buscar dados de processo e partes.",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "e296efb6-7a5e-404c-b4a3-778797ef6220",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "id": "6a5f2d83-6a59-4f13-bd02-ed010a9429e7",
+      "name": "Fetch PJe Main Bundle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        540,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://pje.trt2.jus.br/consultaprocessual/main-es2015.83802113100a4a30a015.js",
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "40a2a289-258c-4bfe-a34e-a0a5a586b191",
+      "name": "Extract API Patterns",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        300
+      ],
+      "parameters": {
+        "jsCode": "\nconst item = $input.first();\nconst raw = item.json;\n\nlet js = '';\nif (typeof raw === 'string') js = raw;\nelse if (raw.body) js = String(raw.body);\nelse if (raw.data) js = String(raw.data);\nelse js = JSON.stringify(raw).substring(0, 50000);\n\n// Look for REST API patterns\nconst apiPatterns = [];\n\n// Common REST endpoint patterns\nconst patterns = [\n  /[\"'`](/[a-zA-Z0-9/_-]{5,80}processos?[a-zA-Z0-9/_-]{0,50})[\"'`]/g,\n  /[\"'`](/api/[a-zA-Z0-9/_-]{3,80})[\"'`]/g,\n  /[\"'`](/seam/resource[a-zA-Z0-9/_-]{0,80})[\"'`]/g,\n  /[\"'`](/pje[a-zA-Z0-9/_-]{3,80})[\"'`]/g,\n  /[\"'`](/rest/[a-zA-Z0-9/_-]{3,80})[\"'`]/g,\n  /[\"'`](/services/[a-zA-Z0-9/_-]{3,80})[\"'`]/g,\n];\n\nconst foundPaths = new Set();\nfor (const pattern of patterns) {\n  let match;\n  while ((match = pattern.exec(js)) !== null) {\n    foundPaths.add(match[1]);\n    if (foundPaths.size > 100) break;\n  }\n}\n\n// Also look for \"partes\", \"polo\", \"consulta\" in context\nconst contextPatterns = [];\nconst ctxRegex = /(partes|polo.{0,20}ativo|polo.{0,20}passivo|numeroProcesso|consulta.{0,20}public).{0,200}/gi;\nlet ctxMatch;\nlet count = 0;\nwhile ((ctxMatch = ctxRegex.exec(js)) !== null && count < 20) {\n  contextPatterns.push(ctxMatch[0].substring(0, 150));\n  count++;\n}\n\nreturn [{\n  json: {\n    js_size_chars: js.length,\n    api_paths_found: Array.from(foundPaths).slice(0, 50),\n    api_paths_count: foundPaths.size,\n    partes_context: contextPatterns,\n    js_sample_start: js.substring(0, 500),\n  }\n}];\n"
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Fetch PJe Main Bundle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch PJe Main Bundle": {
+      "main": [
+        [
+          {
+            "node": "Extract API Patterns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true
+  },
+  "pinData": null,
+  "activeVersionId": null,
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "vYfZEv1lmDpHwxZg",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

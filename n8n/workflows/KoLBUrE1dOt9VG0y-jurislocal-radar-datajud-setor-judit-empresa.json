@@ -1,0 +1,269 @@
+{
+  "id": "KoLBUrE1dOt9VG0y",
+  "name": "JurisLocal — Radar: DataJud Setor + JUDIT Empresa",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "30d45e49-5b4a-4b8a-b254-da60fb29dee4",
+      "name": "Iniciar Radar",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "id": "488f67a6-256f-4784-ade8-ad0ff3aa3e95",
+      "name": "JUDIT — Busca por CNPJ (Integrar)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        0
+      ],
+      "parameters": {
+        "jsCode": "\n// PLACEHOLDER — JUDIT API (judit.io)\n// Integrar após criar conta em judit.io/planos/\n// POST https://api.judit.io/processos/busca\n// { cnpj: \"47960950000121\", tribunais: [\"TRT2\",\"TRT4\",\"TRT15\"] }\nconst assuntosComuns = [\n  { nome: \"Horas Extras\", peso: 0.38 },\n  { nome: \"Verbas Rescisórias\", peso: 0.25 },\n  { nome: \"Dano Moral\", peso: 0.18 },\n  { nome: \"Insalubridade\", peso: 0.10 },\n  { nome: \"Intervalo Intrajornada\", peso: 0.09 }\n];\nreturn [{\n  json: {\n    fonte: \"ESTIMADO — Aguardando integração JUDIT\",\n    empresa: \"MAGAZINE LUIZA S/A\",\n    cnpj: \"47.960.950/0001-21\",\n    total_processos: 4823,\n    por_tribunal: { \"TRT2\": { total: 2891 }, \"TRT4\": { total: 1156 }, \"TRT15\": { total: 776 } },\n    assuntos_top: assuntosComuns.map(a => ({ nome: a.nome, count: Math.round(4823 * a.peso) })),\n    judit_status: \"PENDENTE — criar conta em judit.io/planos/ e substituir este nó\"\n  }\n}];"
+      }
+    },
+    {
+      "id": "e7995f3d-06a4-4cfe-bde2-c7fd2ffcbea2",
+      "name": "Consolidar Dados",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        700,
+        350
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "981b4491-5588-4372-a414-dbfb1ce33fca",
+      "name": "TRT2 Estatísticas Setoriais",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        300,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-publica.datajud.cnj.jus.br/api_publica_trt2/_search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "APIKey cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw=="
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "{\"size\":0,\"query\":{\"match_all\":{}},\"aggs\":{\"por_assunto\":{\"terms\":{\"field\":\"assuntos.nome.keyword\",\"size\":15}},\"por_vara\":{\"terms\":{\"field\":\"orgaoJulgador.nome.keyword\",\"size\":10}},\"por_ano\":{\"date_histogram\":{\"field\":\"dataAjuizamento\",\"calendar_interval\":\"year\",\"format\":\"yyyyMMddHHmmss\"}},\"por_classe\":{\"terms\":{\"field\":\"classe.nome.keyword\",\"size\":5}},\"por_grau\":{\"terms\":{\"field\":\"grau.keyword\",\"size\":3}}}}"
+      }
+    },
+    {
+      "id": "d8b57cd5-0006-496c-82f5-062f74bb90af",
+      "name": "TRT4 Estatísticas Setoriais",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        300,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-publica.datajud.cnj.jus.br/api_publica_trt4/_search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "APIKey cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw=="
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "{\"size\":0,\"query\":{\"match_all\":{}},\"aggs\":{\"por_assunto\":{\"terms\":{\"field\":\"assuntos.nome.keyword\",\"size\":15}},\"por_vara\":{\"terms\":{\"field\":\"orgaoJulgador.nome.keyword\",\"size\":10}},\"por_ano\":{\"date_histogram\":{\"field\":\"dataAjuizamento\",\"calendar_interval\":\"year\",\"format\":\"yyyyMMddHHmmss\"}},\"por_classe\":{\"terms\":{\"field\":\"classe.nome.keyword\",\"size\":5}},\"por_grau\":{\"terms\":{\"field\":\"grau.keyword\",\"size\":3}}}}"
+      }
+    },
+    {
+      "id": "178edf3c-cd45-4fe4-9a79-476e6869682e",
+      "name": "TRT15 Estatísticas Setoriais",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        300,
+        600
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-publica.datajud.cnj.jus.br/api_publica_trt15/_search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "APIKey cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw=="
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "{\"size\":0,\"query\":{\"match_all\":{}},\"aggs\":{\"por_assunto\":{\"terms\":{\"field\":\"assuntos.nome.keyword\",\"size\":15}},\"por_vara\":{\"terms\":{\"field\":\"orgaoJulgador.nome.keyword\",\"size\":10}},\"por_ano\":{\"date_histogram\":{\"field\":\"dataAjuizamento\",\"calendar_interval\":\"year\",\"format\":\"yyyyMMddHHmmss\"}},\"por_classe\":{\"terms\":{\"field\":\"classe.nome.keyword\",\"size\":5}},\"por_grau\":{\"terms\":{\"field\":\"grau.keyword\",\"size\":3}}}}"
+      }
+    },
+    {
+      "id": "bb0dc526-f966-424b-be32-45cb56a3d18a",
+      "name": "Analisar e Gerar Métricas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        350
+      ],
+      "parameters": {
+        "jsCode": "\nconst items = $input.all();\nconst judit = items[0]?.json || {};\nconst trt2 = items[1]?.json || {};\nconst trt4 = items[2]?.json || {};\nconst trt15 = items[3]?.json || {};\n\nfunction extractSectorStats(data, label) {\n  const total = data?.hits?.total?.value || 0;\n  const aggs = data?.aggregations || {};\n  const anos = (aggs?.por_ano?.buckets || []).map(b => ({\n    ano: b.key_as_string?.substring(0,4) || String(b.key).substring(0,4),\n    count: b.doc_count\n  }));\n  const ultimo_ano = anos.filter(a => a.ano >= '2023');\n  const total_3anos = ultimo_ano.reduce((sum, a) => sum + a.count, 0);\n  return {\n    label,\n    total_historico: total,\n    total_3anos_recentes: total_3anos,\n    media_mensal_3anos: Math.round(total_3anos / 36),\n    top_assuntos: (aggs?.por_assunto?.buckets || []).slice(0,10).map(b => ({\n      nome: b.key,\n      count: b.doc_count,\n      pct: total > 0 ? ((b.doc_count/total)*100).toFixed(1)+'%' : '0%'\n    })),\n    top_varas: (aggs?.por_vara?.buckets || []).slice(0,5).map(b => ({\n      vara: b.key, count: b.doc_count\n    })),\n    distribuicao_anual: anos,\n    top_classes: (aggs?.por_classe?.buckets || []).slice(0,5).map(b => ({\n      classe: b.key, count: b.doc_count\n    }))\n  };\n}\n\nconst setor_trt2 = extractSectorStats(trt2, 'TRT2 — São Paulo');\nconst setor_trt4 = extractSectorStats(trt4, 'TRT4 — Rio Grande do Sul');\nconst setor_trt15 = extractSectorStats(trt15, 'TRT15 — Campinas');\nconst total_setor = setor_trt2.total_historico + setor_trt4.total_historico + setor_trt15.total_historico;\nconst dados_reais = total_setor > 0;\n\nreturn [{\n  json: {\n    data_execucao: new Date().toISOString(),\n    empresa_analisada: {\n      nome: judit.empresa || 'N/A',\n      cnpj: judit.cnpj || 'N/A',\n      total_processos: judit.total_processos || null,\n      fonte: judit.fonte || 'PENDENTE',\n      por_tribunal: judit.por_tribunal || {},\n      assuntos: judit.assuntos_top || [],\n      judit_status: judit.judit_status || 'PENDENTE'\n    },\n    benchmarks_setor: {\n      total_processos_historico: total_setor,\n      trt2: setor_trt2,\n      trt4: setor_trt4,\n      trt15: setor_trt15,\n      fonte: dados_reais\n        ? '✅ DADOS REAIS — DataJud CNJ'\n        : '⚠️ DataJud retornou 0 — verificar query'\n    },\n    status: {\n      datajud_setor: dados_reais ? '✅ OPERACIONAL' : '⚠️ Zero resultados — investigar',\n      judit_empresa: judit.fonte === 'ESTIMADO' ? '⚠️ PENDENTE' : '✅ OPERACIONAL',\n      proxima_acao: 'Criar conta JUDIT em judit.io/planos/ → substituir nó placeholder'\n    }\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "Iniciar Radar": {
+      "main": [
+        [
+          {
+            "node": "JUDIT — Busca por CNPJ (Integrar)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TRT2 Estatísticas Setoriais",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TRT4 Estatísticas Setoriais",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TRT15 Estatísticas Setoriais",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JUDIT — Busca por CNPJ (Integrar)": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidar Dados": {
+      "main": [
+        [
+          {
+            "node": "Analisar e Gerar Métricas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TRT2 Estatísticas Setoriais": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Dados",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "TRT4 Estatísticas Setoriais": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Dados",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "TRT15 Estatísticas Setoriais": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Dados",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true
+  },
+  "pinData": null,
+  "activeVersionId": null,
+  "versionCounter": 8,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "KoLBUrE1dOt9VG0y",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

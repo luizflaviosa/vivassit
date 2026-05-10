@@ -1,0 +1,609 @@
+{
+  "id": "dexMdveRPRi55L6G",
+  "name": "G01 — Gerador · Briefing de Prospecção Comercial · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "doctor_code"
+            },
+            {
+              "name": "query_date"
+            },
+            {
+              "name": "patient_phone"
+            }
+          ]
+        }
+      },
+      "id": "trigger-briefing",
+      "name": "Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const tz = 'America/Sao_Paulo';\nconst doctorCode = parseInt($json.doctor_code) || 1;\nconst patientPhone = $json.patient_phone || null;\n\nlet year, month, day;\n\nif ($json.query_date && $json.query_date.trim()) {\n  const raw = $json.query_date.trim();\n  if (raw.match(/^\\d{2}\\/\\d{2}\\/\\d{4}$/)) {\n    const parts = raw.split('/');\n    day = parseInt(parts[0]);\n    month = parseInt(parts[1]);\n    year = parseInt(parts[2]);\n  } else {\n    // ISO or other format - extract date in SP timezone\n    const d = new Date(raw);\n    const spStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(d);\n    const p = spStr.split('-').map(Number);\n    year = p[0]; month = p[1]; day = p[2];\n  }\n} else {\n  // Today in SP timezone\n  const spStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());\n  const p = spStr.split('-').map(Number);\n  year = p[0]; month = p[1]; day = p[2];\n}\n\n// Brazil/SP is permanently UTC-3 (DST abolished in 2019)\n// Midnight SP = 03:00 UTC\nconst startTs = Date.UTC(year, month - 1, day, 3, 0, 0);\nconst dateStart = new Date(startTs).toISOString();\nconst dateEnd = new Date(startTs + 24 * 3600 * 1000).toISOString();\nconst dateLabel = String(day).padStart(2,'0') + '/' + String(month).padStart(2,'0') + '/' + year;\n\nreturn [{ json: { doctor_code: doctorCode, patient_phone: patientPhone, date_start: dateStart, date_end: dateEnd, date_label: dateLabel } }];"
+      },
+      "id": "code-params",
+      "name": "Preparar Parâmetros",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  db.slot_start AT TIME ZONE 'America/Sao_Paulo' AS slot_brt,\n  db.patient_phone,\n  db.patient_name,\n  EXTRACT(YEAR FROM AGE(NOW(), db.patient_birth))::int AS age,\n  pcd.conditions,\n  pcd.medications,\n  pcd.allergies,\n  pcd.blood_type,\n  pcd.weight_kg,\n  he.analise_json,\n  he.timestamp AS exam_date,\n  td.specialty,\n  td.business_rules->>'clinical_conditions' AS clinical_conditions,\n  '{{ $json.date_label }}' AS date_label\nFROM doctor_bookings db\nLEFT JOIN patients p ON p.phone = db.patient_phone AND p.tenant_id = db.tenant_id\nLEFT JOIN patient_clinical_data pcd ON pcd.patient_id = p.id\nLEFT JOIN LATERAL (\n  SELECT analise_json, timestamp\n  FROM n8n_historico_exames\n  WHERE telefone_paciente = db.patient_phone\n    AND tenant_id = db.tenant_id\n    AND status = 'processado'\n  ORDER BY timestamp DESC\n  LIMIT 1\n) he ON true\nJOIN tenant_doctors td ON td.id = db.doctor_id\nWHERE db.tenant_id = 'singulare'\n  AND td.doctor_code = {{ $json.doctor_code }}\n  AND db.slot_start >= '{{ $json.date_start }}'::timestamptz\n  AND db.slot_start < '{{ $json.date_end }}'::timestamptz\n  AND db.status = 'booked'\nORDER BY db.slot_start",
+        "options": {}
+      },
+      "id": "postgres-query",
+      "name": "Buscar Dados Briefing",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        640,
+        304
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-1",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-consultas",
+      "name": "Tem consultas?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        864,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "briefing_text",
+              "value": "=Sem consultas agendadas para {{ $('Preparar Parâmetros').item.json.date_label }}.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-sem-consultas",
+      "name": "Sem Consultas",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1072,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst dateLabel = items[0]?.json?.date_label || 'hoje';\nconst specialty = items[0]?.json?.specialty || 'clínica';\nconst clinicalConditions = items[0]?.json?.clinical_conditions || '';\nconst pacientes = items.map(item => {\n  const d = item.json;\n  const slotBrt = new Date(d.slot_brt);\n  const hora = slotBrt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });\n  const examDate = d.exam_date ? new Date(d.exam_date).toLocaleDateString('pt-BR') : null;\n  return {\n    horario: hora,\n    nome: d.patient_name || 'Paciente',\n    idade: d.age || null,\n    telefone: d.patient_phone,\n    exames: d.analise_json || null,\n    data_exame: examDate,\n    condicoes: d.conditions || null,\n    medicacoes: d.medications || null,\n    alergias: d.allergies || null\n  };\n});\nreturn [{ json: {\n  date_label: dateLabel,\n  specialty: specialty,\n  clinical_conditions: clinicalConditions,\n  total: pacientes.length,\n  pacientes: JSON.stringify(pacientes)\n}}];"
+      },
+      "id": "code-context",
+      "name": "Montar Contexto IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "lm-gemini",
+      "name": "Gemini Flash",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        48
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "IfMvUmMoeAZrytgT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Você é um assistente clínico de {{ $json.specialty }}. Gere um briefing de pré-consulta para o profissional.\n\nDATA: {{ $json.date_label }}\nCONDIÇÕES ATENDIDAS: {{ $json.clinical_conditions }}\n\nPACIENTES (JSON):\n{{ $json.pacientes }}\n\nFORMATO OBRIGATÓRIO para cada paciente:\n🕐 [horario] — *[nome]* ([idade] anos)\n🔬 Exames ([data_exame]): [resumo dos achados relevantes ou \"Nenhum exame enviado\"]\n⚕️ Condições: [lista ou —]\n💊 Medicações: [lista ou —]\n⚠️ Alertas: [alergias ou —]\n\nSepare pacientes com linha em branco. Finalize: ▸ [total] consulta(s) hoje ✓\nTom clínico direto. Destaque valores alterados relevantes para {{ $json.specialty }}."
+      },
+      "id": "chain-briefing",
+      "name": "Sintetizar Briefing",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1216,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "out-1",
+              "name": "briefing_text",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-output",
+      "name": "Retornar Briefing",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1488,
+        144
+      ]
+    }
+  ],
+  "connections": {
+    "Trigger": {
+      "main": [
+        [
+          {
+            "node": "Preparar Parâmetros",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Parâmetros": {
+      "main": [
+        [
+          {
+            "node": "Buscar Dados Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Dados Briefing": {
+      "main": [
+        [
+          {
+            "node": "Tem consultas?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem consultas?": {
+      "main": [
+        [
+          {
+            "node": "Montar Contexto IA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sem Consultas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Contexto IA": {
+      "main": [
+        [
+          {
+            "node": "Sintetizar Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Flash": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Sintetizar Briefing",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sintetizar Briefing": {
+      "main": [
+        [
+          {
+            "node": "Retornar Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "activeVersionId": "25c8bf10-54b7-4ec1-9ab4-0a2626ece50d",
+  "versionCounter": 18,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-08T03:32:35.428Z",
+      "createdAt": "2026-05-08T03:32:35.428Z",
+      "role": "workflow:owner",
+      "workflowId": "dexMdveRPRi55L6G",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-08T11:12:43.091Z",
+    "createdAt": "2026-05-08T11:12:43.091Z",
+    "versionId": "25c8bf10-54b7-4ec1-9ab4-0a2626ece50d",
+    "workflowId": "dexMdveRPRi55L6G",
+    "nodes": [
+      {
+        "parameters": {
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "doctor_code"
+              },
+              {
+                "name": "query_date"
+              },
+              {
+                "name": "patient_phone"
+              }
+            ]
+          }
+        },
+        "id": "trigger-briefing",
+        "name": "Trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          208,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const tz = 'America/Sao_Paulo';\nconst doctorCode = parseInt($json.doctor_code) || 1;\nconst patientPhone = $json.patient_phone || null;\n\nlet year, month, day;\n\nif ($json.query_date && $json.query_date.trim()) {\n  const raw = $json.query_date.trim();\n  if (raw.match(/^\\d{2}\\/\\d{2}\\/\\d{4}$/)) {\n    const parts = raw.split('/');\n    day = parseInt(parts[0]);\n    month = parseInt(parts[1]);\n    year = parseInt(parts[2]);\n  } else {\n    // ISO or other format - extract date in SP timezone\n    const d = new Date(raw);\n    const spStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(d);\n    const p = spStr.split('-').map(Number);\n    year = p[0]; month = p[1]; day = p[2];\n  }\n} else {\n  // Today in SP timezone\n  const spStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());\n  const p = spStr.split('-').map(Number);\n  year = p[0]; month = p[1]; day = p[2];\n}\n\n// Brazil/SP is permanently UTC-3 (DST abolished in 2019)\n// Midnight SP = 03:00 UTC\nconst startTs = Date.UTC(year, month - 1, day, 3, 0, 0);\nconst dateStart = new Date(startTs).toISOString();\nconst dateEnd = new Date(startTs + 24 * 3600 * 1000).toISOString();\nconst dateLabel = String(day).padStart(2,'0') + '/' + String(month).padStart(2,'0') + '/' + year;\n\nreturn [{ json: { doctor_code: doctorCode, patient_phone: patientPhone, date_start: dateStart, date_end: dateEnd, date_label: dateLabel } }];"
+        },
+        "id": "code-params",
+        "name": "Preparar Parâmetros",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          432,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT\n  db.slot_start AT TIME ZONE 'America/Sao_Paulo' AS slot_brt,\n  db.patient_phone,\n  db.patient_name,\n  EXTRACT(YEAR FROM AGE(NOW(), db.patient_birth))::int AS age,\n  pcd.conditions,\n  pcd.medications,\n  pcd.allergies,\n  pcd.blood_type,\n  pcd.weight_kg,\n  he.analise_json,\n  he.timestamp AS exam_date,\n  td.specialty,\n  td.business_rules->>'clinical_conditions' AS clinical_conditions,\n  '{{ $json.date_label }}' AS date_label\nFROM doctor_bookings db\nLEFT JOIN patients p ON p.phone = db.patient_phone AND p.tenant_id = db.tenant_id\nLEFT JOIN patient_clinical_data pcd ON pcd.patient_id = p.id\nLEFT JOIN LATERAL (\n  SELECT analise_json, timestamp\n  FROM n8n_historico_exames\n  WHERE telefone_paciente = db.patient_phone\n    AND tenant_id = db.tenant_id\n    AND status = 'processado'\n  ORDER BY timestamp DESC\n  LIMIT 1\n) he ON true\nJOIN tenant_doctors td ON td.id = db.doctor_id\nWHERE db.tenant_id = 'singulare'\n  AND td.doctor_code = {{ $json.doctor_code }}\n  AND db.slot_start >= '{{ $json.date_start }}'::timestamptz\n  AND db.slot_start < '{{ $json.date_end }}'::timestamptz\n  AND db.status = 'booked'\nORDER BY db.slot_start",
+          "options": {}
+        },
+        "id": "postgres-query",
+        "name": "Buscar Dados Briefing",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          640,
+          304
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "cond-1",
+                "leftValue": "={{ $input.all().length }}",
+                "rightValue": 0,
+                "operator": {
+                  "type": "number",
+                  "operation": "gt"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "if-consultas",
+        "name": "Tem consultas?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          864,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "a1",
+                "name": "briefing_text",
+                "value": "=Sem consultas agendadas para {{ $('Preparar Parâmetros').item.json.date_label }}.",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "set-sem-consultas",
+        "name": "Sem Consultas",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1072,
+          464
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\nconst dateLabel = items[0]?.json?.date_label || 'hoje';\nconst specialty = items[0]?.json?.specialty || 'clínica';\nconst clinicalConditions = items[0]?.json?.clinical_conditions || '';\nconst pacientes = items.map(item => {\n  const d = item.json;\n  const slotBrt = new Date(d.slot_brt);\n  const hora = slotBrt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });\n  const examDate = d.exam_date ? new Date(d.exam_date).toLocaleDateString('pt-BR') : null;\n  return {\n    horario: hora,\n    nome: d.patient_name || 'Paciente',\n    idade: d.age || null,\n    telefone: d.patient_phone,\n    exames: d.analise_json || null,\n    data_exame: examDate,\n    condicoes: d.conditions || null,\n    medicacoes: d.medications || null,\n    alergias: d.allergies || null\n  };\n});\nreturn [{ json: {\n  date_label: dateLabel,\n  specialty: specialty,\n  clinical_conditions: clinicalConditions,\n  total: pacientes.length,\n  pacientes: JSON.stringify(pacientes)\n}}];"
+        },
+        "id": "code-context",
+        "name": "Montar Contexto IA",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1072,
+          144
+        ]
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "id": "lm-gemini",
+        "name": "Gemini Flash",
+        "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+        "typeVersion": 1,
+        "position": [
+          1280,
+          48
+        ],
+        "credentials": {
+          "googlePalmApi": {
+            "id": "IfMvUmMoeAZrytgT",
+            "name": "Google Gemini(PaLM) Api account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Você é um assistente clínico de {{ $json.specialty }}. Gere um briefing de pré-consulta para o profissional.\n\nDATA: {{ $json.date_label }}\nCONDIÇÕES ATENDIDAS: {{ $json.clinical_conditions }}\n\nPACIENTES (JSON):\n{{ $json.pacientes }}\n\nFORMATO OBRIGATÓRIO para cada paciente:\n🕐 [horario] — *[nome]* ([idade] anos)\n🔬 Exames ([data_exame]): [resumo dos achados relevantes ou \"Nenhum exame enviado\"]\n⚕️ Condições: [lista ou —]\n💊 Medicações: [lista ou —]\n⚠️ Alertas: [alergias ou —]\n\nSepare pacientes com linha em branco. Finalize: ▸ [total] consulta(s) hoje ✓\nTom clínico direto. Destaque valores alterados relevantes para {{ $json.specialty }}."
+        },
+        "id": "chain-briefing",
+        "name": "Sintetizar Briefing",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.4,
+        "position": [
+          1216,
+          -160
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "out-1",
+                "name": "briefing_text",
+                "value": "={{ $json.text }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "set-output",
+        "name": "Retornar Briefing",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1488,
+          144
+        ]
+      }
+    ],
+    "connections": {
+      "Trigger": {
+        "main": [
+          [
+            {
+              "node": "Preparar Parâmetros",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Preparar Parâmetros": {
+        "main": [
+          [
+            {
+              "node": "Buscar Dados Briefing",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar Dados Briefing": {
+        "main": [
+          [
+            {
+              "node": "Tem consultas?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tem consultas?": {
+        "main": [
+          [
+            {
+              "node": "Montar Contexto IA",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Sem Consultas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Montar Contexto IA": {
+        "main": [
+          [
+            {
+              "node": "Sintetizar Briefing",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gemini Flash": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Sintetizar Briefing",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Sintetizar Briefing": {
+        "main": [
+          [
+            {
+              "node": "Retornar Briefing",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": true,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-08T23:36:35.247Z",
+        "id": 220,
+        "workflowId": "dexMdveRPRi55L6G",
+        "versionId": "25c8bf10-54b7-4ec1-9ab4-0a2626ece50d",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:35.261Z",
+        "id": 221,
+        "workflowId": "dexMdveRPRi55L6G",
+        "versionId": "25c8bf10-54b7-4ec1-9ab4-0a2626ece50d",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

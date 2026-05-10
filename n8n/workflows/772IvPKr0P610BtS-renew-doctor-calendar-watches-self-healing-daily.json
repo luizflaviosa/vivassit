@@ -1,0 +1,266 @@
+{
+  "id": "772IvPKr0P610BtS",
+  "name": "renew_doctor_calendar_watches — Self-Healing Daily",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "A cada 24h (03:00 UTC)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtHour": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "http",
+      "name": "POST renew-watches",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.singulare.org/api/admin/google-calendar/renew-watches",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": false,
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "f3EsS9DLhzuhFW6g",
+          "name": "Header Auth N8N TO VERCEL"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "log",
+      "name": "Log no histórico",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO public.n8n_historico_mensagens (session_id, tenant_id, message)\nVALUES (\n  'system_renew_calendar_watches',\n  'admin-system',\n  jsonb_build_object(\n    'name', 'renew_doctor_calendar_watches',\n    'type', 'tool',\n    'content', jsonb_build_object(\n      'renewed', {{ $json.renewed }},\n      'failed', {{ $json.failed }},\n      'errors', {{ JSON.stringify($json.errors || []) }}\n    ),\n    'tool_call_id', '{{ $now.toMillis() }}'\n  )\n)",
+        "options": {}
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "A cada 24h (03:00 UTC)": {
+      "main": [
+        [
+          {
+            "node": "POST renew-watches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST renew-watches": {
+      "main": [
+        [
+          {
+            "node": "Log no histórico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": {
+    "node:A cada 24h (03:00 UTC)": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "pinData": null,
+  "activeVersionId": "f9002a3f-d68b-4cff-8800-3727f50990b6",
+  "versionCounter": 4,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-09T15:06:51.320Z",
+      "createdAt": "2026-05-09T15:06:51.320Z",
+      "role": "workflow:owner",
+      "workflowId": "772IvPKr0P610BtS",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-09T15:06:51.320Z",
+    "createdAt": "2026-05-09T15:06:51.320Z",
+    "versionId": "f9002a3f-d68b-4cff-8800-3727f50990b6",
+    "workflowId": "772IvPKr0P610BtS",
+    "nodes": [
+      {
+        "id": "trigger",
+        "name": "A cada 24h (03:00 UTC)",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "hours",
+                "hoursInterval": 24,
+                "triggerAtHour": 3
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "http",
+        "name": "POST renew-watches",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://app.singulare.org/api/admin/google-calendar/renew-watches",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": false,
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "f3EsS9DLhzuhFW6g",
+            "name": "Header Auth N8N TO VERCEL"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "log",
+        "name": "Log no histórico",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          480,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=INSERT INTO public.n8n_historico_mensagens (session_id, tenant_id, message)\nVALUES (\n  'system_renew_calendar_watches',\n  'admin-system',\n  jsonb_build_object(\n    'name', 'renew_doctor_calendar_watches',\n    'type', 'tool',\n    'content', jsonb_build_object(\n      'renewed', {{ $json.renewed }},\n      'failed', {{ $json.failed }},\n      'errors', {{ JSON.stringify($json.errors || []) }}\n    ),\n    'tool_call_id', '{{ $now.toMillis() }}'\n  )\n)",
+          "options": {}
+        },
+        "onError": "continueRegularOutput",
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "A cada 24h (03:00 UTC)": {
+        "main": [
+          [
+            {
+              "node": "POST renew-watches",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "POST renew-watches": {
+        "main": [
+          [
+            {
+              "node": "Log no histórico",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-09T15:06:51.906Z",
+        "id": 238,
+        "workflowId": "772IvPKr0P610BtS",
+        "versionId": "f9002a3f-d68b-4cff-8800-3727f50990b6",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

@@ -1,0 +1,649 @@
+{
+  "id": "J2mJkS1spNIUrKpd",
+  "name": "T04 — safe_cancel_booking · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "booking_id",
+              "type": "string"
+            },
+            {
+              "name": "cancel_reason",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "c8e214ad-eabc-4c97-b5a8-265b6878291b",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://qwyxacfgoqlskidwzdxe.supabase.co/rest/v1/rpc/fn_cancel_booking",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3eXhhY2Znb3Fsc2tpZHd6ZHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxODc3NjQsImV4cCI6MjA2Nzc2Mzc2NH0.qHDEquO9QUGiQi9uacWKUu_G2jthhmxeC5cfSOIvo3A"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3eXhhY2Znb3Fsc2tpZHd6ZHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxODc3NjQsImV4cCI6MjA2Nzc2Mzc2NH0.qHDEquO9QUGiQi9uacWKUu_G2jthhmxeC5cfSOIvo3A"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={{ JSON.stringify({ p_booking_id: $json.booking_id, p_cancel_reason: $json.cancel_reason || 'Cancelado pelo paciente via WhatsApp' }) }}",
+        "options": {}
+      },
+      "id": "c8f492e9-916e-42cc-bb83-bc99ba66784e",
+      "name": "Cancelar no DB",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -480,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "09f83b19-6146-41ef-8837-7ce8388282ce",
+      "name": "Cancelou no DB?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "=={{ $('Cancelar no DB').item.json.calendar_id }}",
+          "mode": "id"
+        },
+        "eventId": "={{ $('Cancelar no DB').item.json.calendar_event_id }}",
+        "options": {}
+      },
+      "id": "d269e811-45b1-4f82-8507-1fc0514eae8d",
+      "name": "Deletar no Google Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "OkOV7izIvJcvD3wl",
+          "name": "Google Calendar account"
+        }
+      },
+      "notes": "IMPORTANTE: Selecione sua credencial do Google Calendar aqui após importar.",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "r2",
+              "name": "message",
+              "value": "={{ $('Cancelar no DB').item.json.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "98fb165b-1fef-47c1-ae25-84d6934b387e",
+      "name": "Retornar erro",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        208
+      ]
+    },
+    {
+      "id": "retornar-sucesso-00001",
+      "name": "Retornar sucesso",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1520,
+        200
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "s2",
+              "name": "message",
+              "value": "Consulta cancelada com sucesso.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "tem-calendar-00001",
+      "name": "Tem evento Calendar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cal1",
+              "leftValue": "={{ $('Cancelar no DB').item.json?.calendar_event_id || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Cancelar no DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancelar no DB": {
+      "main": [
+        [
+          {
+            "node": "Cancelou no DB?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancelou no DB?": {
+      "main": [
+        [
+          {
+            "node": "Tem evento Calendar?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retornar erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deletar no Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Retornar sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem evento Calendar?": {
+      "main": [
+        [
+          {
+            "node": "Deletar no Google Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retornar sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "activeVersionId": "93f665b5-fc70-4d77-ae89-9bda34349af4",
+  "versionCounter": 21,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-05T02:15:32.394Z",
+      "createdAt": "2026-05-05T02:15:32.394Z",
+      "role": "workflow:owner",
+      "workflowId": "J2mJkS1spNIUrKpd",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-07T12:41:10.732Z",
+    "createdAt": "2026-05-07T12:41:10.732Z",
+    "versionId": "93f665b5-fc70-4d77-ae89-9bda34349af4",
+    "workflowId": "J2mJkS1spNIUrKpd",
+    "nodes": [
+      {
+        "parameters": {
+          "inputSource": "workflowInputs",
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "booking_id",
+                "type": "string"
+              },
+              {
+                "name": "cancel_reason",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "id": "c8e214ad-eabc-4c97-b5a8-265b6878291b",
+        "name": "Execute Workflow Trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1,
+        "position": [
+          -720,
+          112
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://qwyxacfgoqlskidwzdxe.supabase.co/rest/v1/rpc/fn_cancel_booking",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3eXhhY2Znb3Fsc2tpZHd6ZHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxODc3NjQsImV4cCI6MjA2Nzc2Mzc2NH0.qHDEquO9QUGiQi9uacWKUu_G2jthhmxeC5cfSOIvo3A"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3eXhhY2Znb3Fsc2tpZHd6ZHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxODc3NjQsImV4cCI6MjA2Nzc2Mzc2NH0.qHDEquO9QUGiQi9uacWKUu_G2jthhmxeC5cfSOIvo3A"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "raw",
+          "body": "={{ JSON.stringify({ p_booking_id: $json.booking_id, p_cancel_reason: $json.cancel_reason || 'Cancelado pelo paciente via WhatsApp' }) }}",
+          "options": {}
+        },
+        "id": "c8f492e9-916e-42cc-bb83-bc99ba66784e",
+        "name": "Cancelar no DB",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -480,
+          112
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "cond1",
+                "leftValue": "={{ $json.success }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "09f83b19-6146-41ef-8837-7ce8388282ce",
+        "name": "Cancelou no DB?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          -240,
+          112
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "delete",
+          "calendar": {
+            "__rl": true,
+            "value": "=={{ $('Cancelar no DB').item.json.calendar_id }}",
+            "mode": "id"
+          },
+          "eventId": "={{ $('Cancelar no DB').item.json.calendar_event_id }}",
+          "options": {}
+        },
+        "id": "d269e811-45b1-4f82-8507-1fc0514eae8d",
+        "name": "Deletar no Google Calendar",
+        "type": "n8n-nodes-base.googleCalendar",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          0
+        ],
+        "credentials": {
+          "googleCalendarOAuth2Api": {
+            "id": "OkOV7izIvJcvD3wl",
+            "name": "Google Calendar account"
+          }
+        },
+        "notes": "IMPORTANTE: Selecione sua credencial do Google Calendar aqui após importar.",
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "r1",
+                "name": "success",
+                "value": false,
+                "type": "boolean"
+              },
+              {
+                "id": "r2",
+                "name": "message",
+                "value": "={{ $('Cancelar no DB').item.json.message }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "98fb165b-1fef-47c1-ae25-84d6934b387e",
+        "name": "Retornar erro",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          0,
+          208
+        ]
+      },
+      {
+        "id": "retornar-sucesso-00001",
+        "name": "Retornar sucesso",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1520,
+          200
+        ],
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "s1",
+                "name": "success",
+                "value": true,
+                "type": "boolean"
+              },
+              {
+                "id": "s2",
+                "name": "message",
+                "value": "Consulta cancelada com sucesso.",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "tem-calendar-00001",
+        "name": "Tem evento Calendar?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1120,
+          200
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "cal1",
+                "leftValue": "={{ $('Cancelar no DB').item.json?.calendar_event_id || '' }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEquals"
+                }
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Execute Workflow Trigger": {
+        "main": [
+          [
+            {
+              "node": "Cancelar no DB",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Cancelar no DB": {
+        "main": [
+          [
+            {
+              "node": "Cancelou no DB?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Cancelou no DB?": {
+        "main": [
+          [
+            {
+              "node": "Tem evento Calendar?",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Retornar erro",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Deletar no Google Calendar": {
+        "main": [
+          [
+            {
+              "node": "Retornar sucesso",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tem evento Calendar?": {
+        "main": [
+          [
+            {
+              "node": "Deletar no Google Calendar",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Retornar sucesso",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-07T12:41:10.776Z",
+        "id": 100,
+        "workflowId": "J2mJkS1spNIUrKpd",
+        "versionId": "93f665b5-fc70-4d77-ae89-9bda34349af4",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-07T12:41:10.808Z",
+        "id": 101,
+        "workflowId": "J2mJkS1spNIUrKpd",
+        "versionId": "93f665b5-fc70-4d77-ae89-9bda34349af4",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:09.394Z",
+        "id": 194,
+        "workflowId": "J2mJkS1spNIUrKpd",
+        "versionId": "93f665b5-fc70-4d77-ae89-9bda34349af4",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:09.410Z",
+        "id": 195,
+        "workflowId": "J2mJkS1spNIUrKpd",
+        "versionId": "93f665b5-fc70-4d77-ae89-9bda34349af4",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

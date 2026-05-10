@@ -1,0 +1,667 @@
+{
+  "id": "PkLnFYScOdCfqTQr",
+  "name": "A04 — Monitor · Reativação do Bot · v2.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatwoot-conversa-resolvida",
+        "options": {}
+      },
+      "id": "2a107e97-54c1-4974-b7f1-260c9737f1e9",
+      "name": "Conversa resolvida",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        16,
+        144
+      ],
+      "webhookId": "5cc5c581-f072-4b26-8261-2756777554a0"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-event",
+              "leftValue": "={{ $json.body.event }}",
+              "rightValue": "conversation_status_changed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "check-status",
+              "leftValue": "={{ $json.body.status }}",
+              "rightValue": "resolved",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "check-label",
+              "leftValue": "={{ $json.body.labels ?? $json.body.meta?.labels ?? [] }}",
+              "rightValue": "agente-off",
+              "operator": {
+                "type": "array",
+                "operation": "contains",
+                "rightType": "any"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "865dd576-452e-4680-8fee-902cef05d93b",
+      "name": "E resolucao com agente-off?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "conv-id",
+              "name": "id_conversa",
+              "value": "={{ $json.body.id }}",
+              "type": "string"
+            },
+            {
+              "id": "inbox-id",
+              "name": "inbox_id",
+              "value": "={{ $json.body.inbox_id }}",
+              "type": "string"
+            },
+            {
+              "id": "labels-atual",
+              "name": "labels_atuais",
+              "value": "={{ $json.body.labels ?? $json.body.meta?.labels ?? [] }}",
+              "type": "array"
+            },
+            {
+              "id": "contact-name",
+              "name": "nome_paciente",
+              "value": "={{ $json.body.meta?.sender?.name ?? 'Paciente' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "61153b9e-3ae8-40c2-8d11-cfd18bf5e3c7",
+      "name": "Extrair dados",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT chatwoot_url, chatwoot_account_id, telegram_chat_id, tenant_id, clinic_name\nFROM tenants\nWHERE chatwoot_inbox_id = '{{ $json.inbox_id }}'\n  AND status = 'active'\nLIMIT 1",
+        "options": {}
+      },
+      "id": "tenant-lookup-001",
+      "name": "Buscar Config Tenant",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        688,
+        144
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Buscar Config Tenant').item.json.chatwoot_url }}api/v1/accounts/{{ $('Buscar Config Tenant').item.json.chatwoot_account_id }}/conversations/{{ $('Extrair dados').item.json.id_conversa }}/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "options": {}
+      },
+      "id": "25aa8724-5462-4298-b153-085db2d1919e",
+      "name": "Buscar etiquetas atuais",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        912,
+        144
+      ],
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Buscar Config Tenant').item.json.chatwoot_url }}api/v1/accounts/{{ $('Buscar Config Tenant').item.json.chatwoot_account_id }}/conversations/{{ $('Extrair dados').item.json.id_conversa }}/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "labels",
+              "value": "={{ ($json.payload || []).filter(l => l !== 'agente-off') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d2e3baf1-4849-490f-8e18-12dd6f1b5e85",
+      "name": "Remover agente-off",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        144
+      ],
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Buscar Config Tenant').item.json.telegram_chat_id }}",
+        "text": "=✅ *Agente reativado*\n\nClínica: {{ $('Buscar Config Tenant').item.json.clinic_name }}\nConversa #{{ $('Extrair dados').item.json.id_conversa }} resolvida.\nPaciente: {{ $('Extrair dados').item.json.nome_paciente }}\n\nO bot voltará a responder se o paciente enviar nova mensagem.",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "cace228d-15ae-4301-ab88-affe822f6bbb",
+      "name": "Notificar reativacao",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1344,
+        144
+      ],
+      "webhookId": "3a7d9743-1f82-4553-bf21-1571ea045e16",
+      "credentials": {
+        "telegramApi": {
+          "id": "sDb6ROA0185exLKN",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 9. Reativar Agente v2.1 (Multi-Tenant)\n\nRemove automaticamente a etiqueta agente-off quando uma conversa e resolvida no Chatwoot.\n\nv2.1 FIXES:\n- Multi-tenant: busca chatwoot_url, account_id e telegram_chat_id da tabela tenants via inbox_id\n- Nenhum valor hardcoded - funciona para qualquer tenant ativo\n\nConfigurar webhook no Chatwoot:\nSettings > Integrations > Webhooks > adicionar URL abaixo\nSelecionar evento: conversation_status_changed\n\nURL do webhook (producao):\nhttps://n8n.singulare.org/webhook/chatwoot-conversa-resolvida",
+        "height": 240,
+        "width": 704,
+        "color": 3
+      },
+      "id": "775e5867-1929-4057-bb33-54c48b5f99d9",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        112,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Conversa resolvida": {
+      "main": [
+        [
+          {
+            "node": "E resolucao com agente-off?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E resolucao com agente-off?": {
+      "main": [
+        [
+          {
+            "node": "Extrair dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair dados": {
+      "main": [
+        [
+          {
+            "node": "Buscar Config Tenant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Config Tenant": {
+      "main": [
+        [
+          {
+            "node": "Buscar etiquetas atuais",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar etiquetas atuais": {
+      "main": [
+        [
+          {
+            "node": "Remover agente-off",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remover agente-off": {
+      "main": [
+        [
+          {
+            "node": "Notificar reativacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "activeVersionId": "010a87fc-06c7-4d86-90a2-6cc99363d61c",
+  "versionCounter": 16,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "PkLnFYScOdCfqTQr",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-04T21:48:09.034Z",
+    "createdAt": "2026-05-04T21:18:47.436Z",
+    "versionId": "010a87fc-06c7-4d86-90a2-6cc99363d61c",
+    "workflowId": "PkLnFYScOdCfqTQr",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "chatwoot-conversa-resolvida",
+          "options": {}
+        },
+        "id": "2a107e97-54c1-4974-b7f1-260c9737f1e9",
+        "name": "Conversa resolvida",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          16,
+          144
+        ],
+        "webhookId": "5cc5c581-f072-4b26-8261-2756777554a0"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": false,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "check-event",
+                "leftValue": "={{ $json.body.event }}",
+                "rightValue": "conversation_status_changed",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              },
+              {
+                "id": "check-status",
+                "leftValue": "={{ $json.body.status }}",
+                "rightValue": "resolved",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              },
+              {
+                "id": "check-label",
+                "leftValue": "={{ $json.body.labels ?? $json.body.meta?.labels ?? [] }}",
+                "rightValue": "agente-off",
+                "operator": {
+                  "type": "array",
+                  "operation": "contains",
+                  "rightType": "any"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "865dd576-452e-4680-8fee-902cef05d93b",
+        "name": "E resolucao com agente-off?",
+        "type": "n8n-nodes-base.filter",
+        "typeVersion": 2.2,
+        "position": [
+          240,
+          144
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "conv-id",
+                "name": "id_conversa",
+                "value": "={{ $json.body.id }}",
+                "type": "string"
+              },
+              {
+                "id": "inbox-id",
+                "name": "inbox_id",
+                "value": "={{ $json.body.inbox_id }}",
+                "type": "string"
+              },
+              {
+                "id": "labels-atual",
+                "name": "labels_atuais",
+                "value": "={{ $json.body.labels ?? $json.body.meta?.labels ?? [] }}",
+                "type": "array"
+              },
+              {
+                "id": "contact-name",
+                "name": "nome_paciente",
+                "value": "={{ $json.body.meta?.sender?.name ?? 'Paciente' }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "61153b9e-3ae8-40c2-8d11-cfd18bf5e3c7",
+        "name": "Extrair dados",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          464,
+          144
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT chatwoot_url, chatwoot_account_id, telegram_chat_id, tenant_id, clinic_name\nFROM tenants\nWHERE chatwoot_inbox_id = '{{ $json.inbox_id }}'\n  AND status = 'active'\nLIMIT 1",
+          "options": {}
+        },
+        "id": "tenant-lookup-001",
+        "name": "Buscar Config Tenant",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          688,
+          144
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "={{ $('Buscar Config Tenant').item.json.chatwoot_url }}api/v1/accounts/{{ $('Buscar Config Tenant').item.json.chatwoot_account_id }}/conversations/{{ $('Extrair dados').item.json.id_conversa }}/labels",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "options": {}
+        },
+        "id": "25aa8724-5462-4298-b153-085db2d1919e",
+        "name": "Buscar etiquetas atuais",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          912,
+          144
+        ],
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('Buscar Config Tenant').item.json.chatwoot_url }}api/v1/accounts/{{ $('Buscar Config Tenant').item.json.chatwoot_account_id }}/conversations/{{ $('Extrair dados').item.json.id_conversa }}/labels",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "labels",
+                "value": "={{ ($json.payload || []).filter(l => l !== 'agente-off') }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "d2e3baf1-4849-490f-8e18-12dd6f1b5e85",
+        "name": "Remover agente-off",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1120,
+          144
+        ],
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "resource": "message",
+          "operation": "sendMessage",
+          "chatId": "={{ $('Buscar Config Tenant').item.json.telegram_chat_id }}",
+          "text": "=✅ *Agente reativado*\n\nClínica: {{ $('Buscar Config Tenant').item.json.clinic_name }}\nConversa #{{ $('Extrair dados').item.json.id_conversa }} resolvida.\nPaciente: {{ $('Extrair dados').item.json.nome_paciente }}\n\nO bot voltará a responder se o paciente enviar nova mensagem.",
+          "additionalFields": {
+            "parse_mode": "Markdown"
+          }
+        },
+        "id": "cace228d-15ae-4301-ab88-affe822f6bbb",
+        "name": "Notificar reativacao",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1344,
+          144
+        ],
+        "webhookId": "3a7d9743-1f82-4553-bf21-1571ea045e16",
+        "credentials": {
+          "telegramApi": {
+            "id": "sDb6ROA0185exLKN",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "content": "## 9. Reativar Agente v2.1 (Multi-Tenant)\n\nRemove automaticamente a etiqueta agente-off quando uma conversa e resolvida no Chatwoot.\n\nv2.1 FIXES:\n- Multi-tenant: busca chatwoot_url, account_id e telegram_chat_id da tabela tenants via inbox_id\n- Nenhum valor hardcoded - funciona para qualquer tenant ativo\n\nConfigurar webhook no Chatwoot:\nSettings > Integrations > Webhooks > adicionar URL abaixo\nSelecionar evento: conversation_status_changed\n\nURL do webhook (producao):\nhttps://n8n.singulare.org/webhook/chatwoot-conversa-resolvida",
+          "height": 240,
+          "width": 704,
+          "color": 3
+        },
+        "id": "775e5867-1929-4057-bb33-54c48b5f99d9",
+        "name": "Sticky Note",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          112,
+          -80
+        ]
+      }
+    ],
+    "connections": {
+      "Conversa resolvida": {
+        "main": [
+          [
+            {
+              "node": "E resolucao com agente-off?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "E resolucao com agente-off?": {
+        "main": [
+          [
+            {
+              "node": "Extrair dados",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extrair dados": {
+        "main": [
+          [
+            {
+              "node": "Buscar Config Tenant",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar Config Tenant": {
+        "main": [
+          [
+            {
+              "node": "Buscar etiquetas atuais",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar etiquetas atuais": {
+        "main": [
+          [
+            {
+              "node": "Remover agente-off",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Remover agente-off": {
+        "main": [
+          [
+            {
+              "node": "Notificar reativacao",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "import",
+    "name": "Version 75f7735c",
+    "description": "",
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-04T21:48:09.028Z",
+        "id": 9,
+        "workflowId": "PkLnFYScOdCfqTQr",
+        "versionId": "010a87fc-06c7-4d86-90a2-6cc99363d61c",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:22.281Z",
+        "id": 206,
+        "workflowId": "PkLnFYScOdCfqTQr",
+        "versionId": "010a87fc-06c7-4d86-90a2-6cc99363d61c",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:22.301Z",
+        "id": 207,
+        "workflowId": "PkLnFYScOdCfqTQr",
+        "versionId": "010a87fc-06c7-4d86-90a2-6cc99363d61c",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

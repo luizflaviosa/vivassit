@@ -1,0 +1,690 @@
+{
+  "id": "HREdXoPohJ0ERwBp",
+  "name": "3. Registrar Pedido NF",
+  "description": "Subworkflow para registrar pedido de Nota Fiscal no Supabase e enviar email ao contador.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "tenant_id"
+            },
+            {
+              "name": "patient_name"
+            },
+            {
+              "name": "patient_phone"
+            },
+            {
+              "name": "patient_cpf"
+            },
+            {
+              "name": "consultation_date"
+            },
+            {
+              "name": "consultation_event_id"
+            },
+            {
+              "name": "doctor_name"
+            },
+            {
+              "name": "conversation_id"
+            }
+          ]
+        }
+      },
+      "id": "22e113d0-e68d-4539-aa2b-b274aa13df34",
+      "name": "Receber Dados NF",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.nf_requests (tenant_id, patient_name, patient_phone, patient_cpf, consultation_date, consultation_event_id, doctor_name, conversation_id, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending') RETURNING id, status;",
+        "options": {
+          "queryReplacement": "={{ $json.tenant_id }}, {{ $json.patient_name }}, {{ $json.patient_phone }}, {{ $json.patient_cpf }}, {{ $json.consultation_date }}, {{ $json.consultation_event_id }}, {{ $json.doctor_name }}, {{ $json.conversation_id }}"
+        }
+      },
+      "id": "9247ffc3-e678-4543-bd9c-69f389b69263",
+      "name": "Inserir Pedido NF",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        544,
+        304
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT accountant_email FROM public.tenants WHERE tenant_id = $1 AND accountant_email IS NOT NULL;",
+        "options": {
+          "queryReplacement": "={{ $('Receber Dados NF').item.json.tenant_id }}"
+        }
+      },
+      "id": "26db60cc-1cbe-4b7c-a62b-3eb5b13f8d18",
+      "name": "Buscar Email Contador",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        848,
+        304
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.accountant_email }}",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              },
+              "rightValue": "",
+              "id": "258987b9-9015-4c8a-be58-cc3725575ee4"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "15eb4467-73d2-49dc-b4e5-188961a80f88",
+      "name": "Tem Email Contador?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1152,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@singulare.org",
+        "toEmail": "={{ $('Buscar Email Contador').item.json.accountant_email }}",
+        "subject": "=Nova solicitação de NF - {{ $('Receber Dados NF').item.json.patient_name }}",
+        "html": "=<h2>Nova Solicitação de Nota Fiscal</h2><p><strong>Paciente:</strong> {{ $('Receber Dados NF').item.json.patient_name }}</p><p><strong>CPF:</strong> {{ $('Receber Dados NF').item.json.patient_cpf }}</p><p><strong>Telefone:</strong> {{ $('Receber Dados NF').item.json.patient_phone }}</p><p><strong>Data da Consulta:</strong> {{ $('Receber Dados NF').item.json.consultation_date }}</p><p><strong>Profissional:</strong> {{ $('Receber Dados NF').item.json.doctor_name }}</p><p><strong>ID do Pedido:</strong> {{ $('Inserir Pedido NF').item.json.id }}</p><hr><p><em>Solicitação registrada automaticamente via sistema Singulare.</em></p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "b9178f0f-4815-4caa-89ea-5ca38595fb4c",
+      "name": "Enviar Email Contador",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1440,
+        208
+      ],
+      "webhookId": "5be1a613-b0f2-4444-8228-15435fe4da01",
+      "credentials": {
+        "smtp": {
+          "id": "5yb9C6LlQav7qYp8",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.nf_requests SET status = 'sent', sent_to_accountant_at = NOW() WHERE id = $1;",
+        "options": {
+          "queryReplacement": "={{ $('Inserir Pedido NF').item.json.id }}"
+        }
+      },
+      "id": "994cad77-3f84-4bea-a590-7fdf15d36675",
+      "name": "Atualizar Status Enviado",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1744,
+        208
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "sucesso",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "2",
+              "name": "mensagem",
+              "value": "Pedido de NF registrado e enviado ao contador com sucesso.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "pedido_id",
+              "value": "={{ $('Inserir Pedido NF').item.json.id }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a82efc8e-b485-4d00-8607-52706a8be230",
+      "name": "Retorno Com Contador",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2048,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "sucesso",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "2",
+              "name": "mensagem",
+              "value": "Pedido de NF registrado com sucesso. E-mail do contador não configurado - NF será processada manualmente.",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "pedido_id",
+              "value": "={{ $('Inserir Pedido NF').item.json.id }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "da7625b5-8742-4563-962e-7f2fe83352a9",
+      "name": "Retorno Sem Contador",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Receber Dados NF": {
+      "main": [
+        [
+          {
+            "node": "Inserir Pedido NF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inserir Pedido NF": {
+      "main": [
+        [
+          {
+            "node": "Buscar Email Contador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Email Contador": {
+      "main": [
+        [
+          {
+            "node": "Tem Email Contador?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem Email Contador?": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email Contador",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retorno Sem Contador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email Contador": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Status Enviado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Status Enviado": {
+      "main": [
+        [
+          {
+            "node": "Retorno Com Contador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true
+  },
+  "pinData": {},
+  "activeVersionId": "4fc9d410-09f5-4800-86bd-db856fe5d390",
+  "versionCounter": 4,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "HREdXoPohJ0ERwBp",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-04T22:34:49.839Z",
+    "createdAt": "2026-05-04T21:18:47.436Z",
+    "versionId": "4fc9d410-09f5-4800-86bd-db856fe5d390",
+    "workflowId": "HREdXoPohJ0ERwBp",
+    "nodes": [
+      {
+        "parameters": {
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "tenant_id"
+              },
+              {
+                "name": "patient_name"
+              },
+              {
+                "name": "patient_phone"
+              },
+              {
+                "name": "patient_cpf"
+              },
+              {
+                "name": "consultation_date"
+              },
+              {
+                "name": "consultation_event_id"
+              },
+              {
+                "name": "doctor_name"
+              },
+              {
+                "name": "conversation_id"
+              }
+            ]
+          }
+        },
+        "id": "22e113d0-e68d-4539-aa2b-b274aa13df34",
+        "name": "Receber Dados NF",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          240,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO public.nf_requests (tenant_id, patient_name, patient_phone, patient_cpf, consultation_date, consultation_event_id, doctor_name, conversation_id, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending') RETURNING id, status;",
+          "options": {
+            "queryReplacement": "={{ $json.tenant_id }}, {{ $json.patient_name }}, {{ $json.patient_phone }}, {{ $json.patient_cpf }}, {{ $json.consultation_date }}, {{ $json.consultation_event_id }}, {{ $json.doctor_name }}, {{ $json.conversation_id }}"
+          }
+        },
+        "id": "9247ffc3-e678-4543-bd9c-69f389b69263",
+        "name": "Inserir Pedido NF",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          544,
+          304
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT accountant_email FROM public.tenants WHERE tenant_id = $1 AND accountant_email IS NOT NULL;",
+          "options": {
+            "queryReplacement": "={{ $('Receber Dados NF').item.json.tenant_id }}"
+          }
+        },
+        "id": "26db60cc-1cbe-4b7c-a62b-3eb5b13f8d18",
+        "name": "Buscar Email Contador",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          848,
+          304
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "leftValue": "={{ $json.accountant_email }}",
+                "operator": {
+                  "type": "string",
+                  "operation": "exists"
+                },
+                "rightValue": "",
+                "id": "258987b9-9015-4c8a-be58-cc3725575ee4"
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "15eb4467-73d2-49dc-b4e5-188961a80f88",
+        "name": "Tem Email Contador?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          1152,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "fromEmail": "noreply@singulare.org",
+          "toEmail": "={{ $('Buscar Email Contador').item.json.accountant_email }}",
+          "subject": "=Nova solicitação de NF - {{ $('Receber Dados NF').item.json.patient_name }}",
+          "html": "=<h2>Nova Solicitação de Nota Fiscal</h2><p><strong>Paciente:</strong> {{ $('Receber Dados NF').item.json.patient_name }}</p><p><strong>CPF:</strong> {{ $('Receber Dados NF').item.json.patient_cpf }}</p><p><strong>Telefone:</strong> {{ $('Receber Dados NF').item.json.patient_phone }}</p><p><strong>Data da Consulta:</strong> {{ $('Receber Dados NF').item.json.consultation_date }}</p><p><strong>Profissional:</strong> {{ $('Receber Dados NF').item.json.doctor_name }}</p><p><strong>ID do Pedido:</strong> {{ $('Inserir Pedido NF').item.json.id }}</p><hr><p><em>Solicitação registrada automaticamente via sistema Singulare.</em></p>",
+          "options": {
+            "appendAttribution": false
+          }
+        },
+        "id": "b9178f0f-4815-4caa-89ea-5ca38595fb4c",
+        "name": "Enviar Email Contador",
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2.1,
+        "position": [
+          1440,
+          208
+        ],
+        "webhookId": "5be1a613-b0f2-4444-8228-15435fe4da01",
+        "credentials": {
+          "smtp": {
+            "id": "5yb9C6LlQav7qYp8",
+            "name": "SMTP account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "UPDATE public.nf_requests SET status = 'sent', sent_to_accountant_at = NOW() WHERE id = $1;",
+          "options": {
+            "queryReplacement": "={{ $('Inserir Pedido NF').item.json.id }}"
+          }
+        },
+        "id": "994cad77-3f84-4bea-a590-7fdf15d36675",
+        "name": "Atualizar Status Enviado",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          1744,
+          208
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1",
+                "name": "sucesso",
+                "value": true,
+                "type": "boolean"
+              },
+              {
+                "id": "2",
+                "name": "mensagem",
+                "value": "Pedido de NF registrado e enviado ao contador com sucesso.",
+                "type": "string"
+              },
+              {
+                "id": "3",
+                "name": "pedido_id",
+                "value": "={{ $('Inserir Pedido NF').item.json.id }}",
+                "type": "number"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "a82efc8e-b485-4d00-8607-52706a8be230",
+        "name": "Retorno Com Contador",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          2048,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "1",
+                "name": "sucesso",
+                "value": true,
+                "type": "boolean"
+              },
+              {
+                "id": "2",
+                "name": "mensagem",
+                "value": "Pedido de NF registrado com sucesso. E-mail do contador não configurado - NF será processada manualmente.",
+                "type": "string"
+              },
+              {
+                "id": "3",
+                "name": "pedido_id",
+                "value": "={{ $('Inserir Pedido NF').item.json.id }}",
+                "type": "number"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "da7625b5-8742-4563-962e-7f2fe83352a9",
+        "name": "Retorno Sem Contador",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1440,
+          400
+        ]
+      }
+    ],
+    "connections": {
+      "Receber Dados NF": {
+        "main": [
+          [
+            {
+              "node": "Inserir Pedido NF",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Inserir Pedido NF": {
+        "main": [
+          [
+            {
+              "node": "Buscar Email Contador",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar Email Contador": {
+        "main": [
+          [
+            {
+              "node": "Tem Email Contador?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tem Email Contador?": {
+        "main": [
+          [
+            {
+              "node": "Enviar Email Contador",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Retorno Sem Contador",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Enviar Email Contador": {
+        "main": [
+          [
+            {
+              "node": "Atualizar Status Enviado",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Atualizar Status Enviado": {
+        "main": [
+          [
+            {
+              "node": "Retorno Com Contador",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "import",
+    "name": "Version 4fc9d410",
+    "description": "",
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-04T22:34:49.821Z",
+        "id": 19,
+        "workflowId": "HREdXoPohJ0ERwBp",
+        "versionId": "4fc9d410-09f5-4800-86bd-db856fe5d390",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

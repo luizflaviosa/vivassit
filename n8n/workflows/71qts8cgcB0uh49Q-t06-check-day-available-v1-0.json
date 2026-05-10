@@ -1,0 +1,274 @@
+{
+  "id": "71qts8cgcB0uh49Q",
+  "name": "T06 — check_day_available · v1.0",
+  "description": "v3: aceita doctor_code int (preferencial multi-doctor) + doctor_name (fallback). Wraps fn_check_day_open.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "3fdf09d2-310f-4611-bfb4-f486d03b738d",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "tenant_id",
+              "type": "string"
+            },
+            {
+              "name": "doctor_code",
+              "type": "number"
+            },
+            {
+              "name": "doctor_name",
+              "type": "string"
+            },
+            {
+              "name": "doctor_id",
+              "type": "string"
+            },
+            {
+              "name": "date_iso",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "72b5525e-2d97-49c5-9a14-f29254590a5d",
+      "name": "Check Day Open",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT public.fn_check_day_open(\n  '{{ $('When Called').item.json.tenant_id }}',\n  NULLIF('{{ $('When Called').item.json.doctor_name }}', ''),\n  NULLIF('{{ $('When Called').item.json.doctor_id }}', '')::uuid,\n  CASE \n    WHEN '{{ $('When Called').item.json.date_iso }}' ~ '^\\d{4}-\\d{2}-\\d{2}$' \n    THEN '{{ $('When Called').item.json.date_iso }}'::date\n    ELSE ('{{ $('When Called').item.json.date_iso }}'::timestamptz AT TIME ZONE 'America/Sao_Paulo')::date\n  END,\n  NULLIF('{{ $('When Called').item.json.doctor_code }}', '')::int\n) AS result",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "d08b42e2-9f76-4a90-a10a-7243036cdc61",
+      "name": "Flatten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "const r = $input.item.json.result || {};\nreturn { json: r };"
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Check Day Open",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Day Open": {
+      "main": [
+        [
+          {
+            "node": "Flatten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "pinData": null,
+  "activeVersionId": "9db86f5d-766d-4c1d-a380-be1c82ec2a4c",
+  "versionCounter": 16,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "71qts8cgcB0uh49Q",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-04T21:59:29.520Z",
+    "createdAt": "2026-05-04T21:18:47.436Z",
+    "versionId": "9db86f5d-766d-4c1d-a380-be1c82ec2a4c",
+    "workflowId": "71qts8cgcB0uh49Q",
+    "nodes": [
+      {
+        "id": "3fdf09d2-310f-4611-bfb4-f486d03b738d",
+        "name": "When Called",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "inputSource": "workflowInputs",
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "tenant_id",
+                "type": "string"
+              },
+              {
+                "name": "doctor_code",
+                "type": "number"
+              },
+              {
+                "name": "doctor_name",
+                "type": "string"
+              },
+              {
+                "name": "doctor_id",
+                "type": "string"
+              },
+              {
+                "name": "date_iso",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "72b5525e-2d97-49c5-9a14-f29254590a5d",
+        "name": "Check Day Open",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          224,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=SELECT public.fn_check_day_open(\n  '{{ $('When Called').item.json.tenant_id }}',\n  NULLIF('{{ $('When Called').item.json.doctor_name }}', ''),\n  NULLIF('{{ $('When Called').item.json.doctor_id }}', '')::uuid,\n  CASE \n    WHEN '{{ $('When Called').item.json.date_iso }}' ~ '^\\d{4}-\\d{2}-\\d{2}$' \n    THEN '{{ $('When Called').item.json.date_iso }}'::date\n    ELSE ('{{ $('When Called').item.json.date_iso }}'::timestamptz AT TIME ZONE 'America/Sao_Paulo')::date\n  END,\n  NULLIF('{{ $('When Called').item.json.doctor_code }}', '')::int\n) AS result",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "d08b42e2-9f76-4a90-a10a-7243036cdc61",
+        "name": "Flatten",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          448,
+          0
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "language": "javaScript",
+          "jsCode": "const r = $input.item.json.result || {};\nreturn { json: r };"
+        }
+      }
+    ],
+    "connections": {
+      "When Called": {
+        "main": [
+          [
+            {
+              "node": "Check Day Open",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Day Open": {
+        "main": [
+          [
+            {
+              "node": "Flatten",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "import",
+    "name": "Version 9db86f5d",
+    "description": "",
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-04T21:59:29.513Z",
+        "id": 10,
+        "workflowId": "71qts8cgcB0uh49Q",
+        "versionId": "9db86f5d-766d-4c1d-a380-be1c82ec2a4c",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:12.925Z",
+        "id": 198,
+        "workflowId": "71qts8cgcB0uh49Q",
+        "versionId": "9db86f5d-766d-4c1d-a380-be1c82ec2a4c",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:12.940Z",
+        "id": 199,
+        "workflowId": "71qts8cgcB0uh49Q",
+        "versionId": "9db86f5d-766d-4c1d-a380-be1c82ec2a4c",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

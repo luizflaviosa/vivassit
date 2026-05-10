@@ -1,0 +1,1050 @@
+{
+  "id": "sOB9YWGkmDpW3NP4",
+  "name": "A01 — Disparador · Confirmações Diárias de Consulta · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "trigger-diario",
+      "name": "Gatilho Diário",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "buscar-tenants",
+      "name": "Buscar Tenants Ativos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        256,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT t.tenant_id, t.chatwoot_account_id, t.chatwoot_url, t.chatwoot_inbox_id, t.rendered_prompt, t.assistant_prompt\nFROM public.tenants t\nWHERE t.status = 'active'\n  AND t.chatwoot_account_id IS NOT NULL\n  AND t.rendered_prompt IS NOT NULL",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "loop-tenants",
+      "name": "Loop Tenants",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        512,
+        0
+      ],
+      "parameters": {
+        "options": {}
+      }
+    },
+    {
+      "id": "info-tenant",
+      "name": "Info Tenant",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        752,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "id_conta",
+              "value": "={{ $json.chatwoot_account_id }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "url_chatwoot",
+              "value": "={{ $json.chatwoot_url }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "tenant_id",
+              "value": "={{ $json.tenant_id }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "rendered_prompt",
+              "value": "={{ $json.rendered_prompt }}",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "assistant_prompt",
+              "value": "={{ $json.assistant_prompt }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "assistente-confirmacao",
+      "name": "Assistente de confirmação",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1008,
+        0
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Agora são {{ $now.format('FFFF') }}.",
+        "options": {
+          "systemMessage": "=Agora são {{ $now.format('FFFF') }}.\n\nVocê é um agente especializado em **confirmação de consultas** para a clínica. Sua função:\n\n1. **Liste as consultas de amanhã** usando a ferramenta `Listar_consultas_amanha` (PRIMEIRA ação SEMPRE).\n2. Pra cada consulta retornada, **envie mensagem de confirmação** usando `Enviar_agendamento`, perguntando se o paciente confirma ou prefere reagendar.\n3. A mensagem **DEVE incluir**:\n   - Nome do paciente (`patient_name`)\n   - Nome do profissional (`doctor_name`)\n   - Data e hora formatada (`quando_formatado`)\n4. Use o `patient_phone` da consulta como destinatário em `Enviar_agendamento`.\n5. Use o `conversation_id` da consulta como `id_conversa` em `Enviar_agendamento` (quando presente).\n6. Após cada envio, **USE OBRIGATORIAMENTE** a ferramenta `Salvar_memoria` registrando o que foi enviado.\n\n## IMPORTANTE\n- Você **não recebe respostas** diretamente; o retorno do paciente é tratado por outro agente.\n- Use `Refletir1` antes e depois de operações complexas.\n- **NÃO INCLUA** o `booking_id` ou `conversation_id` na mensagem visível pro paciente.\n- Se `Listar_consultas_amanha` retornar zero linhas, encerre dizendo \"sem consultas amanhã\" via Salvar_memoria.\n\n## CONTEXTO DA CLÍNICA\n\n{{ $('Info Tenant').item.json.rendered_prompt }}\n"
+        }
+      }
+    },
+    {
+      "id": "gemini-model",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        800,
+        256
+      ],
+      "parameters": {
+        "options": {
+          "safetySettings": {
+            "values": []
+          }
+        }
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "IfMvUmMoeAZrytgT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "id": "chat-memory",
+      "name": "Postgres Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        912,
+        256
+      ],
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=assistente_confirmacao_{{ $('Info Tenant').item.json.tenant_id }}",
+        "tableName": "n8n_historico_mensagens"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "salvar-memoria",
+      "name": "Salvar memoria",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [
+        1008,
+        352
+      ],
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Salva a informação de agendamento enviada, para que a secretária saiba que foi enviada.",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "n8n_historico_mensagens",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $fromAI('telefone', 'Telefone do paciente, formatado com apenas números, incluindo código do país. Ex.: \"+551112345678\"', 'string') }}",
+            "message": "={ \"type\": \"ai\", \"content\": \"{{ $fromAI('message', 'A mesma mensagem enviada para o paciente.', 'string') }}\" }"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "enviar-agendamento",
+      "name": "Enviar agendamento",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        320
+      ],
+      "parameters": {
+        "description": "Use essa ferramenta para enviar as informações de agendamento no WhatsApp.\n\nO ID da conversa deve ser extraído das informações do evento.",
+        "workflowId": {
+          "__rl": true,
+          "value": "IUFMBjkYRcp20xr7",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/IUFMBjkYRcp20xr7",
+          "cachedResultName": "5. Enviar agendamento"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mensagem": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('mensagem', ``, 'string') }}",
+            "id_conversa": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('id_conversa', ``, 'string') }}",
+            "id_conta": "={{ $('Info Tenant').item.json.id_conta }}",
+            "url_chatwoot": "={{ $('Info Tenant').item.json.url_chatwoot }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "mensagem",
+              "displayName": "mensagem",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "id_conta",
+              "displayName": "id_conta",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "id_conversa",
+              "displayName": "id_conversa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "url_chatwoot",
+              "displayName": "url_chatwoot",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "refletir",
+      "name": "Refletir1",
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        256
+      ],
+      "parameters": {
+        "description": "Use a ferramenta para refletir sobre algo. Ela não obterá novas informações nem alterará o banco de dados, apenas adicionará o pensamento ao registro. Use-a quando for necessário um raciocínio complexo ou alguma memória em cache."
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  b.id::text                                        AS booking_id,\n  b.patient_name,\n  b.patient_phone,\n  b.conversation_id,\n  d.doctor_name,\n  d.specialty,\n  TO_CHAR(b.slot_start AT TIME ZONE 'America/Sao_Paulo', 'TMDay, DD/MM \"às\" HH24:MI') AS quando_formatado,\n  (b.slot_start AT TIME ZONE 'America/Sao_Paulo')::text AS slot_start_brt\nFROM public.doctor_bookings b\nJOIN public.tenant_doctors d ON d.id = b.doctor_id\nWHERE b.tenant_id = '{{ $('Info Tenant').item.json.tenant_id }}'\n  AND b.status IN ('booked','confirmed')\n  AND (b.slot_start AT TIME ZONE 'America/Sao_Paulo')::date\n      = ((now() AT TIME ZONE 'America/Sao_Paulo')::date + 1)\nORDER BY b.slot_start",
+        "options": {},
+        "descriptionType": "manual",
+        "toolDescription": "Lista todas as consultas agendadas para AMANHÃ deste tenant. Retorna: booking_id, patient_name, patient_phone, doctor_name, quando_formatado (string pronta pra mensagem). Use SEMPRE essa ferramenta no início da execução pra obter a lista de quem confirmar."
+      },
+      "id": "pg-tool-bookings-tomorrow",
+      "name": "Listar_consultas_amanha",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [
+        1700,
+        480
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Gatilho Diário": {
+      "main": [
+        [
+          {
+            "node": "Buscar Tenants Ativos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Tenants Ativos": {
+      "main": [
+        [
+          {
+            "node": "Loop Tenants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Tenants": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Info Tenant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Info Tenant": {
+      "main": [
+        [
+          {
+            "node": "Assistente de confirmação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assistente de confirmação": {
+      "main": [
+        [
+          {
+            "node": "Loop Tenants",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "main": [
+        []
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Assistente de confirmação",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "main": [
+        []
+      ],
+      "ai_memory": [
+        [
+          {
+            "node": "Assistente de confirmação",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar memoria": {
+      "main": [
+        []
+      ],
+      "ai_tool": [
+        [
+          {
+            "node": "Assistente de confirmação",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar agendamento": {
+      "main": [
+        []
+      ],
+      "ai_tool": [
+        [
+          {
+            "node": "Assistente de confirmação",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refletir1": {
+      "main": [
+        []
+      ],
+      "ai_tool": [
+        [
+          {
+            "node": "Assistente de confirmação",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar_consultas_amanha": {
+      "ai_tool": [
+        [
+          {
+            "node": "Assistente de confirmação",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Gatilho Diário": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "pinData": {},
+  "activeVersionId": "e7fade3a-52d4-4440-a3be-f4efb5be1c4e",
+  "versionCounter": 23,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "sOB9YWGkmDpW3NP4",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-10T00:38:42.702Z",
+    "createdAt": "2026-05-10T00:38:42.702Z",
+    "versionId": "e7fade3a-52d4-4440-a3be-f4efb5be1c4e",
+    "workflowId": "sOB9YWGkmDpW3NP4",
+    "nodes": [
+      {
+        "id": "trigger-diario",
+        "name": "Gatilho Diário",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "weeks",
+                "triggerAtDay": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5
+                ],
+                "triggerAtHour": 8
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "buscar-tenants",
+        "name": "Buscar Tenants Ativos",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          256,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT t.tenant_id, t.chatwoot_account_id, t.chatwoot_url, t.chatwoot_inbox_id, t.rendered_prompt, t.assistant_prompt\nFROM public.tenants t\nWHERE t.status = 'active'\n  AND t.chatwoot_account_id IS NOT NULL\n  AND t.rendered_prompt IS NOT NULL",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "loop-tenants",
+        "name": "Loop Tenants",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          512,
+          0
+        ],
+        "parameters": {
+          "options": {}
+        }
+      },
+      {
+        "id": "info-tenant",
+        "name": "Info Tenant",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          752,
+          0
+        ],
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "a1",
+                "name": "id_conta",
+                "value": "={{ $json.chatwoot_account_id }}",
+                "type": "string"
+              },
+              {
+                "id": "a2",
+                "name": "url_chatwoot",
+                "value": "={{ $json.chatwoot_url }}",
+                "type": "string"
+              },
+              {
+                "id": "a3",
+                "name": "tenant_id",
+                "value": "={{ $json.tenant_id }}",
+                "type": "string"
+              },
+              {
+                "id": "a4",
+                "name": "rendered_prompt",
+                "value": "={{ $json.rendered_prompt }}",
+                "type": "string"
+              },
+              {
+                "id": "a5",
+                "name": "assistant_prompt",
+                "value": "={{ $json.assistant_prompt }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "assistente-confirmacao",
+        "name": "Assistente de confirmação",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 1.7,
+        "position": [
+          1008,
+          0
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "=Agora são {{ $now.format('FFFF') }}.",
+          "options": {
+            "systemMessage": "=Agora são {{ $now.format('FFFF') }}.\n\nVocê é um agente especializado em **confirmação de consultas** para a clínica. Sua função:\n\n1. **Liste as consultas de amanhã** usando a ferramenta `Listar_consultas_amanha` (PRIMEIRA ação SEMPRE).\n2. Pra cada consulta retornada, **envie mensagem de confirmação** usando `Enviar_agendamento`, perguntando se o paciente confirma ou prefere reagendar.\n3. A mensagem **DEVE incluir**:\n   - Nome do paciente (`patient_name`)\n   - Nome do profissional (`doctor_name`)\n   - Data e hora formatada (`quando_formatado`)\n4. Use o `patient_phone` da consulta como destinatário em `Enviar_agendamento`.\n5. Use o `conversation_id` da consulta como `id_conversa` em `Enviar_agendamento` (quando presente).\n6. Após cada envio, **USE OBRIGATORIAMENTE** a ferramenta `Salvar_memoria` registrando o que foi enviado.\n\n## IMPORTANTE\n- Você **não recebe respostas** diretamente; o retorno do paciente é tratado por outro agente.\n- Use `Refletir1` antes e depois de operações complexas.\n- **NÃO INCLUA** o `booking_id` ou `conversation_id` na mensagem visível pro paciente.\n- Se `Listar_consultas_amanha` retornar zero linhas, encerre dizendo \"sem consultas amanhã\" via Salvar_memoria.\n\n## CONTEXTO DA CLÍNICA\n\n{{ $('Info Tenant').item.json.rendered_prompt }}\n"
+          }
+        }
+      },
+      {
+        "id": "gemini-model",
+        "name": "Google Gemini Chat Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+        "typeVersion": 1,
+        "position": [
+          800,
+          256
+        ],
+        "parameters": {
+          "options": {
+            "safetySettings": {
+              "values": []
+            }
+          }
+        },
+        "credentials": {
+          "googlePalmApi": {
+            "id": "IfMvUmMoeAZrytgT",
+            "name": "Google Gemini(PaLM) Api account"
+          }
+        }
+      },
+      {
+        "id": "chat-memory",
+        "name": "Postgres Chat Memory",
+        "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+        "typeVersion": 1.3,
+        "position": [
+          912,
+          256
+        ],
+        "parameters": {
+          "sessionIdType": "customKey",
+          "sessionKey": "=assistente_confirmacao_{{ $('Info Tenant').item.json.tenant_id }}",
+          "tableName": "n8n_historico_mensagens"
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "salvar-memoria",
+        "name": "Salvar memoria",
+        "type": "n8n-nodes-base.postgresTool",
+        "typeVersion": 2.5,
+        "position": [
+          1008,
+          352
+        ],
+        "parameters": {
+          "descriptionType": "manual",
+          "toolDescription": "Salva a informação de agendamento enviada, para que a secretária saiba que foi enviada.",
+          "schema": {
+            "__rl": true,
+            "mode": "list",
+            "value": "public"
+          },
+          "table": {
+            "__rl": true,
+            "value": "n8n_historico_mensagens",
+            "mode": "list"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "session_id": "={{ $fromAI('telefone', 'Telefone do paciente, formatado com apenas números, incluindo código do país. Ex.: \"+551112345678\"', 'string') }}",
+              "message": "={ \"type\": \"ai\", \"content\": \"{{ $fromAI('message', 'A mesma mensagem enviada para o paciente.', 'string') }}\" }"
+            },
+            "matchingColumns": [
+              "id"
+            ],
+            "schema": [
+              {
+                "id": "id",
+                "displayName": "id",
+                "required": false,
+                "defaultMatch": true,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "session_id",
+                "displayName": "session_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "message",
+                "displayName": "message",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "enviar-agendamento",
+        "name": "Enviar agendamento",
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2.2,
+        "position": [
+          1200,
+          320
+        ],
+        "parameters": {
+          "description": "Use essa ferramenta para enviar as informações de agendamento no WhatsApp.\n\nO ID da conversa deve ser extraído das informações do evento.",
+          "workflowId": {
+            "__rl": true,
+            "value": "IUFMBjkYRcp20xr7",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/IUFMBjkYRcp20xr7",
+            "cachedResultName": "5. Enviar agendamento"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "mensagem": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('mensagem', ``, 'string') }}",
+              "id_conversa": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('id_conversa', ``, 'string') }}",
+              "id_conta": "={{ $('Info Tenant').item.json.id_conta }}",
+              "url_chatwoot": "={{ $('Info Tenant').item.json.url_chatwoot }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "mensagem",
+                "displayName": "mensagem",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "id_conta",
+                "displayName": "id_conta",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "id_conversa",
+                "displayName": "id_conversa",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "url_chatwoot",
+                "displayName": "url_chatwoot",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        }
+      },
+      {
+        "id": "refletir",
+        "name": "Refletir1",
+        "type": "@n8n/n8n-nodes-langchain.toolThink",
+        "typeVersion": 1,
+        "position": [
+          1312,
+          256
+        ],
+        "parameters": {
+          "description": "Use a ferramenta para refletir sobre algo. Ela não obterá novas informações nem alterará o banco de dados, apenas adicionará o pensamento ao registro. Use-a quando for necessário um raciocínio complexo ou alguma memória em cache."
+        }
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT\n  b.id::text                                        AS booking_id,\n  b.patient_name,\n  b.patient_phone,\n  b.conversation_id,\n  d.doctor_name,\n  d.specialty,\n  TO_CHAR(b.slot_start AT TIME ZONE 'America/Sao_Paulo', 'TMDay, DD/MM \"às\" HH24:MI') AS quando_formatado,\n  (b.slot_start AT TIME ZONE 'America/Sao_Paulo')::text AS slot_start_brt\nFROM public.doctor_bookings b\nJOIN public.tenant_doctors d ON d.id = b.doctor_id\nWHERE b.tenant_id = '{{ $('Info Tenant').item.json.tenant_id }}'\n  AND b.status IN ('booked','confirmed')\n  AND (b.slot_start AT TIME ZONE 'America/Sao_Paulo')::date\n      = ((now() AT TIME ZONE 'America/Sao_Paulo')::date + 1)\nORDER BY b.slot_start",
+          "options": {},
+          "descriptionType": "manual",
+          "toolDescription": "Lista todas as consultas agendadas para AMANHÃ deste tenant. Retorna: booking_id, patient_name, patient_phone, doctor_name, quando_formatado (string pronta pra mensagem). Use SEMPRE essa ferramenta no início da execução pra obter a lista de quem confirmar."
+        },
+        "id": "pg-tool-bookings-tomorrow",
+        "name": "Listar_consultas_amanha",
+        "type": "n8n-nodes-base.postgresTool",
+        "typeVersion": 2.5,
+        "position": [
+          1700,
+          480
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Gatilho Diário": {
+        "main": [
+          [
+            {
+              "node": "Buscar Tenants Ativos",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar Tenants Ativos": {
+        "main": [
+          [
+            {
+              "node": "Loop Tenants",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop Tenants": {
+        "main": [
+          [],
+          [
+            {
+              "node": "Info Tenant",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Info Tenant": {
+        "main": [
+          [
+            {
+              "node": "Assistente de confirmação",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Assistente de confirmação": {
+        "main": [
+          [
+            {
+              "node": "Loop Tenants",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Google Gemini Chat Model": {
+        "main": [
+          []
+        ],
+        "ai_languageModel": [
+          [
+            {
+              "node": "Assistente de confirmação",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Postgres Chat Memory": {
+        "main": [
+          []
+        ],
+        "ai_memory": [
+          [
+            {
+              "node": "Assistente de confirmação",
+              "type": "ai_memory",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Salvar memoria": {
+        "main": [
+          []
+        ],
+        "ai_tool": [
+          [
+            {
+              "node": "Assistente de confirmação",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Enviar agendamento": {
+        "main": [
+          []
+        ],
+        "ai_tool": [
+          [
+            {
+              "node": "Assistente de confirmação",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Refletir1": {
+        "main": [
+          []
+        ],
+        "ai_tool": [
+          [
+            {
+              "node": "Assistente de confirmação",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Listar_consultas_amanha": {
+        "ai_tool": [
+          [
+            {
+              "node": "Assistente de confirmação",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-10T00:38:42.768Z",
+        "id": 247,
+        "workflowId": "sOB9YWGkmDpW3NP4",
+        "versionId": "e7fade3a-52d4-4440-a3be-f4efb5be1c4e",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-10T00:38:42.796Z",
+        "id": 248,
+        "workflowId": "sOB9YWGkmDpW3NP4",
+        "versionId": "e7fade3a-52d4-4440-a3be-f4efb5be1c4e",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

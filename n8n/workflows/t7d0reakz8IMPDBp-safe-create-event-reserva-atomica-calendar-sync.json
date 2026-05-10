@@ -1,0 +1,1088 @@
+{
+  "id": "t7d0reakz8IMPDBp",
+  "name": "safe_create_event — Reserva Atômica + Calendar Sync",
+  "description": "v5: aceita doctor_code (preferencial) + atomic booking + Calendar event + attach.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "1314cbba-0608-4041-be7b-9fc55c1a25c1",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        96
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "tenant_id",
+              "type": "string"
+            },
+            {
+              "name": "doctor_code",
+              "type": "number"
+            },
+            {
+              "name": "doctor_name",
+              "type": "string"
+            },
+            {
+              "name": "doctor_id",
+              "type": "string"
+            },
+            {
+              "name": "patient_phone",
+              "type": "string"
+            },
+            {
+              "name": "patient_name",
+              "type": "string"
+            },
+            {
+              "name": "patient_birth",
+              "type": "string"
+            },
+            {
+              "name": "slot_iso",
+              "type": "string"
+            },
+            {
+              "name": "duration_minutes",
+              "type": "number"
+            },
+            {
+              "name": "conversation_id",
+              "type": "string"
+            },
+            {
+              "name": "summary",
+              "type": "string"
+            },
+            {
+              "name": "is_proxy",
+              "type": "boolean"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "normalizar-dados-001",
+      "name": "Normalizar Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        96
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\n\n// Normalize patient_birth from DD/MM/YYYY to YYYY-MM-DD\nlet birth = item.patient_birth || '';\nif (birth.match(/^\\d{2}\\/\\d{2}\\/\\d{4}$/)) {\n  const [dd, mm, yyyy] = birth.split('/');\n  birth = `${yyyy}-${mm}-${dd}`;\n}\n\nreturn { json: { ...item, patient_birth: birth || null } };"
+      }
+    },
+    {
+      "id": "e8d47c49-63a0-4805-bd67-207ff800c83d",
+      "name": "Book Slot Atomic",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        448,
+        96
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT public.fn_book_slot_atomic(\n  '{{ $input.item.json.tenant_id }}',\n  NULLIF('{{ $input.item.json.doctor_name }}', ''),\n  NULLIF('{{ $input.item.json.doctor_id }}', '')::uuid,\n  '{{ $input.item.json.slot_iso }}'::timestamptz,\n  NULLIF('{{ $input.item.json.duration_minutes }}', '')::int,\n  '{{ $input.item.json.patient_phone }}',\n  '{{ $input.item.json.patient_name }}',\n  NULLIF('{{ $input.item.json.patient_birth }}', '')::date,\n  '{{ $input.item.json.conversation_id }}',\n  NULLIF('{{ $input.item.json.doctor_code ?? '' }}', '')::int\n) AS result",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "parsear-resultado-001",
+      "name": "Parsear Resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        96
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\nconst raw = item.result;\nconst result = (typeof raw === 'string') ? JSON.parse(raw) : (raw || {});\nreturn { json: { ...item, result } };"
+      }
+    },
+    {
+      "id": "7270a82e-cd01-4fcc-9795-2000d7d2a271",
+      "name": "Registrar Paciente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        896,
+        96
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO patients (tenant_id, phone, name, birthdate)\nVALUES (\n  '{{ $('When Called').item.json.tenant_id ?? \"singulare\" }}',\n  '{{ $('When Called').item.json.patient_phone }}',\n  '{{ $('When Called').item.json.patient_name }}',\n  NULLIF('{{ $('Normalizar Dados').item.json.patient_birth ?? \"\" }}', '')::date\n)\nON CONFLICT (tenant_id, phone) DO UPDATE \n  SET name = CASE \n        WHEN '{{ $('When Called').item.json.is_proxy ?? \"false\" }}' = 'true' \n        THEN patients.name \n        ELSE EXCLUDED.name \n      END,\n      birthdate = CASE \n        WHEN '{{ $('When Called').item.json.is_proxy ?? \"false\" }}' = 'true' \n        THEN patients.birthdate \n        ELSE COALESCE(EXCLUDED.birthdate, patients.birthdate) \n      END;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "b6249ea0-9773-4859-acfb-262b39dd3309",
+      "name": "Booking OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        96
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b",
+              "leftValue": "={{ $('Parsear Resultado').item.json.result.success }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "a6bc2f0d-b927-4c27-ab3e-f2f2de831a52",
+      "name": "Calendar Create",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1344,
+        0
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "create",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Parsear Resultado').item.json.result.calendar_id }}"
+        },
+        "start": "={{ $('Parsear Resultado').item.json.result.slot_start }}",
+        "end": "={{ $('Parsear Resultado').item.json.result.slot_end }}",
+        "additionalFields": {
+          "summary": "={{ $('When Called').item.json.summary || ('Consulta — ' + $('When Called').item.json.patient_name) }}",
+          "description": "=Telefone: {{ $('When Called').item.json.patient_phone }} | Nome Completo: {{ $('When Called').item.json.patient_name }}{{ $('When Called').item.json.patient_birth ? ' | Data de Nascimento: ' + $('When Called').item.json.patient_birth : '' }}{{ $('When Called').item.json.conversation_id ? ' | ID DA CONVERSA: ' + $('When Called').item.json.conversation_id : '' }} | Booking ID: {{ $('Parsear Resultado').item.json.result.booking_id }}",
+          "timeZone": {
+            "__rl": true,
+            "mode": "id",
+            "value": "America/Sao_Paulo"
+          }
+        }
+      },
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "OkOV7izIvJcvD3wl",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "id": "760c263d-b659-4d8a-9f77-4b4071af6e5a",
+      "name": "Attach Calendar Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1568,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT public.fn_attach_calendar_event(\n  '{{ $('Parsear Resultado').item.json.result.booking_id }}'::uuid,\n  '{{ $('Calendar Create').item.json.id }}'\n) AS attach_result",
+        "options": {}
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "ea8a154e-f00d-4fe4-9469-7e01a4b18380",
+      "name": "Output Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2240,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "success",
+              "value": "={{ true }}",
+              "type": "boolean"
+            },
+            {
+              "id": "s2",
+              "name": "booking_id",
+              "value": "={{ $('Parsear Resultado').item.json.result.booking_id }}",
+              "type": "string"
+            },
+            {
+              "id": "s3",
+              "name": "event_id",
+              "value": "={{ $('Calendar Create').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "s4",
+              "name": "html_link",
+              "value": "={{ $('Calendar Create').item.json.htmlLink }}",
+              "type": "string"
+            },
+            {
+              "id": "s5",
+              "name": "slot_start",
+              "value": "={{ $('Parsear Resultado').item.json.result.slot_start }}",
+              "type": "string"
+            },
+            {
+              "id": "s6",
+              "name": "doctor_name",
+              "value": "={{ $('Parsear Resultado').item.json.result.doctor_name }}",
+              "type": "string"
+            },
+            {
+              "id": "s7",
+              "name": "doctor_code",
+              "value": "={{ $('Parsear Resultado').item.json.result.doctor_code }}",
+              "type": "number"
+            },
+            {
+              "id": "s8",
+              "name": "message",
+              "value": "Reserva criada e evento publicado no Calendar.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9a3d0d35-83e2-40cc-b96a-235e2e95753a",
+      "name": "Output Rejection",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1344,
+        192
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "success",
+              "value": "={{ false }}",
+              "type": "boolean"
+            },
+            {
+              "id": "r2",
+              "name": "reason",
+              "value": "={{ $('Parsear Resultado').item.json.result.reason }}",
+              "type": "string"
+            },
+            {
+              "id": "r3",
+              "name": "message",
+              "value": "={{ $('Parsear Resultado').item.json.result.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cal_ok_1",
+              "leftValue": "={{ $('Calendar Create').item.json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-calendar-ok-001",
+      "name": "Calendar OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1792,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO public.n8n_alerts\n  (tenant_id, alert_type, booking_id, patient_phone, details)\nVALUES\n  (\n    '{{ $(\\'Parsear Resultado\\').item.json.result.tenant_id || \\'singulare\\' }}',\n    'calendar_failure',\n    '{{ $(\\'Parsear Resultado\\').item.json.result.booking_id }}'::uuid,\n    '{{ $(\\'When Called\\').item.json.patient_phone }}',\n    '{\"error\": \"calendar_create_returned_no_id\", \"slot_start\": \"{{ $(\\'Parsear Resultado\\').item.json.result.slot_start }}\"}'\n  )",
+        "options": {}
+      },
+      "id": "log-calendar-failure-001",
+      "name": "Log Calendar Failure",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2016,
+        96
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Dados": {
+      "main": [
+        [
+          {
+            "node": "Book Slot Atomic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Book Slot Atomic": {
+      "main": [
+        [
+          {
+            "node": "Parsear Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear Resultado": {
+      "main": [
+        [
+          {
+            "node": "Registrar Paciente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Paciente": {
+      "main": [
+        [
+          {
+            "node": "Booking OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Booking OK?": {
+      "main": [
+        [
+          {
+            "node": "Calendar Create",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Output Rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calendar Create": {
+      "main": [
+        [
+          {
+            "node": "Attach Calendar Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Calendar Event": {
+      "main": [
+        [
+          {
+            "node": "Calendar OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calendar OK?": {
+      "main": [
+        [
+          {
+            "node": "Output Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Calendar Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Calendar Failure": {
+      "main": [
+        [
+          {
+            "node": "Output Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "pinData": null,
+  "activeVersionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
+  "versionCounter": 47,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "t7d0reakz8IMPDBp",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-08T02:40:59.389Z",
+    "createdAt": "2026-05-08T02:40:59.389Z",
+    "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
+    "workflowId": "t7d0reakz8IMPDBp",
+    "nodes": [
+      {
+        "id": "1314cbba-0608-4041-be7b-9fc55c1a25c1",
+        "name": "When Called",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          96
+        ],
+        "parameters": {
+          "inputSource": "workflowInputs",
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "tenant_id",
+                "type": "string"
+              },
+              {
+                "name": "doctor_code",
+                "type": "number"
+              },
+              {
+                "name": "doctor_name",
+                "type": "string"
+              },
+              {
+                "name": "doctor_id",
+                "type": "string"
+              },
+              {
+                "name": "patient_phone",
+                "type": "string"
+              },
+              {
+                "name": "patient_name",
+                "type": "string"
+              },
+              {
+                "name": "patient_birth",
+                "type": "string"
+              },
+              {
+                "name": "slot_iso",
+                "type": "string"
+              },
+              {
+                "name": "duration_minutes",
+                "type": "number"
+              },
+              {
+                "name": "conversation_id",
+                "type": "string"
+              },
+              {
+                "name": "summary",
+                "type": "string"
+              },
+              {
+                "name": "is_proxy",
+                "type": "boolean"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "normalizar-dados-001",
+        "name": "Normalizar Dados",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          224,
+          96
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const item = $input.item.json;\n\n// Normalize patient_birth from DD/MM/YYYY to YYYY-MM-DD\nlet birth = item.patient_birth || '';\nif (birth.match(/^\\d{2}\\/\\d{2}\\/\\d{4}$/)) {\n  const [dd, mm, yyyy] = birth.split('/');\n  birth = `${yyyy}-${mm}-${dd}`;\n}\n\nreturn { json: { ...item, patient_birth: birth || null } };"
+        }
+      },
+      {
+        "id": "e8d47c49-63a0-4805-bd67-207ff800c83d",
+        "name": "Book Slot Atomic",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          448,
+          96
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=SELECT public.fn_book_slot_atomic(\n  '{{ $input.item.json.tenant_id }}',\n  NULLIF('{{ $input.item.json.doctor_name }}', ''),\n  NULLIF('{{ $input.item.json.doctor_id }}', '')::uuid,\n  '{{ $input.item.json.slot_iso }}'::timestamptz,\n  NULLIF('{{ $input.item.json.duration_minutes }}', '')::int,\n  '{{ $input.item.json.patient_phone }}',\n  '{{ $input.item.json.patient_name }}',\n  NULLIF('{{ $input.item.json.patient_birth }}', '')::date,\n  '{{ $input.item.json.conversation_id }}',\n  NULLIF('{{ $input.item.json.doctor_code ?? '' }}', '')::int\n) AS result",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "parsear-resultado-001",
+        "name": "Parsear Resultado",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          672,
+          96
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const item = $input.item.json;\nconst raw = item.result;\nconst result = (typeof raw === 'string') ? JSON.parse(raw) : (raw || {});\nreturn { json: { ...item, result } };"
+        }
+      },
+      {
+        "id": "7270a82e-cd01-4fcc-9795-2000d7d2a271",
+        "name": "Registrar Paciente",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          896,
+          96
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=INSERT INTO patients (tenant_id, phone, name, birthdate)\nVALUES (\n  '{{ $('When Called').item.json.tenant_id ?? \"singulare\" }}',\n  '{{ $('When Called').item.json.patient_phone }}',\n  '{{ $('When Called').item.json.patient_name }}',\n  NULLIF('{{ $('Normalizar Dados').item.json.patient_birth ?? \"\" }}', '')::date\n)\nON CONFLICT (tenant_id, phone) DO UPDATE \n  SET name = CASE \n        WHEN '{{ $('When Called').item.json.is_proxy ?? \"false\" }}' = 'true' \n        THEN patients.name \n        ELSE EXCLUDED.name \n      END,\n      birthdate = CASE \n        WHEN '{{ $('When Called').item.json.is_proxy ?? \"false\" }}' = 'true' \n        THEN patients.birthdate \n        ELSE COALESCE(EXCLUDED.birthdate, patients.birthdate) \n      END;",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "b6249ea0-9773-4859-acfb-262b39dd3309",
+        "name": "Booking OK?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1120,
+          96
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "b",
+                "leftValue": "={{ $('Parsear Resultado').item.json.result.success }}",
+                "rightValue": "={{ true }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "a6bc2f0d-b927-4c27-ab3e-f2f2de831a52",
+        "name": "Calendar Create",
+        "type": "n8n-nodes-base.googleCalendar",
+        "typeVersion": 1.3,
+        "position": [
+          1344,
+          0
+        ],
+        "parameters": {
+          "resource": "event",
+          "operation": "create",
+          "calendar": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $('Parsear Resultado').item.json.result.calendar_id }}"
+          },
+          "start": "={{ $('Parsear Resultado').item.json.result.slot_start }}",
+          "end": "={{ $('Parsear Resultado').item.json.result.slot_end }}",
+          "additionalFields": {
+            "summary": "={{ $('When Called').item.json.summary || ('Consulta — ' + $('When Called').item.json.patient_name) }}",
+            "description": "=Telefone: {{ $('When Called').item.json.patient_phone }} | Nome Completo: {{ $('When Called').item.json.patient_name }}{{ $('When Called').item.json.patient_birth ? ' | Data de Nascimento: ' + $('When Called').item.json.patient_birth : '' }}{{ $('When Called').item.json.conversation_id ? ' | ID DA CONVERSA: ' + $('When Called').item.json.conversation_id : '' }} | Booking ID: {{ $('Parsear Resultado').item.json.result.booking_id }}",
+            "timeZone": {
+              "__rl": true,
+              "mode": "id",
+              "value": "America/Sao_Paulo"
+            }
+          }
+        },
+        "onError": "continueErrorOutput",
+        "credentials": {
+          "googleCalendarOAuth2Api": {
+            "id": "OkOV7izIvJcvD3wl",
+            "name": "Google Calendar account"
+          }
+        }
+      },
+      {
+        "id": "760c263d-b659-4d8a-9f77-4b4071af6e5a",
+        "name": "Attach Calendar Event",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          1568,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=SELECT public.fn_attach_calendar_event(\n  '{{ $('Parsear Resultado').item.json.result.booking_id }}'::uuid,\n  '{{ $('Calendar Create').item.json.id }}'\n) AS attach_result",
+          "options": {}
+        },
+        "onError": "continueRegularOutput",
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "ea8a154e-f00d-4fe4-9469-7e01a4b18380",
+        "name": "Output Success",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          2240,
+          0
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "s1",
+                "name": "success",
+                "value": "={{ true }}",
+                "type": "boolean"
+              },
+              {
+                "id": "s2",
+                "name": "booking_id",
+                "value": "={{ $('Parsear Resultado').item.json.result.booking_id }}",
+                "type": "string"
+              },
+              {
+                "id": "s3",
+                "name": "event_id",
+                "value": "={{ $('Calendar Create').item.json.id }}",
+                "type": "string"
+              },
+              {
+                "id": "s4",
+                "name": "html_link",
+                "value": "={{ $('Calendar Create').item.json.htmlLink }}",
+                "type": "string"
+              },
+              {
+                "id": "s5",
+                "name": "slot_start",
+                "value": "={{ $('Parsear Resultado').item.json.result.slot_start }}",
+                "type": "string"
+              },
+              {
+                "id": "s6",
+                "name": "doctor_name",
+                "value": "={{ $('Parsear Resultado').item.json.result.doctor_name }}",
+                "type": "string"
+              },
+              {
+                "id": "s7",
+                "name": "doctor_code",
+                "value": "={{ $('Parsear Resultado').item.json.result.doctor_code }}",
+                "type": "number"
+              },
+              {
+                "id": "s8",
+                "name": "message",
+                "value": "Reserva criada e evento publicado no Calendar.",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "9a3d0d35-83e2-40cc-b96a-235e2e95753a",
+        "name": "Output Rejection",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1344,
+          192
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "r1",
+                "name": "success",
+                "value": "={{ false }}",
+                "type": "boolean"
+              },
+              {
+                "id": "r2",
+                "name": "reason",
+                "value": "={{ $('Parsear Resultado').item.json.result.reason }}",
+                "type": "string"
+              },
+              {
+                "id": "r3",
+                "name": "message",
+                "value": "={{ $('Parsear Resultado').item.json.result.message }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "cal_ok_1",
+                "leftValue": "={{ $('Calendar Create').item.json.id }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "if-calendar-ok-001",
+        "name": "Calendar OK?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1792,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=INSERT INTO public.n8n_alerts\n  (tenant_id, alert_type, booking_id, patient_phone, details)\nVALUES\n  (\n    '{{ $(\\'Parsear Resultado\\').item.json.result.tenant_id || \\'singulare\\' }}',\n    'calendar_failure',\n    '{{ $(\\'Parsear Resultado\\').item.json.result.booking_id }}'::uuid,\n    '{{ $(\\'When Called\\').item.json.patient_phone }}',\n    '{\"error\": \"calendar_create_returned_no_id\", \"slot_start\": \"{{ $(\\'Parsear Resultado\\').item.json.result.slot_start }}\"}'\n  )",
+          "options": {}
+        },
+        "id": "log-calendar-failure-001",
+        "name": "Log Calendar Failure",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          2016,
+          96
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "When Called": {
+        "main": [
+          [
+            {
+              "node": "Normalizar Dados",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalizar Dados": {
+        "main": [
+          [
+            {
+              "node": "Book Slot Atomic",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Book Slot Atomic": {
+        "main": [
+          [
+            {
+              "node": "Parsear Resultado",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parsear Resultado": {
+        "main": [
+          [
+            {
+              "node": "Registrar Paciente",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Registrar Paciente": {
+        "main": [
+          [
+            {
+              "node": "Booking OK?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Booking OK?": {
+        "main": [
+          [
+            {
+              "node": "Calendar Create",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Output Rejection",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Calendar Create": {
+        "main": [
+          [
+            {
+              "node": "Attach Calendar Event",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Attach Calendar Event": {
+        "main": [
+          [
+            {
+              "node": "Calendar OK?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Calendar OK?": {
+        "main": [
+          [
+            {
+              "node": "Output Success",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Log Calendar Failure",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log Calendar Failure": {
+        "main": [
+          [
+            {
+              "node": "Output Success",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-08T02:40:59.436Z",
+        "id": 149,
+        "workflowId": "t7d0reakz8IMPDBp",
+        "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T02:40:59.455Z",
+        "id": 150,
+        "workflowId": "t7d0reakz8IMPDBp",
+        "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

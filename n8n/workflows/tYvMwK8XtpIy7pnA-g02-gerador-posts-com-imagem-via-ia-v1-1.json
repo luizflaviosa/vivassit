@@ -1,0 +1,588 @@
+{
+  "id": "tYvMwK8XtpIy7pnA",
+  "name": "G02 — Gerador · Posts com Imagem via IA · v1.1",
+  "description": "Gera posts com texto (Gemini) + imagem (Imagen 3) para Instagram, salva como pending_approval. Roda Seg/Qua/Sex 8h.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "f3d91ff9-3014-46dd-b051-efd1e5ca0c8c",
+      "name": "Cron Seg Qua Sex 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        192
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                1,
+                3,
+                5
+              ],
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bb41f0a2-d8e2-4155-a926-ebd7813fa84f",
+      "name": "Buscar Tenants para Posts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        224,
+        192
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT t.tenant_id, t.clinic_name, t.doctor_name, t.speciality, t.city, t.state FROM public.tenants t WHERE t.status = 'active' AND t.chatwoot_url IS NOT NULL AND t.doctor_name IS NOT NULL ORDER BY t.tenant_id",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a1bc0a73-11c7-4cb5-923b-60ec8f8f6e10",
+      "name": "Finalizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "console.log('Posts finalizados:', new Date().toISOString());\nreturn { done: true };"
+      }
+    },
+    {
+      "id": "3f704804-310f-4667-97af-d74e2197e87e",
+      "name": "Gerar Texto + Image Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        192
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const tenant = $json;\nconst GEMINI_KEY = $env.GOOGLE_GEMINI_API_KEY || '';\nif (!GEMINI_KEY) return { tenant_id: tenant.tenant_id, skip: true, error: 'NO_KEY' };\n\nconst specialty = tenant.speciality || 'Medicina';\nconst doctorName = tenant.doctor_name || '';\nconst city = tenant.city || '';\n\nconst dayOfWeek = new Date().getDay();\nconst postTypes = [\n  { type: 'educational', topic: 'tema educativo relevante de ' + specialty },\n  { type: 'myth_vs_fact', topic: 'mito vs fato sobre ' + specialty },\n  { type: 'health_tip', topic: 'dica pratica de saude sobre ' + specialty },\n  { type: 'seasonal', topic: 'cuidados sazonais relacionados a ' + specialty },\n  { type: 'service_highlight', topic: 'importancia de consultas preventivas em ' + specialty }\n];\nconst selected = postTypes[dayOfWeek % postTypes.length];\n\nconst systemPrompt = 'Voce e um especialista em marketing medico + design para Instagram. REGRAS: 1) NUNCA prometa cura. 2) NUNCA use antes/depois. 3) Tom profissional e acolhedor. 4) Max 280 chars no post_text. 5) 5-8 hashtags. 6) image_prompt deve descrever uma imagem ABSTRATA/ILUSTRATIVA (nunca rostos humanos reais, nunca fotos de pacientes). Use ilustracoes flat, icones medicos, cores suaves. 7) SOMENTE JSON valido, sem markdown.';\n\nconst userPrompt = 'Crie um post de Instagram sobre: ' + selected.topic + '. Para ' + doctorName + (city ? ' em ' + city : '') + '. Responda em JSON: {\"post_text\": \"texto do post max 280 chars\", \"hashtags\": [\"tag1\",\"tag2\",\"tag3\",\"tag4\",\"tag5\"], \"post_type\": \"' + selected.type + '\", \"image_prompt\": \"descricao detalhada da imagem em ingles, estilo flat illustration, medical theme, soft colors, no human faces\"}';\n\ntry {\n  const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_KEY, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({\n      contents: [{ parts: [{ text: userPrompt }] }],\n      systemInstruction: { parts: [{ text: systemPrompt }] },\n      generationConfig: { temperature: 0.85, maxOutputTokens: 600 }\n    })\n  });\n  const data = await resp.json();\n  const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').replace(/```json/g,'').replace(/```/g,'').trim();\n  \n  let parsed;\n  try { parsed = JSON.parse(raw); } catch {\n    const m = raw.match(/\\{[\\s\\S]*\\}/);\n    parsed = m ? JSON.parse(m[0]) : { post_text: raw, hashtags: [], post_type: selected.type, image_prompt: '' };\n  }\n\n  return {\n    tenant_id: tenant.tenant_id,\n    post_text: parsed.post_text || '',\n    hashtags: parsed.hashtags || [],\n    post_type: parsed.post_type || selected.type,\n    image_prompt: parsed.image_prompt || 'minimalist medical illustration, soft blue and white colors, healthcare theme, flat design, no text',\n    platform: 'instagram',\n    specialty_topic: specialty,\n    ai_model: 'gemini-2.0-flash',\n    skip: false\n  };\n} catch (e) {\n  return { tenant_id: tenant.tenant_id, skip: true, error: e.message };\n}"
+      }
+    },
+    {
+      "id": "bdbd9bf8-bbaf-4457-9e36-822c5632bb75",
+      "name": "Gerar Imagem via Imagen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        192
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $json;\nif (item.skip) return item;\n\nconst GEMINI_KEY = $env.GOOGLE_GEMINI_API_KEY || '';\nif (!GEMINI_KEY) return { ...item, post_image_url: null, image_error: 'NO_KEY' };\n\nconst prompt = item.image_prompt + '. Instagram post format, 1080x1080px, high quality, professional medical branding.';\n\ntry {\n  // Try Imagen 3 via Gemini API\n  const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=' + GEMINI_KEY, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({\n      instances: [{ prompt: prompt }],\n      parameters: {\n        sampleCount: 1,\n        aspectRatio: '1:1',\n        safetyFilterLevel: 'block_medium_and_above'\n      }\n    })\n  });\n\n  if (!resp.ok) {\n    // Fallback: gemini-2.0-flash with image generation\n    const resp2 = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=' + GEMINI_KEY, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        contents: [{ parts: [{ text: 'Generate an image: ' + prompt }] }],\n        generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }\n      })\n    });\n    const d2 = await resp2.json();\n    const imgPart = d2.candidates?.[0]?.content?.parts?.find(p => p.inlineData);\n    if (imgPart) {\n      return { ...item, post_image_base64: imgPart.inlineData.data, post_image_mime: imgPart.inlineData.mimeType };\n    }\n    return { ...item, post_image_url: null, image_error: 'No image in fallback' };\n  }\n\n  const data = await resp.json();\n  const imgData = data.predictions?.[0]?.bytesBase64Encoded;\n  if (imgData) {\n    return { ...item, post_image_base64: imgData, post_image_mime: 'image/png' };\n  }\n  return { ...item, post_image_url: null, image_error: 'No image data' };\n} catch (e) {\n  return { ...item, post_image_url: null, image_error: e.message };\n}"
+      }
+    },
+    {
+      "id": "31903c66-c37a-43b9-b2f3-0562fba9a84b",
+      "name": "Upload Imagem Supabase",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        192
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $json;\nif (item.skip || !item.post_image_base64) return { ...item, post_image_url: item.post_image_url || null };\n\nconst SUPABASE_URL = 'https://qwyxacfgoqlskidwzdxe.supabase.co';\nconst SUPABASE_KEY = $env.SUPABASE_SERVICE_KEY || '';\n\nif (!SUPABASE_KEY) {\n  return { ...item, post_image_url: null, image_note: 'SUPABASE_SERVICE_KEY nao configurada - imagem gerada mas nao salva' };\n}\n\nconst fileName = item.tenant_id + '/' + Date.now() + '_' + item.post_type + '.png';\nconst binaryData = Buffer.from(item.post_image_base64, 'base64');\n\ntry {\n  const resp = await fetch(SUPABASE_URL + '/storage/v1/object/post-images/' + fileName, {\n    method: 'POST',\n    headers: {\n      'Authorization': 'Bearer ' + SUPABASE_KEY,\n      'Content-Type': item.post_image_mime || 'image/png',\n      'x-upsert': 'true'\n    },\n    body: binaryData\n  });\n\n  if (resp.ok) {\n    const publicUrl = SUPABASE_URL + '/storage/v1/object/public/post-images/' + fileName;\n    const cleaned = { ...item, post_image_url: publicUrl };\n    delete cleaned.post_image_base64;\n    return cleaned;\n  }\n  return { ...item, post_image_url: null, image_error: 'Upload failed: ' + resp.status, post_image_base64: undefined };\n} catch (e) {\n  return { ...item, post_image_url: null, image_error: e.message, post_image_base64: undefined };\n}"
+      }
+    },
+    {
+      "id": "7c14108e-551e-4bb0-9203-b06fe4a7f14f",
+      "name": "Salvar Post Pendente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1344,
+        192
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.tenant_posts (tenant_id, post_text, hashtags, post_type, platform, specialty_topic, status, ai_model, post_image_url, ai_prompt_used) VALUES ($1, $2, string_to_array($3, '|'), $4, $5, $6, 'pending_approval', $7, $8, $9) RETURNING id, tenant_id, post_type, status, post_image_url",
+        "options": {
+          "queryReplacement": "={{ [$json.tenant_id, $json.post_text, ($json.hashtags || []).join('|'), $json.post_type, $json.platform, $json.specialty_topic, $json.ai_model || 'gemini-2.0-flash', $json.post_image_url || '', $json.image_prompt || ''].join(',') }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "7951550b-f2de-40a1-a38c-b39bd8495ae0",
+      "name": "Log e Proximo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        272
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "console.log('Post:', $json.tenant_id, $json.post_type, $json.post_image_url ? 'COM imagem' : 'SEM imagem');\nreturn $json;"
+      }
+    },
+    {
+      "id": "2b3c9070-5e55-43d8-ab91-0f30935bf314",
+      "name": "Batch 1 por vez",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        448,
+        192
+      ],
+      "parameters": {
+        "batchSize": 1
+      }
+    }
+  ],
+  "connections": {
+    "Cron Seg Qua Sex 8h": {
+      "main": [
+        [
+          {
+            "node": "Buscar Tenants para Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Tenants para Posts": {
+      "main": [
+        [
+          {
+            "node": "Batch 1 por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Texto + Image Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gerar Imagem via Imagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Imagem via Imagen": {
+      "main": [
+        [
+          {
+            "node": "Upload Imagem Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Imagem Supabase": {
+      "main": [
+        [
+          {
+            "node": "Salvar Post Pendente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar Post Pendente": {
+      "main": [
+        [
+          {
+            "node": "Log e Proximo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log e Proximo": {
+      "main": [
+        [
+          {
+            "node": "Batch 1 por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch 1 por vez": {
+      "main": [
+        [
+          {
+            "node": "Finalizar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gerar Texto + Image Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": {
+    "node:Cron Seg Qua Sex 8h": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "pinData": null,
+  "activeVersionId": "b60c1715-7a0e-41a3-9952-eb9505fa18e3",
+  "versionCounter": 12,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "tYvMwK8XtpIy7pnA",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-04T21:44:56.014Z",
+    "createdAt": "2026-05-04T21:18:47.436Z",
+    "versionId": "b60c1715-7a0e-41a3-9952-eb9505fa18e3",
+    "workflowId": "tYvMwK8XtpIy7pnA",
+    "nodes": [
+      {
+        "id": "f3d91ff9-3014-46dd-b051-efd1e5ca0c8c",
+        "name": "Cron Seg Qua Sex 8h",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          192
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "weeks",
+                "weeksInterval": 1,
+                "triggerAtDay": [
+                  1,
+                  3,
+                  5
+                ],
+                "triggerAtHour": 8,
+                "triggerAtMinute": 0
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "bb41f0a2-d8e2-4155-a926-ebd7813fa84f",
+        "name": "Buscar Tenants para Posts",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          224,
+          192
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT t.tenant_id, t.clinic_name, t.doctor_name, t.speciality, t.city, t.state FROM public.tenants t WHERE t.status = 'active' AND t.chatwoot_url IS NOT NULL AND t.doctor_name IS NOT NULL ORDER BY t.tenant_id",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        },
+        "alwaysOutputData": true
+      },
+      {
+        "id": "a1bc0a73-11c7-4cb5-923b-60ec8f8f6e10",
+        "name": "Finalizar",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          672,
+          0
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "console.log('Posts finalizados:', new Date().toISOString());\nreturn { done: true };"
+        }
+      },
+      {
+        "id": "3f704804-310f-4667-97af-d74e2197e87e",
+        "name": "Gerar Texto + Image Prompt",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          672,
+          192
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const tenant = $json;\nconst GEMINI_KEY = $env.GOOGLE_GEMINI_API_KEY || '';\nif (!GEMINI_KEY) return { tenant_id: tenant.tenant_id, skip: true, error: 'NO_KEY' };\n\nconst specialty = tenant.speciality || 'Medicina';\nconst doctorName = tenant.doctor_name || '';\nconst city = tenant.city || '';\n\nconst dayOfWeek = new Date().getDay();\nconst postTypes = [\n  { type: 'educational', topic: 'tema educativo relevante de ' + specialty },\n  { type: 'myth_vs_fact', topic: 'mito vs fato sobre ' + specialty },\n  { type: 'health_tip', topic: 'dica pratica de saude sobre ' + specialty },\n  { type: 'seasonal', topic: 'cuidados sazonais relacionados a ' + specialty },\n  { type: 'service_highlight', topic: 'importancia de consultas preventivas em ' + specialty }\n];\nconst selected = postTypes[dayOfWeek % postTypes.length];\n\nconst systemPrompt = 'Voce e um especialista em marketing medico + design para Instagram. REGRAS: 1) NUNCA prometa cura. 2) NUNCA use antes/depois. 3) Tom profissional e acolhedor. 4) Max 280 chars no post_text. 5) 5-8 hashtags. 6) image_prompt deve descrever uma imagem ABSTRATA/ILUSTRATIVA (nunca rostos humanos reais, nunca fotos de pacientes). Use ilustracoes flat, icones medicos, cores suaves. 7) SOMENTE JSON valido, sem markdown.';\n\nconst userPrompt = 'Crie um post de Instagram sobre: ' + selected.topic + '. Para ' + doctorName + (city ? ' em ' + city : '') + '. Responda em JSON: {\"post_text\": \"texto do post max 280 chars\", \"hashtags\": [\"tag1\",\"tag2\",\"tag3\",\"tag4\",\"tag5\"], \"post_type\": \"' + selected.type + '\", \"image_prompt\": \"descricao detalhada da imagem em ingles, estilo flat illustration, medical theme, soft colors, no human faces\"}';\n\ntry {\n  const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_KEY, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({\n      contents: [{ parts: [{ text: userPrompt }] }],\n      systemInstruction: { parts: [{ text: systemPrompt }] },\n      generationConfig: { temperature: 0.85, maxOutputTokens: 600 }\n    })\n  });\n  const data = await resp.json();\n  const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').replace(/```json/g,'').replace(/```/g,'').trim();\n  \n  let parsed;\n  try { parsed = JSON.parse(raw); } catch {\n    const m = raw.match(/\\{[\\s\\S]*\\}/);\n    parsed = m ? JSON.parse(m[0]) : { post_text: raw, hashtags: [], post_type: selected.type, image_prompt: '' };\n  }\n\n  return {\n    tenant_id: tenant.tenant_id,\n    post_text: parsed.post_text || '',\n    hashtags: parsed.hashtags || [],\n    post_type: parsed.post_type || selected.type,\n    image_prompt: parsed.image_prompt || 'minimalist medical illustration, soft blue and white colors, healthcare theme, flat design, no text',\n    platform: 'instagram',\n    specialty_topic: specialty,\n    ai_model: 'gemini-2.0-flash',\n    skip: false\n  };\n} catch (e) {\n  return { tenant_id: tenant.tenant_id, skip: true, error: e.message };\n}"
+        }
+      },
+      {
+        "id": "bdbd9bf8-bbaf-4457-9e36-822c5632bb75",
+        "name": "Gerar Imagem via Imagen",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          896,
+          192
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const item = $json;\nif (item.skip) return item;\n\nconst GEMINI_KEY = $env.GOOGLE_GEMINI_API_KEY || '';\nif (!GEMINI_KEY) return { ...item, post_image_url: null, image_error: 'NO_KEY' };\n\nconst prompt = item.image_prompt + '. Instagram post format, 1080x1080px, high quality, professional medical branding.';\n\ntry {\n  // Try Imagen 3 via Gemini API\n  const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=' + GEMINI_KEY, {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify({\n      instances: [{ prompt: prompt }],\n      parameters: {\n        sampleCount: 1,\n        aspectRatio: '1:1',\n        safetyFilterLevel: 'block_medium_and_above'\n      }\n    })\n  });\n\n  if (!resp.ok) {\n    // Fallback: gemini-2.0-flash with image generation\n    const resp2 = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=' + GEMINI_KEY, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        contents: [{ parts: [{ text: 'Generate an image: ' + prompt }] }],\n        generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }\n      })\n    });\n    const d2 = await resp2.json();\n    const imgPart = d2.candidates?.[0]?.content?.parts?.find(p => p.inlineData);\n    if (imgPart) {\n      return { ...item, post_image_base64: imgPart.inlineData.data, post_image_mime: imgPart.inlineData.mimeType };\n    }\n    return { ...item, post_image_url: null, image_error: 'No image in fallback' };\n  }\n\n  const data = await resp.json();\n  const imgData = data.predictions?.[0]?.bytesBase64Encoded;\n  if (imgData) {\n    return { ...item, post_image_base64: imgData, post_image_mime: 'image/png' };\n  }\n  return { ...item, post_image_url: null, image_error: 'No image data' };\n} catch (e) {\n  return { ...item, post_image_url: null, image_error: e.message };\n}"
+        }
+      },
+      {
+        "id": "31903c66-c37a-43b9-b2f3-0562fba9a84b",
+        "name": "Upload Imagem Supabase",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1120,
+          192
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const item = $json;\nif (item.skip || !item.post_image_base64) return { ...item, post_image_url: item.post_image_url || null };\n\nconst SUPABASE_URL = 'https://qwyxacfgoqlskidwzdxe.supabase.co';\nconst SUPABASE_KEY = $env.SUPABASE_SERVICE_KEY || '';\n\nif (!SUPABASE_KEY) {\n  return { ...item, post_image_url: null, image_note: 'SUPABASE_SERVICE_KEY nao configurada - imagem gerada mas nao salva' };\n}\n\nconst fileName = item.tenant_id + '/' + Date.now() + '_' + item.post_type + '.png';\nconst binaryData = Buffer.from(item.post_image_base64, 'base64');\n\ntry {\n  const resp = await fetch(SUPABASE_URL + '/storage/v1/object/post-images/' + fileName, {\n    method: 'POST',\n    headers: {\n      'Authorization': 'Bearer ' + SUPABASE_KEY,\n      'Content-Type': item.post_image_mime || 'image/png',\n      'x-upsert': 'true'\n    },\n    body: binaryData\n  });\n\n  if (resp.ok) {\n    const publicUrl = SUPABASE_URL + '/storage/v1/object/public/post-images/' + fileName;\n    const cleaned = { ...item, post_image_url: publicUrl };\n    delete cleaned.post_image_base64;\n    return cleaned;\n  }\n  return { ...item, post_image_url: null, image_error: 'Upload failed: ' + resp.status, post_image_base64: undefined };\n} catch (e) {\n  return { ...item, post_image_url: null, image_error: e.message, post_image_base64: undefined };\n}"
+        }
+      },
+      {
+        "id": "7c14108e-551e-4bb0-9203-b06fe4a7f14f",
+        "name": "Salvar Post Pendente",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          1344,
+          192
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO public.tenant_posts (tenant_id, post_text, hashtags, post_type, platform, specialty_topic, status, ai_model, post_image_url, ai_prompt_used) VALUES ($1, $2, string_to_array($3, '|'), $4, $5, $6, 'pending_approval', $7, $8, $9) RETURNING id, tenant_id, post_type, status, post_image_url",
+          "options": {
+            "queryReplacement": "={{ [$json.tenant_id, $json.post_text, ($json.hashtags || []).join('|'), $json.post_type, $json.platform, $json.specialty_topic, $json.ai_model || 'gemini-2.0-flash', $json.post_image_url || '', $json.image_prompt || ''].join(',') }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "7951550b-f2de-40a1-a38c-b39bd8495ae0",
+        "name": "Log e Proximo",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1568,
+          272
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "console.log('Post:', $json.tenant_id, $json.post_type, $json.post_image_url ? 'COM imagem' : 'SEM imagem');\nreturn $json;"
+        }
+      },
+      {
+        "id": "2b3c9070-5e55-43d8-ab91-0f30935bf314",
+        "name": "Batch 1 por vez",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          448,
+          192
+        ],
+        "parameters": {
+          "batchSize": 1
+        }
+      }
+    ],
+    "connections": {
+      "Cron Seg Qua Sex 8h": {
+        "main": [
+          [
+            {
+              "node": "Buscar Tenants para Posts",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar Tenants para Posts": {
+        "main": [
+          [
+            {
+              "node": "Batch 1 por vez",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gerar Texto + Image Prompt": {
+        "main": [
+          [
+            {
+              "node": "Gerar Imagem via Imagen",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gerar Imagem via Imagen": {
+        "main": [
+          [
+            {
+              "node": "Upload Imagem Supabase",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Upload Imagem Supabase": {
+        "main": [
+          [
+            {
+              "node": "Salvar Post Pendente",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Salvar Post Pendente": {
+        "main": [
+          [
+            {
+              "node": "Log e Proximo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Log e Proximo": {
+        "main": [
+          [
+            {
+              "node": "Batch 1 por vez",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Batch 1 por vez": {
+        "main": [
+          [
+            {
+              "node": "Finalizar",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Gerar Texto + Image Prompt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "import",
+    "name": "Version b60c1715",
+    "description": "",
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-04T21:44:56.007Z",
+        "id": 3,
+        "workflowId": "tYvMwK8XtpIy7pnA",
+        "versionId": "b60c1715-7a0e-41a3-9952-eb9505fa18e3",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:36.778Z",
+        "id": 222,
+        "workflowId": "tYvMwK8XtpIy7pnA",
+        "versionId": "b60c1715-7a0e-41a3-9952-eb9505fa18e3",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:36.797Z",
+        "id": 223,
+        "workflowId": "tYvMwK8XtpIy7pnA",
+        "versionId": "b60c1715-7a0e-41a3-9952-eb9505fa18e3",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

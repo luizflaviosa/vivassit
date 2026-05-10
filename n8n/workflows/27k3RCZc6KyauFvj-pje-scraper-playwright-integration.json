@@ -1,0 +1,281 @@
+{
+  "id": "27k3RCZc6KyauFvj",
+  "name": "PJe Scraper — Playwright Integration",
+  "description": "Webhook que recebe numero+tribunal, chama o pje_scraper_server.py local (porta 8765) via Playwright, extrai partes do DOM Angular e retorna JSON estruturado.",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "4351b3f7-28ee-4309-b943-7c1ab9847310",
+      "name": "Webhook — Recebe Processo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pje-scraper",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "12be5d0a-72be-495d-bc1d-297c6bd14fe4"
+    },
+    {
+      "id": "3c709c1a-389b-4da5-8a1b-faec471f9512",
+      "name": "Chamar PJe Scraper Local",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        540,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8765/scrape",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "numero",
+              "value": "={{ $json.body.numero }}"
+            },
+            {
+              "name": "tribunal",
+              "value": "={{ $json.body.tribunal || \"trt2\" }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "e9b06b39-6cbb-447b-b25f-cc4484ce89ca",
+      "name": "Tem erro?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        840,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.erro }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "2ffcbbd3-38d1-4622-9a8b-2db6e5c42bf4",
+      "name": "Retornar Erro",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1140,
+        200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ sucesso: false, erro: $json.body.erro, numero: $json.body.numero }) }}",
+        "options": {
+          "responseCode": 500
+        }
+      }
+    },
+    {
+      "id": "a2f68e9f-eb7e-4b04-aed5-7d657681f286",
+      "name": "Formatar Resultado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1140,
+        400
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "sucesso",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "2",
+              "name": "numero",
+              "value": "={{ $json.body.numero }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "tribunal",
+              "value": "={{ $json.body.tribunal }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "classe",
+              "value": "={{ $json.body.classe }}",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "assunto",
+              "value": "={{ $json.body.assunto }}",
+              "type": "string"
+            },
+            {
+              "id": "6",
+              "name": "vara",
+              "value": "={{ $json.body.vara }}",
+              "type": "string"
+            },
+            {
+              "id": "7",
+              "name": "total_partes",
+              "value": "={{ $json.body.total_partes }}",
+              "type": "number"
+            },
+            {
+              "id": "8",
+              "name": "partes",
+              "value": "={{ $json.body.partes }}",
+              "type": "array"
+            },
+            {
+              "id": "9",
+              "name": "endpoints_descobertos",
+              "value": "={{ $json.body.endpoints_descobertos }}",
+              "type": "array"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a97f823a-60b9-4469-b352-68fbd48a2c55",
+      "name": "Retornar Resultado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        400
+      ],
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook — Recebe Processo": {
+      "main": [
+        [
+          {
+            "node": "Chamar PJe Scraper Local",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chamar PJe Scraper Local": {
+      "main": [
+        [
+          {
+            "node": "Tem erro?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem erro?": {
+      "main": [
+        [
+          {
+            "node": "Retornar Erro",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Formatar Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar Resultado": {
+      "main": [
+        [
+          {
+            "node": "Retornar Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true
+  },
+  "pinData": null,
+  "activeVersionId": null,
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "27k3RCZc6KyauFvj",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

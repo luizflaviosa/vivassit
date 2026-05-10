@@ -1,0 +1,910 @@
+{
+  "id": "oz3amxBncQ5Mv6oC",
+  "name": "A05 — Escalador · Transferência para Humano · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "events": "worklfow_call",
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "telefone",
+              "type": "string"
+            },
+            {
+              "name": "nome",
+              "type": "string"
+            },
+            {
+              "name": "ultima_mensagem",
+              "type": "string"
+            },
+            {
+              "name": "id_conta",
+              "type": "string"
+            },
+            {
+              "name": "id_conversa",
+              "type": "string"
+            },
+            {
+              "name": "telegram_chat_id",
+              "type": "string"
+            },
+            {
+              "name": "url_chatwoot",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        64,
+        624
+      ],
+      "id": "9287cef7-8da4-4d4b-b96a-d24be26facbb",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "curlImport": "",
+        "method": "GET",
+        "url": "={{ $('When Executed by Another Workflow').item.json.url_chatwoot }}/api/v1/accounts/{{ $('When Executed by Another Workflow').item.json.id_conta }}/conversations/{{ $('When Executed by Another Workflow').item.json.id_conversa }}/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "provideSslCertificates": false,
+        "sendQuery": false,
+        "sendHeaders": false,
+        "sendBody": false,
+        "options": {},
+        "infoMessage": ""
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        352,
+        624
+      ],
+      "id": "bb7387ed-8a24-4b61-bb4d-3449635ca13d",
+      "name": "Listar etiquetas da conversa",
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "curlImport": "",
+        "method": "POST",
+        "url": "={{ $('When Executed by Another Workflow').item.json.url_chatwoot }}/api/v1/accounts/{{ $('When Executed by Another Workflow').item.json.id_conta }}/conversations/{{ $('When Executed by Another Workflow').item.json.id_conversa }}/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "provideSslCertificates": false,
+        "sendQuery": false,
+        "sendHeaders": false,
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "labels",
+              "value": "={{ [...($json.payload || []), 'agente-off'].filter((v, i, a) => a.indexOf(v) === i) }}"
+            }
+          ]
+        },
+        "options": {},
+        "infoMessage": ""
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        592,
+        624
+      ],
+      "id": "8c545f9b-230a-42fd-8ed0-9f53a40ffbcd",
+      "name": "Colocar etiqueta agente-off",
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "curlImport": "",
+        "method": "POST",
+        "url": "={{ $('When Executed by Another Workflow').item.json.url_chatwoot }}/api/v1/accounts/{{ $('When Executed by Another Workflow').item.json.id_conta }}/conversations/{{ $('When Executed by Another Workflow').item.json.id_conversa }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "provideSslCertificates": false,
+        "sendQuery": false,
+        "sendHeaders": false,
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": \"\\u26a0\\ufe0f Atendimento escalado para humano.\\n\\nPaciente: {{ $('When Executed by Another Workflow').item.json.nome || '(n\\u00e3o identificado)' }}\\nTelefone: {{ $('When Executed by Another Workflow').item.json.telefone }}\\n\\n\\u00daltima mensagem:\\n{{ $('When Executed by Another Workflow').item.json.ultima_mensagem }}\",\n  \"message_type\": \"outgoing\",\n  \"private\": true\n}",
+        "options": {},
+        "infoMessage": ""
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        624
+      ],
+      "id": "nota-interna-chatwoot-001",
+      "name": "Nota interna no Chatwoot",
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('When Executed by Another Workflow').item.json.telegram_chat_id }}",
+        "text": "=🚨 *Atendimento escalado para humano*\n\nPaciente: {{ $('When Executed by Another Workflow').item.json.nome || '(não identificado)' }}\nTelefone: {{ $('When Executed by Another Workflow').item.json.telefone }}\n\nÚltima mensagem:\n\n---\n\n{{ $('When Executed by Another Workflow').item.json.ultima_mensagem }}",
+        "replyMarkup": "none",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        624
+      ],
+      "id": "3f3ee9a6-8e0d-42b6-850f-00238212fb0a",
+      "name": "Enviar alerta",
+      "webhookId": "153d7fb2-c401-4894-95a5-c123c8bbdd0d",
+      "credentials": {
+        "telegramApi": {
+          "id": "sDb6ROA0185exLKN",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "resp1",
+              "name": "response",
+              "value": "Escalacao realizada com sucesso. O atendente humano foi notificado via Telegram e a conversa foi marcada com a etiqueta agente-off no Chatwoot. Responda ao paciente confirmando que um atendente humano entrara em contato em breve. NAO chame esta ferramenta novamente.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1100,
+        624
+      ],
+      "id": "resposta-limpa-001",
+      "name": "Resposta para o Agente"
+    },
+    {
+      "parameters": {
+        "content": "## Criar etiqueta\n\nVoce pode criar a etiqueta \"agente-off\" por aqui, ou pela interface do Chatwoot.\n\n",
+        "height": 340,
+        "width": 1040,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        864
+      ],
+      "id": "8001e1d5-d8fd-41a6-bc9f-f3ac737ed10e",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "curlImport": "",
+        "method": "POST",
+        "url": "=https://chatwoot.singulare.org/api/v1/accounts/{{ $json.account_id }}/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "provideSslCertificates": false,
+        "sendQuery": false,
+        "sendHeaders": false,
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"color\": \"#6233D0\",\n  \"description\": \"Agente IA nao respondera esse contato.\",\n  \"title\": \"agente-off\",\n  \"show_on_sidebar\": true\n}",
+        "options": {},
+        "infoMessage": ""
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        592,
+        992
+      ],
+      "id": "da4e076d-d160-41cf-96df-577623711c38",
+      "name": "Criar etiqueta agente-off",
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Profile",
+        "operation": "Fetch Profile",
+        "requestOptions": {}
+      },
+      "type": "@devlikeapro/n8n-nodes-chatwoot.chatWoot",
+      "typeVersion": 1,
+      "position": [
+        352,
+        992
+      ],
+      "id": "0496b289-b107-42f8-a725-ea4b21dcc799",
+      "name": "Buscar informacoes da conta",
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "notice": ""
+      },
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        64,
+        992
+      ],
+      "id": "7609ec7a-ded8-44de-83c3-8d1a642d639a",
+      "name": "When clicking 'Test workflow'",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "curlImport": "",
+        "method": "POST",
+        "url": "=https://chatwoot.singulare.org/api/v1/accounts/{{ $('Buscar informacoes da conta').item.json.account_id }}/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "provideSslCertificates": false,
+        "sendQuery": false,
+        "sendHeaders": false,
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"color\": \"#A44C74\",\n  \"title\": \"testando-agente\",\n  \"show_on_sidebar\": true\n}",
+        "options": {},
+        "infoMessage": ""
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        848,
+        992
+      ],
+      "id": "362197d7-98dc-4b66-9c47-cb0627b7adba",
+      "name": "Criar etiqueta testando-agente",
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Listar etiquetas da conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar etiquetas da conversa": {
+      "main": [
+        [
+          {
+            "node": "Colocar etiqueta agente-off",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Colocar etiqueta agente-off": {
+      "main": [
+        [
+          {
+            "node": "Nota interna no Chatwoot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nota interna no Chatwoot": {
+      "main": [
+        [
+          {
+            "node": "Enviar alerta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar alerta": {
+      "main": [
+        [
+          {
+            "node": "Resposta para o Agente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resposta para o Agente": {
+      "main": [
+        []
+      ]
+    },
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Buscar informacoes da conta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar informacoes da conta": {
+      "main": [
+        [
+          {
+            "node": "Criar etiqueta agente-off",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar etiqueta agente-off": {
+      "main": [
+        [
+          {
+            "node": "Criar etiqueta testando-agente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "telefone": "+5511945671290",
+          "nome": "Luiz Flávio",
+          "ultima_mensagem": "file",
+          "id_conta": "1",
+          "id_conversa": "4",
+          "telegram_chat_id": "5749317361",
+          "url_chatwoot": "https://chatwoot.singulare.org"
+        }
+      }
+    ]
+  },
+  "activeVersionId": "04487916-f907-424c-92d0-0b7200b90918",
+  "versionCounter": 29,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "oz3amxBncQ5Mv6oC",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-04T22:02:43.705Z",
+    "createdAt": "2026-05-04T21:18:47.436Z",
+    "versionId": "04487916-f907-424c-92d0-0b7200b90918",
+    "workflowId": "oz3amxBncQ5Mv6oC",
+    "nodes": [
+      {
+        "parameters": {
+          "events": "worklfow_call",
+          "inputSource": "workflowInputs",
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "telefone",
+                "type": "string"
+              },
+              {
+                "name": "nome",
+                "type": "string"
+              },
+              {
+                "name": "ultima_mensagem",
+                "type": "string"
+              },
+              {
+                "name": "id_conta",
+                "type": "string"
+              },
+              {
+                "name": "id_conversa",
+                "type": "string"
+              },
+              {
+                "name": "telegram_chat_id",
+                "type": "string"
+              },
+              {
+                "name": "url_chatwoot",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          64,
+          624
+        ],
+        "id": "9287cef7-8da4-4d4b-b96a-d24be26facbb",
+        "name": "When Executed by Another Workflow"
+      },
+      {
+        "parameters": {
+          "curlImport": "",
+          "method": "GET",
+          "url": "={{ $('When Executed by Another Workflow').item.json.url_chatwoot }}/api/v1/accounts/{{ $('When Executed by Another Workflow').item.json.id_conta }}/conversations/{{ $('When Executed by Another Workflow').item.json.id_conversa }}/labels",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "provideSslCertificates": false,
+          "sendQuery": false,
+          "sendHeaders": false,
+          "sendBody": false,
+          "options": {},
+          "infoMessage": ""
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          352,
+          624
+        ],
+        "id": "bb7387ed-8a24-4b61-bb4d-3449635ca13d",
+        "name": "Listar etiquetas da conversa",
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "curlImport": "",
+          "method": "POST",
+          "url": "={{ $('When Executed by Another Workflow').item.json.url_chatwoot }}/api/v1/accounts/{{ $('When Executed by Another Workflow').item.json.id_conta }}/conversations/{{ $('When Executed by Another Workflow').item.json.id_conversa }}/labels",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "provideSslCertificates": false,
+          "sendQuery": false,
+          "sendHeaders": false,
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "keypair",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "labels",
+                "value": "={{ [...($json.payload || []), 'agente-off'].filter((v, i, a) => a.indexOf(v) === i) }}"
+              }
+            ]
+          },
+          "options": {},
+          "infoMessage": ""
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          592,
+          624
+        ],
+        "id": "8c545f9b-230a-42fd-8ed0-9f53a40ffbcd",
+        "name": "Colocar etiqueta agente-off",
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "curlImport": "",
+          "method": "POST",
+          "url": "={{ $('When Executed by Another Workflow').item.json.url_chatwoot }}/api/v1/accounts/{{ $('When Executed by Another Workflow').item.json.id_conta }}/conversations/{{ $('When Executed by Another Workflow').item.json.id_conversa }}/messages",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "provideSslCertificates": false,
+          "sendQuery": false,
+          "sendHeaders": false,
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"content\": \"\\u26a0\\ufe0f Atendimento escalado para humano.\\n\\nPaciente: {{ $('When Executed by Another Workflow').item.json.nome || '(n\\u00e3o identificado)' }}\\nTelefone: {{ $('When Executed by Another Workflow').item.json.telefone }}\\n\\n\\u00daltima mensagem:\\n{{ $('When Executed by Another Workflow').item.json.ultima_mensagem }}\",\n  \"message_type\": \"outgoing\",\n  \"private\": true\n}",
+          "options": {},
+          "infoMessage": ""
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          720,
+          624
+        ],
+        "id": "nota-interna-chatwoot-001",
+        "name": "Nota interna no Chatwoot",
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "resource": "message",
+          "operation": "sendMessage",
+          "chatId": "={{ $('When Executed by Another Workflow').item.json.telegram_chat_id }}",
+          "text": "=🚨 *Atendimento escalado para humano*\n\nPaciente: {{ $('When Executed by Another Workflow').item.json.nome || '(não identificado)' }}\nTelefone: {{ $('When Executed by Another Workflow').item.json.telefone }}\n\nÚltima mensagem:\n\n---\n\n{{ $('When Executed by Another Workflow').item.json.ultima_mensagem }}",
+          "replyMarkup": "none",
+          "additionalFields": {
+            "parse_mode": "Markdown"
+          }
+        },
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          880,
+          624
+        ],
+        "id": "3f3ee9a6-8e0d-42b6-850f-00238212fb0a",
+        "name": "Enviar alerta",
+        "webhookId": "153d7fb2-c401-4894-95a5-c123c8bbdd0d",
+        "credentials": {
+          "telegramApi": {
+            "id": "sDb6ROA0185exLKN",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "mode": "manual",
+          "duplicateItem": false,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "resp1",
+                "name": "response",
+                "value": "Escalacao realizada com sucesso. O atendente humano foi notificado via Telegram e a conversa foi marcada com a etiqueta agente-off no Chatwoot. Responda ao paciente confirmando que um atendente humano entrara em contato em breve. NAO chame esta ferramenta novamente.",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1100,
+          624
+        ],
+        "id": "resposta-limpa-001",
+        "name": "Resposta para o Agente"
+      },
+      {
+        "parameters": {
+          "content": "## Criar etiqueta\n\nVoce pode criar a etiqueta \"agente-off\" por aqui, ou pela interface do Chatwoot.\n\n",
+          "height": 340,
+          "width": 1040,
+          "color": 6
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          0,
+          864
+        ],
+        "id": "8001e1d5-d8fd-41a6-bc9f-f3ac737ed10e",
+        "name": "Sticky Note"
+      },
+      {
+        "parameters": {
+          "curlImport": "",
+          "method": "POST",
+          "url": "=https://chatwoot.singulare.org/api/v1/accounts/{{ $json.account_id }}/labels",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "provideSslCertificates": false,
+          "sendQuery": false,
+          "sendHeaders": false,
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "{\n  \"color\": \"#6233D0\",\n  \"description\": \"Agente IA nao respondera esse contato.\",\n  \"title\": \"agente-off\",\n  \"show_on_sidebar\": true\n}",
+          "options": {},
+          "infoMessage": ""
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          592,
+          992
+        ],
+        "id": "da4e076d-d160-41cf-96df-577623711c38",
+        "name": "Criar etiqueta agente-off",
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "resource": "Profile",
+          "operation": "Fetch Profile",
+          "requestOptions": {}
+        },
+        "type": "@devlikeapro/n8n-nodes-chatwoot.chatWoot",
+        "typeVersion": 1,
+        "position": [
+          352,
+          992
+        ],
+        "id": "0496b289-b107-42f8-a725-ea4b21dcc799",
+        "name": "Buscar informacoes da conta",
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "notice": ""
+        },
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          64,
+          992
+        ],
+        "id": "7609ec7a-ded8-44de-83c3-8d1a642d639a",
+        "name": "When clicking 'Test workflow'",
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "curlImport": "",
+          "method": "POST",
+          "url": "=https://chatwoot.singulare.org/api/v1/accounts/{{ $('Buscar informacoes da conta').item.json.account_id }}/labels",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "provideSslCertificates": false,
+          "sendQuery": false,
+          "sendHeaders": false,
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "{\n  \"color\": \"#A44C74\",\n  \"title\": \"testando-agente\",\n  \"show_on_sidebar\": true\n}",
+          "options": {},
+          "infoMessage": ""
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          848,
+          992
+        ],
+        "id": "362197d7-98dc-4b66-9c47-cb0627b7adba",
+        "name": "Criar etiqueta testando-agente",
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "Listar etiquetas da conversa",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Listar etiquetas da conversa": {
+        "main": [
+          [
+            {
+              "node": "Colocar etiqueta agente-off",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Colocar etiqueta agente-off": {
+        "main": [
+          [
+            {
+              "node": "Nota interna no Chatwoot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Nota interna no Chatwoot": {
+        "main": [
+          [
+            {
+              "node": "Enviar alerta",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Enviar alerta": {
+        "main": [
+          [
+            {
+              "node": "Resposta para o Agente",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Resposta para o Agente": {
+        "main": [
+          []
+        ]
+      },
+      "When clicking 'Test workflow'": {
+        "main": [
+          [
+            {
+              "node": "Buscar informacoes da conta",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar informacoes da conta": {
+        "main": [
+          [
+            {
+              "node": "Criar etiqueta agente-off",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Criar etiqueta agente-off": {
+        "main": [
+          [
+            {
+              "node": "Criar etiqueta testando-agente",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "import",
+    "name": "Version 04487916",
+    "description": "",
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-04T22:02:43.699Z",
+        "id": 14,
+        "workflowId": "oz3amxBncQ5Mv6oC",
+        "versionId": "04487916-f907-424c-92d0-0b7200b90918",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:23.982Z",
+        "id": 208,
+        "workflowId": "oz3amxBncQ5Mv6oC",
+        "versionId": "04487916-f907-424c-92d0-0b7200b90918",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:24.012Z",
+        "id": 209,
+        "workflowId": "oz3amxBncQ5Mv6oC",
+        "versionId": "04487916-f907-424c-92d0-0b7200b90918",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

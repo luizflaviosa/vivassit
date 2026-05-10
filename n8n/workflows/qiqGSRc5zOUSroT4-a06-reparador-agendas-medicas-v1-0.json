@@ -1,0 +1,436 @@
+{
+  "id": "qiqGSRc5zOUSroT4",
+  "name": "A06 — Reparador · Agendas Médicas · v1.0",
+  "description": "Cron 30min: chama /api/admin/backfill-doctor-calendars pra criar Google Calendar de doctors com calendar_id NULL. Self-healing — fix automático sem manualidade.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "a99f49d8-d13f-4abf-ad17-cc75a3aa429d",
+      "name": "A cada 30 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        96
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "4f49d791-713f-4d09-8684-95ba64ae84cc",
+      "name": "POST backfill endpoint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        96
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.APP_BASE_URL || \"https://app.singulare.org\" }}/api/admin/backfill-doctor-calendars",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "f3EsS9DLhzuhFW6g",
+          "name": "Header Auth N8N TO VERCEL"
+        }
+      }
+    },
+    {
+      "id": "34ae8b83-abaa-45d4-a4f4-64c814b8cc78",
+      "name": "Algo foi criado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        96
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c",
+              "leftValue": "={{ $json.created }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "1efc8029-efb0-4b1b-a426-c30a3a6c5019",
+      "name": "Log no histórico",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO public.n8n_historico_mensagens (session_id, tenant_id, message)\nVALUES (\n  'system_backfill_calendars',\n  'admin-system',\n  jsonb_build_object(\n    'name', 'backfill_doctor_calendars',\n    'type', 'tool',\n    'content', jsonb_build_object(\n      'created', {{ $json.created }},\n      'failed', {{ $json.failed }},\n      'processed', {{ $json.processed }},\n      'message', '{{ $json.message }}'\n    ),\n    'tool_call_id', '{{ $now.toMillis() }}'\n  )\n)",
+        "options": {}
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "2f9ab853-4d1a-40fb-a7ac-7bd37f967a84",
+      "name": "Nenhum criado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        192
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "n",
+              "name": "note",
+              "value": "Sem doctors pendentes",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "A cada 30 min": {
+      "main": [
+        [
+          {
+            "node": "POST backfill endpoint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST backfill endpoint": {
+      "main": [
+        [
+          {
+            "node": "Algo foi criado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Algo foi criado?": {
+      "main": [
+        [
+          {
+            "node": "Log no histórico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Nenhum criado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": {
+    "node:A cada 30 min": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "pinData": null,
+  "activeVersionId": "a79e8b7f-6c66-4bc9-9bc9-d0fbc2d4bcee",
+  "versionCounter": 14,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "qiqGSRc5zOUSroT4",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-09T14:17:29.710Z",
+    "createdAt": "2026-05-09T14:17:29.710Z",
+    "versionId": "a79e8b7f-6c66-4bc9-9bc9-d0fbc2d4bcee",
+    "workflowId": "qiqGSRc5zOUSroT4",
+    "nodes": [
+      {
+        "id": "a99f49d8-d13f-4abf-ad17-cc75a3aa429d",
+        "name": "A cada 30 min",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          96
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes",
+                "minutesInterval": 30
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "4f49d791-713f-4d09-8684-95ba64ae84cc",
+        "name": "POST backfill endpoint",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          224,
+          96
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.APP_BASE_URL || \"https://app.singulare.org\" }}/api/admin/backfill-doctor-calendars",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "options": {},
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth"
+        },
+        "onError": "continueRegularOutput",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "f3EsS9DLhzuhFW6g",
+            "name": "Header Auth N8N TO VERCEL"
+          }
+        }
+      },
+      {
+        "id": "34ae8b83-abaa-45d4-a4f4-64c814b8cc78",
+        "name": "Algo foi criado?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          448,
+          96
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "c",
+                "leftValue": "={{ $json.created }}",
+                "rightValue": 0,
+                "operator": {
+                  "type": "number",
+                  "operation": "gt"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "1efc8029-efb0-4b1b-a426-c30a3a6c5019",
+        "name": "Log no histórico",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          672,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=INSERT INTO public.n8n_historico_mensagens (session_id, tenant_id, message)\nVALUES (\n  'system_backfill_calendars',\n  'admin-system',\n  jsonb_build_object(\n    'name', 'backfill_doctor_calendars',\n    'type', 'tool',\n    'content', jsonb_build_object(\n      'created', {{ $json.created }},\n      'failed', {{ $json.failed }},\n      'processed', {{ $json.processed }},\n      'message', '{{ $json.message }}'\n    ),\n    'tool_call_id', '{{ $now.toMillis() }}'\n  )\n)",
+          "options": {}
+        },
+        "onError": "continueRegularOutput",
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "2f9ab853-4d1a-40fb-a7ac-7bd37f967a84",
+        "name": "Nenhum criado",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          672,
+          192
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "n",
+                "name": "note",
+                "value": "Sem doctors pendentes",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "A cada 30 min": {
+        "main": [
+          [
+            {
+              "node": "POST backfill endpoint",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "POST backfill endpoint": {
+        "main": [
+          [
+            {
+              "node": "Algo foi criado?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Algo foi criado?": {
+        "main": [
+          [
+            {
+              "node": "Log no histórico",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Nenhum criado",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-09T16:33:56.502Z",
+        "id": 239,
+        "workflowId": "qiqGSRc5zOUSroT4",
+        "versionId": "a79e8b7f-6c66-4bc9-9bc9-d0fbc2d4bcee",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-09T16:33:56.533Z",
+        "id": 240,
+        "workflowId": "qiqGSRc5zOUSroT4",
+        "versionId": "a79e8b7f-6c66-4bc9-9bc9-d0fbc2d4bcee",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-09T14:17:29.845Z",
+        "id": 234,
+        "workflowId": "qiqGSRc5zOUSroT4",
+        "versionId": "a79e8b7f-6c66-4bc9-9bc9-d0fbc2d4bcee",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-09T14:17:29.933Z",
+        "id": 235,
+        "workflowId": "qiqGSRc5zOUSroT4",
+        "versionId": "a79e8b7f-6c66-4bc9-9bc9-d0fbc2d4bcee",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

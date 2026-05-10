@@ -1,0 +1,447 @@
+{
+  "id": "GPx7IZI4hziTp1h7",
+  "name": "T03 — safe_update_booking · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a50d265a-ad94-441e-b32a-de8ce8d0ac08",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -592,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://qwyxacfgoqlskidwzdxe.supabase.co/rest/v1/rpc/fn_safe_update_booking_by_id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3eXhhY2Znb3Fsc2tpZHd6ZHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxODc3NjQsImV4cCI6MjA2Nzc2Mzc2NH0.qHDEquO9QUGiQi9uacWKUu_G2jthhmxeC5cfSOIvo3A"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3eXhhY2Znb3Fsc2tpZHd6ZHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxODc3NjQsImV4cCI6MjA2Nzc2Mzc2NH0.qHDEquO9QUGiQi9uacWKUu_G2jthhmxeC5cfSOIvo3A"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={{ JSON.stringify({ p_booking_id: $json.booking_id, p_new_slot_start: $json.new_slot_iso, p_new_duration: $json.new_duration || null }) }}",
+        "options": {}
+      },
+      "id": "c04cdd2c-5d97-4b83-8f52-1da3b94bee2a",
+      "name": "Remarcar no DB",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -352,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e0f21c90-f04a-4183-88da-ad8826ab433e",
+      "name": "Remarcou no DB?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $('Remarcar no DB').item.json.calendar_id }}",
+          "mode": "id"
+        },
+        "eventId": "={{ $('Remarcar no DB').item.json.calendar_event_id }}",
+        "updateFields": {
+          "end": "={{ $('Remarcar no DB').item.json.new_slot_end }}",
+          "start": "={{ $('Remarcar no DB').item.json.new_slot_start }}"
+        }
+      },
+      "id": "90deb99c-494c-43a7-a547-843b2bb2e95b",
+      "name": "Atualizar no Google Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.1,
+      "position": [
+        128,
+        -48
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "OkOV7izIvJcvD3wl",
+          "name": "Google Calendar account"
+        }
+      },
+      "notes": "IMPORTANTE: Selecione sua credencial do Google Calendar aqui após importar."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "r2",
+              "name": "message",
+              "value": "={{ $('Remarcar no DB').item.json.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7769098e-d1b5-4f7a-b870-0005781e2fbd",
+      "name": "Retornar erro",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        128,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Remarcar no DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remarcar no DB": {
+      "main": [
+        [
+          {
+            "node": "Remarcou no DB?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remarcou no DB?": {
+      "main": [
+        [
+          {
+            "node": "Atualizar no Google Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retornar erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "activeVersionId": "8e15237d-aac4-4e05-8b3c-7faf69694ed7",
+  "versionCounter": 23,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-05T02:14:33.580Z",
+      "createdAt": "2026-05-05T02:14:33.580Z",
+      "role": "workflow:owner",
+      "workflowId": "GPx7IZI4hziTp1h7",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-08T02:45:09.605Z",
+    "createdAt": "2026-05-08T02:45:09.605Z",
+    "versionId": "8e15237d-aac4-4e05-8b3c-7faf69694ed7",
+    "workflowId": "GPx7IZI4hziTp1h7",
+    "nodes": [
+      {
+        "parameters": {},
+        "id": "a50d265a-ad94-441e-b32a-de8ce8d0ac08",
+        "name": "Execute Workflow Trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1,
+        "position": [
+          -592,
+          64
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://qwyxacfgoqlskidwzdxe.supabase.co/rest/v1/rpc/fn_safe_update_booking_by_id",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3eXhhY2Znb3Fsc2tpZHd6ZHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxODc3NjQsImV4cCI6MjA2Nzc2Mzc2NH0.qHDEquO9QUGiQi9uacWKUu_G2jthhmxeC5cfSOIvo3A"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3eXhhY2Znb3Fsc2tpZHd6ZHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxODc3NjQsImV4cCI6MjA2Nzc2Mzc2NH0.qHDEquO9QUGiQi9uacWKUu_G2jthhmxeC5cfSOIvo3A"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "raw",
+          "body": "={{ JSON.stringify({ p_booking_id: $json.booking_id, p_new_slot_start: $json.new_slot_iso, p_new_duration: $json.new_duration || null }) }}",
+          "options": {}
+        },
+        "id": "c04cdd2c-5d97-4b83-8f52-1da3b94bee2a",
+        "name": "Remarcar no DB",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -352,
+          64
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "cond1",
+                "leftValue": "={{ $json.success }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "e0f21c90-f04a-4183-88da-ad8826ab433e",
+        "name": "Remarcou no DB?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          -112,
+          64
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "calendar": {
+            "__rl": true,
+            "value": "={{ $('Remarcar no DB').item.json.calendar_id }}",
+            "mode": "id"
+          },
+          "eventId": "={{ $('Remarcar no DB').item.json.calendar_event_id }}",
+          "updateFields": {
+            "end": "={{ $('Remarcar no DB').item.json.new_slot_end }}",
+            "start": "={{ $('Remarcar no DB').item.json.new_slot_start }}"
+          }
+        },
+        "id": "90deb99c-494c-43a7-a547-843b2bb2e95b",
+        "name": "Atualizar no Google Calendar",
+        "type": "n8n-nodes-base.googleCalendar",
+        "typeVersion": 1.1,
+        "position": [
+          128,
+          -48
+        ],
+        "credentials": {
+          "googleCalendarOAuth2Api": {
+            "id": "OkOV7izIvJcvD3wl",
+            "name": "Google Calendar account"
+          }
+        },
+        "notes": "IMPORTANTE: Selecione sua credencial do Google Calendar aqui após importar."
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "r1",
+                "name": "success",
+                "value": false,
+                "type": "boolean"
+              },
+              {
+                "id": "r2",
+                "name": "message",
+                "value": "={{ $('Remarcar no DB').item.json.message }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "7769098e-d1b5-4f7a-b870-0005781e2fbd",
+        "name": "Retornar erro",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          128,
+          160
+        ]
+      }
+    ],
+    "connections": {
+      "Execute Workflow Trigger": {
+        "main": [
+          [
+            {
+              "node": "Remarcar no DB",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Remarcar no DB": {
+        "main": [
+          [
+            {
+              "node": "Remarcou no DB?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Remarcou no DB?": {
+        "main": [
+          [
+            {
+              "node": "Atualizar no Google Calendar",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Retornar erro",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-08T02:45:09.664Z",
+        "id": 151,
+        "workflowId": "GPx7IZI4hziTp1h7",
+        "versionId": "8e15237d-aac4-4e05-8b3c-7faf69694ed7",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T02:45:09.687Z",
+        "id": 152,
+        "workflowId": "GPx7IZI4hziTp1h7",
+        "versionId": "8e15237d-aac4-4e05-8b3c-7faf69694ed7",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:07.591Z",
+        "id": 192,
+        "workflowId": "GPx7IZI4hziTp1h7",
+        "versionId": "8e15237d-aac4-4e05-8b3c-7faf69694ed7",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:07.606Z",
+        "id": 193,
+        "workflowId": "GPx7IZI4hziTp1h7",
+        "versionId": "8e15237d-aac4-4e05-8b3c-7faf69694ed7",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

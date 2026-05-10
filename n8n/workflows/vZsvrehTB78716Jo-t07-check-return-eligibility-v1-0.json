@@ -1,0 +1,212 @@
+{
+  "id": "vZsvrehTB78716Jo",
+  "name": "T07 — check_return_eligibility · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "92dbe0f6-7568-4dc2-b01c-06e11fa1a6d6",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://qwyxacfgoqlskidwzdxe.supabase.co/rest/v1/rpc/fn_check_return_eligibility",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3eXhhY2Znb3Fsc2tpZHd6ZHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxODc3NjQsImV4cCI6MjA2Nzc2Mzc2NH0.qHDEquO9QUGiQi9uacWKUu_G2jthhmxeC5cfSOIvo3A"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3eXhhY2Znb3Fsc2tpZHd6ZHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxODc3NjQsImV4cCI6MjA2Nzc2Mzc2NH0.qHDEquO9QUGiQi9uacWKUu_G2jthhmxeC5cfSOIvo3A"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={{ JSON.stringify({ p_tenant_id: $json.tenant_id || 'singulare', p_phone: $json.phone, p_target_date: $json.target_date || new Date().toISOString().split('T')[0], p_doctor_code: $json.doctor_code || 1 }) }}",
+        "options": {}
+      },
+      "id": "b68700ac-ba08-4b3c-9690-3f130f361d81",
+      "name": "Supabase RPC",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        256,
+        -128
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Supabase RPC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "activeVersionId": "bd074709-8b9a-4145-808f-fa5170f8777f",
+  "versionCounter": 9,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-05T02:17:15.389Z",
+      "createdAt": "2026-05-05T02:17:15.389Z",
+      "role": "workflow:owner",
+      "workflowId": "vZsvrehTB78716Jo",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-05T02:17:24.969Z",
+    "createdAt": "2026-05-05T02:17:15.389Z",
+    "versionId": "bd074709-8b9a-4145-808f-fa5170f8777f",
+    "workflowId": "vZsvrehTB78716Jo",
+    "nodes": [
+      {
+        "parameters": {},
+        "id": "92dbe0f6-7568-4dc2-b01c-06e11fa1a6d6",
+        "name": "Execute Workflow Trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1,
+        "position": [
+          16,
+          -128
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://qwyxacfgoqlskidwzdxe.supabase.co/rest/v1/rpc/fn_check_return_eligibility",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "apikey",
+                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3eXhhY2Znb3Fsc2tpZHd6ZHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxODc3NjQsImV4cCI6MjA2Nzc2Mzc2NH0.qHDEquO9QUGiQi9uacWKUu_G2jthhmxeC5cfSOIvo3A"
+              },
+              {
+                "name": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3eXhhY2Znb3Fsc2tpZHd6ZHhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxODc3NjQsImV4cCI6MjA2Nzc2Mzc2NH0.qHDEquO9QUGiQi9uacWKUu_G2jthhmxeC5cfSOIvo3A"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "raw",
+          "body": "={{ JSON.stringify({ p_tenant_id: $json.tenant_id || 'singulare', p_phone: $json.phone, p_target_date: $json.target_date || new Date().toISOString().split('T')[0], p_doctor_code: $json.doctor_code || 1 }) }}",
+          "options": {}
+        },
+        "id": "b68700ac-ba08-4b3c-9690-3f130f361d81",
+        "name": "Supabase RPC",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          256,
+          -128
+        ]
+      }
+    ],
+    "connections": {
+      "Execute Workflow Trigger": {
+        "main": [
+          [
+            {
+              "node": "Supabase RPC",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": "Version bd074709",
+    "description": "",
+    "autosaved": true,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-05T02:17:24.962Z",
+        "id": 25,
+        "workflowId": "vZsvrehTB78716Jo",
+        "versionId": "bd074709-8b9a-4145-808f-fa5170f8777f",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-05T02:26:21.536Z",
+        "id": 32,
+        "workflowId": "vZsvrehTB78716Jo",
+        "versionId": "bd074709-8b9a-4145-808f-fa5170f8777f",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-05T02:26:21.553Z",
+        "id": 33,
+        "workflowId": "vZsvrehTB78716Jo",
+        "versionId": "bd074709-8b9a-4145-808f-fa5170f8777f",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:14.549Z",
+        "id": 200,
+        "workflowId": "vZsvrehTB78716Jo",
+        "versionId": "bd074709-8b9a-4145-808f-fa5170f8777f",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:14.564Z",
+        "id": 201,
+        "workflowId": "vZsvrehTB78716Jo",
+        "versionId": "bd074709-8b9a-4145-808f-fa5170f8777f",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

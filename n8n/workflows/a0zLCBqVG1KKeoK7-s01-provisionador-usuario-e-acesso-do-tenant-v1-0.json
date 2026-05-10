@@ -1,0 +1,568 @@
+{
+  "id": "a0zLCBqVG1KKeoK7",
+  "name": "S01 — Provisionador · Usuário e Acesso do Tenant · v1.0",
+  "description": "Sub-workflow: cria user Supabase Auth, vincula ao tenant, gera magic link.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "3eaed341-ad87-4d54-8194-5e84a46e4263",
+      "name": "Receber Dados Onboarding",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const i=$input.first().json;\nif(!i.email||!i.tenant_id)throw new Error('email e tenant_id obrigatorios');\nreturn [{json:{email:i.email.toLowerCase().trim(),tenant_id:i.tenant_id,doctor_name:i.doctor_name||'',speciality:i.speciality||'',clinic_name:i.clinic_name||'',user_metadata:{tenant_id:i.tenant_id,doctor_name:i.doctor_name||'',speciality:i.speciality||'',clinic_name:i.clinic_name||'',role:'admin'}}}];"
+      },
+      "id": "67fa99e4-eb3e-4958-bc7d-3ff193c56940",
+      "name": "Validar Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://qwyxacfgoqlskidwzdxe.supabase.co/auth/v1/admin/users",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({email:$json.email,email_confirm:true,user_metadata:$json.user_metadata}) }}",
+        "options": {}
+      },
+      "id": "ea880751-267e-47d4-88dc-716cb7714584",
+      "name": "Criar Usuario Auth",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        688,
+        304
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gpCARqXkoPpDkUuF",
+          "name": "Header Auth account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const x=$input.first().json,d=$('Validar Dados').first().json;\nreturn [{json:{user_id:x.id||null,email:d.email,tenant_id:d.tenant_id,ok:!!x.id,msg:x.id?'criado':(x.msg||x.message||'erro')}}];"
+      },
+      "id": "3b161257-816d-4a12-ba96-42c17654bb19",
+      "name": "Processar Resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://qwyxacfgoqlskidwzdxe.supabase.co/rest/v1/tenants?tenant_id=eq.{{ $json.tenant_id }}&admin_user_id=is.null",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({admin_user_id:$json.user_id}) }}",
+        "options": {}
+      },
+      "id": "4171d997-2211-410f-9373-39a09f2cca3d",
+      "name": "Vincular ao Tenant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1168,
+        304
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gpCARqXkoPpDkUuF",
+          "name": "Header Auth account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://qwyxacfgoqlskidwzdxe.supabase.co/auth/v1/admin/generate_link",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({type:\"magiclink\",email:$(\"Processar Resultado\").first().json.email}) }}",
+        "options": {}
+      },
+      "id": "604f0403-6af3-4e56-b70a-76b8377e5530",
+      "name": "Gerar Magic Link",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1408,
+        304
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gpCARqXkoPpDkUuF",
+          "name": "Header Auth account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a",
+              "name": "success",
+              "value": "={{ $(\"Processar Resultado\").first().json.ok }}",
+              "type": "boolean"
+            },
+            {
+              "id": "b",
+              "name": "user_id",
+              "value": "={{ $(\"Processar Resultado\").first().json.user_id }}",
+              "type": "string"
+            },
+            {
+              "id": "c",
+              "name": "email",
+              "value": "={{ $(\"Processar Resultado\").first().json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "d",
+              "name": "tenant_id",
+              "value": "={{ $(\"Processar Resultado\").first().json.tenant_id }}",
+              "type": "string"
+            },
+            {
+              "id": "e",
+              "name": "magic_link",
+              "value": "={{ $json.properties?.action_link || \"\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6cf882cb-29a8-444d-8331-ef6b7ea85d4b",
+      "name": "Output Final",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1648,
+        304
+      ]
+    }
+  ],
+  "connections": {
+    "Receber Dados Onboarding": {
+      "main": [
+        [
+          {
+            "node": "Validar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Dados": {
+      "main": [
+        [
+          {
+            "node": "Criar Usuario Auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Usuario Auth": {
+      "main": [
+        [
+          {
+            "node": "Processar Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Resultado": {
+      "main": [
+        [
+          {
+            "node": "Vincular ao Tenant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vincular ao Tenant": {
+      "main": [
+        [
+          {
+            "node": "Gerar Magic Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Magic Link": {
+      "main": [
+        [
+          {
+            "node": "Output Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true
+  },
+  "pinData": {},
+  "activeVersionId": "8d1408f8-9d24-4685-a68c-ebcd10421702",
+  "versionCounter": 24,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "a0zLCBqVG1KKeoK7",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-04T22:00:00.681Z",
+    "createdAt": "2026-05-04T21:18:47.436Z",
+    "versionId": "8d1408f8-9d24-4685-a68c-ebcd10421702",
+    "workflowId": "a0zLCBqVG1KKeoK7",
+    "nodes": [
+      {
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "id": "3eaed341-ad87-4d54-8194-5e84a46e4263",
+        "name": "Receber Dados Onboarding",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          208,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const i=$input.first().json;\nif(!i.email||!i.tenant_id)throw new Error('email e tenant_id obrigatorios');\nreturn [{json:{email:i.email.toLowerCase().trim(),tenant_id:i.tenant_id,doctor_name:i.doctor_name||'',speciality:i.speciality||'',clinic_name:i.clinic_name||'',user_metadata:{tenant_id:i.tenant_id,doctor_name:i.doctor_name||'',speciality:i.speciality||'',clinic_name:i.clinic_name||'',role:'admin'}}}];"
+        },
+        "id": "67fa99e4-eb3e-4958-bc7d-3ff193c56940",
+        "name": "Validar Dados",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          448,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://qwyxacfgoqlskidwzdxe.supabase.co/auth/v1/admin/users",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({email:$json.email,email_confirm:true,user_metadata:$json.user_metadata}) }}",
+          "options": {}
+        },
+        "id": "ea880751-267e-47d4-88dc-716cb7714584",
+        "name": "Criar Usuario Auth",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          688,
+          304
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "gpCARqXkoPpDkUuF",
+            "name": "Header Auth account 2"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const x=$input.first().json,d=$('Validar Dados').first().json;\nreturn [{json:{user_id:x.id||null,email:d.email,tenant_id:d.tenant_id,ok:!!x.id,msg:x.id?'criado':(x.msg||x.message||'erro')}}];"
+        },
+        "id": "3b161257-816d-4a12-ba96-42c17654bb19",
+        "name": "Processar Resultado",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          928,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "method": "PATCH",
+          "url": "=https://qwyxacfgoqlskidwzdxe.supabase.co/rest/v1/tenants?tenant_id=eq.{{ $json.tenant_id }}&admin_user_id=is.null",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({admin_user_id:$json.user_id}) }}",
+          "options": {}
+        },
+        "id": "4171d997-2211-410f-9373-39a09f2cca3d",
+        "name": "Vincular ao Tenant",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1168,
+          304
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "gpCARqXkoPpDkUuF",
+            "name": "Header Auth account 2"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://qwyxacfgoqlskidwzdxe.supabase.co/auth/v1/admin/generate_link",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({type:\"magiclink\",email:$(\"Processar Resultado\").first().json.email}) }}",
+          "options": {}
+        },
+        "id": "604f0403-6af3-4e56-b70a-76b8377e5530",
+        "name": "Gerar Magic Link",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1408,
+          304
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "gpCARqXkoPpDkUuF",
+            "name": "Header Auth account 2"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "a",
+                "name": "success",
+                "value": "={{ $(\"Processar Resultado\").first().json.ok }}",
+                "type": "boolean"
+              },
+              {
+                "id": "b",
+                "name": "user_id",
+                "value": "={{ $(\"Processar Resultado\").first().json.user_id }}",
+                "type": "string"
+              },
+              {
+                "id": "c",
+                "name": "email",
+                "value": "={{ $(\"Processar Resultado\").first().json.email }}",
+                "type": "string"
+              },
+              {
+                "id": "d",
+                "name": "tenant_id",
+                "value": "={{ $(\"Processar Resultado\").first().json.tenant_id }}",
+                "type": "string"
+              },
+              {
+                "id": "e",
+                "name": "magic_link",
+                "value": "={{ $json.properties?.action_link || \"\" }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "6cf882cb-29a8-444d-8331-ef6b7ea85d4b",
+        "name": "Output Final",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1648,
+          304
+        ]
+      }
+    ],
+    "connections": {
+      "Receber Dados Onboarding": {
+        "main": [
+          [
+            {
+              "node": "Validar Dados",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validar Dados": {
+        "main": [
+          [
+            {
+              "node": "Criar Usuario Auth",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Criar Usuario Auth": {
+        "main": [
+          [
+            {
+              "node": "Processar Resultado",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Processar Resultado": {
+        "main": [
+          [
+            {
+              "node": "Vincular ao Tenant",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Vincular ao Tenant": {
+        "main": [
+          [
+            {
+              "node": "Gerar Magic Link",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gerar Magic Link": {
+        "main": [
+          [
+            {
+              "node": "Output Final",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "import",
+    "name": "Version 3ea5233f",
+    "description": "",
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-04T22:00:00.669Z",
+        "id": 11,
+        "workflowId": "a0zLCBqVG1KKeoK7",
+        "versionId": "8d1408f8-9d24-4685-a68c-ebcd10421702",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:31.440Z",
+        "id": 216,
+        "workflowId": "a0zLCBqVG1KKeoK7",
+        "versionId": "8d1408f8-9d24-4685-a68c-ebcd10421702",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:31.455Z",
+        "id": 217,
+        "workflowId": "a0zLCBqVG1KKeoK7",
+        "versionId": "8d1408f8-9d24-4685-a68c-ebcd10421702",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

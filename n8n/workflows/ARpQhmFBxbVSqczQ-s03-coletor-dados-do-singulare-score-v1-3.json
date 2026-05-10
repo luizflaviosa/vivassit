@@ -1,0 +1,544 @@
+{
+  "id": "ARpQhmFBxbVSqczQ",
+  "name": "S03 — Coletor · Dados do Singulare Score · v1.3",
+  "description": "v1.3: Doctoralia via URL direta do perfil - elimina falsos positivos do scraping de busca.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "f46ad0a0-a8f8-4dec-b5d5-fa94b501ad07",
+      "name": "Cron Semanal Seg 6h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        192
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 6,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "723575fe-a044-4205-93a0-301faf7d71c4",
+      "name": "Buscar Tenants Ativos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        224,
+        192
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT tenant_id, clinic_name, doctor_name, speciality, city, state, instagram_username, website_url, google_place_id FROM public.tenants WHERE status = 'active' AND chatwoot_url IS NOT NULL AND doctor_name IS NOT NULL ORDER BY tenant_id",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "c9cbe8b9-aaf7-4d3f-be67-f40e83632e66",
+      "name": "Log Resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "console.log('Score v1.3:', $json.tenant_id, $json.total_score, 'Doc:', $json.doctoralia_present);\nreturn $json;"
+      }
+    },
+    {
+      "id": "c92f29ca-ca61-4585-89c0-c1991bdbdccb",
+      "name": "Coletar e Calcular Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        192
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ===== SINGULARE SCORE COLLECTOR v1.3 =====\n// FIX: Doctoralia via URL direta do perfil (zero falsos positivos)\nconst tenant = $json;\nconst GOOGLE_API_KEY = $env.GOOGLE_MAPS_API_KEY || '';\nconst errors = [];\n\n// --- GOOGLE PLACES ---\nlet g = { rating: null, reviews_count: 0, has_hours: false, has_photos: false, photos_count: 0, verified: false, place_id: tenant.google_place_id };\ntry {\n  if (GOOGLE_API_KEY) {\n    let placeId = tenant.google_place_id;\n    if (!placeId) {\n      const q = [tenant.doctor_name, tenant.speciality, tenant.city].filter(Boolean).join(' ');\n      const sd = await this.helpers.httpRequest({ method: 'GET', url: 'https://maps.googleapis.com/maps/api/place/textsearch/json', qs: { query: q, type: 'doctor', language: 'pt-BR', key: GOOGLE_API_KEY } });\n      if (sd.results && sd.results.length > 0) { placeId = sd.results[0].place_id; g.place_id = placeId; g.rating = sd.results[0].rating || null; g.reviews_count = sd.results[0].user_ratings_total || 0; }\n    }\n    if (placeId) {\n      const dd = await this.helpers.httpRequest({ method: 'GET', url: 'https://maps.googleapis.com/maps/api/place/details/json', qs: { place_id: placeId, fields: 'rating,user_ratings_total,opening_hours,photos,business_status', language: 'pt-BR', key: GOOGLE_API_KEY } });\n      if (dd.result) { g.rating = dd.result.rating || g.rating; g.reviews_count = dd.result.user_ratings_total || g.reviews_count; g.has_hours = !!(dd.result.opening_hours); g.has_photos = !!(dd.result.photos && dd.result.photos.length); g.photos_count = dd.result.photos ? dd.result.photos.length : 0; g.verified = dd.result.business_status === 'OPERATIONAL'; }\n    }\n  }\n} catch (e) { errors.push({ source: 'google', error: e.message }); }\n\n// --- DOCTORALIA v1.3 - URL direta do perfil ---\nlet d = { present: false, rating: null, reviews_count: 0, url: null, online_booking: false };\ntry {\n  const rawName = (tenant.doctor_name || '').replace(/^(Dra?\\.?\\s*)/i, '').trim();\n  const slug = rawName.toLowerCase()\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');\n  \n  const specMap = {\n    'reumatologia': 'reumatologista',\n    'clinica geral': 'medico-clinico-geral',\n    'cardiologia': 'cardiologista',\n    'dermatologia': 'dermatologista',\n    'ginecologia': 'ginecologista',\n    'ortopedia': 'ortopedista-traumatologista',\n    'pediatria': 'pediatra',\n    'psiquiatria': 'psiquiatra',\n    'neurologia': 'neurologista',\n    'endocrinologia': 'endocrinologista',\n    'urologia': 'urologista',\n    'oftalmologia': 'oftalmologista',\n    'otorrinolaringologia': 'otorrino',\n    'nutrição': 'nutricionista',\n    'psicologia': 'psicologo',\n    'fisioterapia': 'fisioterapeuta',\n    'odontologia': 'dentista'\n  };\n  const specSlug = specMap[(tenant.speciality || '').toLowerCase()] || \n    (tenant.speciality || 'medico').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/\\s+/g, '-');\n  \n  const citySlug = (tenant.city || 'sao-paulo').toLowerCase()\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/\\s+/g, '-');\n  \n  const profileUrl = 'https://www.doctoralia.com.br/' + slug + '/' + specSlug + '/' + citySlug;\n  \n  try {\n    const html = await this.helpers.httpRequest({\n      method: 'GET', url: profileUrl,\n      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept-Language': 'pt-BR' },\n      encoding: 'utf-8', json: false, returnFullResponse: false\n    });\n    \n    if (typeof html === 'string' && html.length > 5000 && !html.includes('page-not-found') && !html.includes('404')) {\n      d.present = true;\n      d.url = profileUrl;\n      const rm = html.match(/data-rating=\"([\\d.]+)\"/);\n      if (rm) d.rating = parseFloat(rm[1]);\n      const rvm = html.match(/(\\d+)\\s*opini/i);\n      if (rvm) d.reviews_count = parseInt(rvm[1]);\n      d.online_booking = html.includes('Agendar consulta') || html.includes('booking-button');\n    }\n  } catch (profileErr) {\n    // 404 ou redirect = perfil nao existe (esperado)\n    d.present = false;\n  }\n} catch (e) { errors.push({ source: 'doctoralia', error: e.message }); }\n\n// --- WEBSITE + PAGESPEED ---\nlet w = { exists: false, ssl: false, mobile_score: 0, performance_score: 0 };\ntry {\n  if (tenant.website_url) {\n    try { await this.helpers.httpRequest({ method: 'HEAD', url: tenant.website_url }); w.exists = true; } catch (e) { w.exists = false; }\n    w.ssl = (tenant.website_url || '').startsWith('https');\n    if (w.exists && GOOGLE_API_KEY) {\n      const pd = await this.helpers.httpRequest({ method: 'GET', url: 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed', qs: { url: tenant.website_url, category: 'performance', strategy: 'mobile', key: GOOGLE_API_KEY } });\n      if (pd.lighthouseResult && pd.lighthouseResult.categories) { w.performance_score = Math.round((pd.lighthouseResult.categories.performance?.score || 0) * 100); w.mobile_score = w.performance_score; }\n    }\n  }\n} catch (e) { errors.push({ source: 'website', error: e.message }); }\n\n// --- CALCULAR SCORE ---\nlet gs = 0;\nif (g.rating) gs += Math.min(g.rating / 5.0, 1.0) * 12;\ngs += Math.min(g.reviews_count / 50, 1.0) * 10;\nif (g.has_hours) gs += 3; gs += Math.min(g.photos_count / 5, 1.0) * 3;\nif (g.verified) gs += 2; gs = Math.round(gs);\n\nlet ds = 0;\nif (d.present) ds += 5;\nif (d.rating) ds += Math.min(d.rating / 5.0, 1.0) * 5;\nds += Math.min(d.reviews_count / 30, 1.0) * 3;\nif (d.online_booking) ds += 2; ds = Math.round(ds);\n\nlet ss = 0; let seo = 0;\nif (w.exists) seo += 3; if (w.ssl) seo += 1;\nseo += Math.min(w.mobile_score / 50, 1.0) * 2;\nseo += Math.min(w.performance_score / 70, 1.0) * 2;\nseo = Math.round(seo); let ops = 0;\nconst total = Math.min(gs + ds + ss + seo + ops, 100);\nconst classification = total <= 25 ? 'critical' : total <= 50 ? 'developing' : total <= 75 ? 'good' : 'excellent';\n\nconst recs = [];\nif (!g.place_id) recs.push({ priority: 'high', category: 'google', message: 'Perfil nao encontrado no Google Maps', action: 'Crie um Google Meu Negocio' });\nif (g.reviews_count < 10) recs.push({ priority: 'high', category: 'google', message: 'Apenas ' + g.reviews_count + ' avaliacoes no Google', action: 'Ative pedido de review pos-consulta' });\nif (!d.present) recs.push({ priority: 'high', category: 'doctoralia', message: 'Sem perfil na Doctoralia', action: 'Crie perfil gratuito em doctoralia.com.br' });\nif (!w.exists && !tenant.website_url) recs.push({ priority: 'medium', category: 'website', message: 'Sem site proprio', action: 'Considere criar um site com agendamento online' });\n\nreturn { tenant_id: tenant.tenant_id, total_score: total, classification, google_score: gs, doctoralia_score: ds, social_score: ss, seo_score: seo, operational_score: ops, google_rating: g.rating, google_reviews_count: g.reviews_count, google_has_hours: g.has_hours, google_has_photos: g.has_photos, google_photos_count: g.photos_count, google_verified: g.verified, doctoralia_present: d.present, doctoralia_rating: d.rating, doctoralia_reviews_count: d.reviews_count, doctoralia_url: d.url, doctoralia_online_booking: d.online_booking, website_exists: w.exists, website_ssl: w.ssl, website_mobile_score: w.mobile_score, website_performance_score: w.performance_score, recommendations: JSON.stringify(recs), collection_errors: JSON.stringify(errors), _place_id_cache: g.place_id };"
+      }
+    },
+    {
+      "id": "8354c53e-5d10-4bd9-96e6-7d879187355d",
+      "name": "Preparar SQL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        192
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $json;\nconst esc = (v) => { if (v === null || v === undefined) return 'NULL'; if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'; if (typeof v === 'number') return String(v); return \"'\" + String(v).replace(/'/g, \"''\") + \"'\"; };\nconst sql = 'INSERT INTO public.tenant_scores (tenant_id, total_score, classification, google_score, doctoralia_score, social_score, seo_score, operational_score, google_rating, google_reviews_count, google_has_hours, google_has_photos, google_photos_count, google_verified, doctoralia_present, doctoralia_rating, doctoralia_reviews_count, doctoralia_url, doctoralia_online_booking, website_exists, website_ssl, website_mobile_score, website_performance_score, recommendations, collection_errors, previous_score, score_change) SELECT ' + esc(d.tenant_id) + ', ' + d.total_score + ', ' + esc(d.classification) + ', ' + d.google_score + ', ' + d.doctoralia_score + ', ' + d.social_score + ', ' + d.seo_score + ', ' + d.operational_score + ', ' + (d.google_rating === null ? 'NULL' : d.google_rating) + ', ' + d.google_reviews_count + ', ' + d.google_has_hours + ', ' + d.google_has_photos + ', ' + d.google_photos_count + ', ' + d.google_verified + ', ' + d.doctoralia_present + ', ' + (d.doctoralia_rating === null ? 'NULL' : d.doctoralia_rating) + ', ' + d.doctoralia_reviews_count + ', ' + esc(d.doctoralia_url) + ', ' + d.doctoralia_online_booking + ', ' + d.website_exists + ', ' + d.website_ssl + ', ' + d.website_mobile_score + ', ' + d.website_performance_score + ', ' + esc(d.recommendations) + '::jsonb, ' + esc(d.collection_errors) + '::jsonb, (SELECT total_score FROM public.tenant_scores WHERE tenant_id = ' + esc(d.tenant_id) + ' ORDER BY collected_at DESC LIMIT 1), ' + d.total_score + ' - COALESCE((SELECT total_score FROM public.tenant_scores WHERE tenant_id = ' + esc(d.tenant_id) + ' ORDER BY collected_at DESC LIMIT 1), ' + d.total_score + ') RETURNING id, tenant_id, total_score, classification, score_change';\nreturn { ...d, _sql: sql };"
+      }
+    },
+    {
+      "id": "988fa65f-f847-4f09-97f2-455c891e1943",
+      "name": "Executar INSERT",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        192
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json._sql }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "84ea875d-edf5-4df5-b754-33004636a0d7",
+      "name": "Cache Place ID",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1344,
+        272
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $('Coletar e Calcular Score').item.json._place_id_cache ? \"UPDATE public.tenants SET google_place_id = '\" + $('Coletar e Calcular Score').item.json._place_id_cache + \"' WHERE tenant_id = '\" + $('Coletar e Calcular Score').item.json.tenant_id + \"' AND google_place_id IS NULL\" : 'SELECT 1' }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "544369aa-bf7c-4b57-a966-921fdd11e6ab",
+      "name": "Batch 3 por vez",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        448,
+        192
+      ],
+      "parameters": {
+        "batchSize": 3
+      }
+    }
+  ],
+  "connections": {
+    "Cron Semanal Seg 6h": {
+      "main": [
+        [
+          {
+            "node": "Buscar Tenants Ativos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Tenants Ativos": {
+      "main": [
+        [
+          {
+            "node": "Batch 3 por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Coletar e Calcular Score": {
+      "main": [
+        [
+          {
+            "node": "Preparar SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar SQL": {
+      "main": [
+        [
+          {
+            "node": "Executar INSERT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Executar INSERT": {
+      "main": [
+        [
+          {
+            "node": "Cache Place ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Place ID": {
+      "main": [
+        [
+          {
+            "node": "Batch 3 por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch 3 por vez": {
+      "main": [
+        [
+          {
+            "node": "Log Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Coletar e Calcular Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": {
+    "node:Cron Semanal Seg 6h": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "pinData": null,
+  "activeVersionId": "a1de0cde-f95c-4273-8bcb-ecd7ebcfda65",
+  "versionCounter": 24,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "ARpQhmFBxbVSqczQ",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-04T21:43:28.990Z",
+    "createdAt": "2026-05-04T21:18:47.436Z",
+    "versionId": "a1de0cde-f95c-4273-8bcb-ecd7ebcfda65",
+    "workflowId": "ARpQhmFBxbVSqczQ",
+    "nodes": [
+      {
+        "id": "f46ad0a0-a8f8-4dec-b5d5-fa94b501ad07",
+        "name": "Cron Semanal Seg 6h",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          192
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "weeks",
+                "weeksInterval": 1,
+                "triggerAtDay": [
+                  1
+                ],
+                "triggerAtHour": 6,
+                "triggerAtMinute": 0
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "723575fe-a044-4205-93a0-301faf7d71c4",
+        "name": "Buscar Tenants Ativos",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          224,
+          192
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT tenant_id, clinic_name, doctor_name, speciality, city, state, instagram_username, website_url, google_place_id FROM public.tenants WHERE status = 'active' AND chatwoot_url IS NOT NULL AND doctor_name IS NOT NULL ORDER BY tenant_id",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        },
+        "alwaysOutputData": true
+      },
+      {
+        "id": "c9cbe8b9-aaf7-4d3f-be67-f40e83632e66",
+        "name": "Log Resultado",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          672,
+          0
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "console.log('Score v1.3:', $json.tenant_id, $json.total_score, 'Doc:', $json.doctoralia_present);\nreturn $json;"
+        }
+      },
+      {
+        "id": "c92f29ca-ca61-4585-89c0-c1991bdbdccb",
+        "name": "Coletar e Calcular Score",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          672,
+          192
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "// ===== SINGULARE SCORE COLLECTOR v1.3 =====\n// FIX: Doctoralia via URL direta do perfil (zero falsos positivos)\nconst tenant = $json;\nconst GOOGLE_API_KEY = $env.GOOGLE_MAPS_API_KEY || '';\nconst errors = [];\n\n// --- GOOGLE PLACES ---\nlet g = { rating: null, reviews_count: 0, has_hours: false, has_photos: false, photos_count: 0, verified: false, place_id: tenant.google_place_id };\ntry {\n  if (GOOGLE_API_KEY) {\n    let placeId = tenant.google_place_id;\n    if (!placeId) {\n      const q = [tenant.doctor_name, tenant.speciality, tenant.city].filter(Boolean).join(' ');\n      const sd = await this.helpers.httpRequest({ method: 'GET', url: 'https://maps.googleapis.com/maps/api/place/textsearch/json', qs: { query: q, type: 'doctor', language: 'pt-BR', key: GOOGLE_API_KEY } });\n      if (sd.results && sd.results.length > 0) { placeId = sd.results[0].place_id; g.place_id = placeId; g.rating = sd.results[0].rating || null; g.reviews_count = sd.results[0].user_ratings_total || 0; }\n    }\n    if (placeId) {\n      const dd = await this.helpers.httpRequest({ method: 'GET', url: 'https://maps.googleapis.com/maps/api/place/details/json', qs: { place_id: placeId, fields: 'rating,user_ratings_total,opening_hours,photos,business_status', language: 'pt-BR', key: GOOGLE_API_KEY } });\n      if (dd.result) { g.rating = dd.result.rating || g.rating; g.reviews_count = dd.result.user_ratings_total || g.reviews_count; g.has_hours = !!(dd.result.opening_hours); g.has_photos = !!(dd.result.photos && dd.result.photos.length); g.photos_count = dd.result.photos ? dd.result.photos.length : 0; g.verified = dd.result.business_status === 'OPERATIONAL'; }\n    }\n  }\n} catch (e) { errors.push({ source: 'google', error: e.message }); }\n\n// --- DOCTORALIA v1.3 - URL direta do perfil ---\nlet d = { present: false, rating: null, reviews_count: 0, url: null, online_booking: false };\ntry {\n  const rawName = (tenant.doctor_name || '').replace(/^(Dra?\\.?\\s*)/i, '').trim();\n  const slug = rawName.toLowerCase()\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');\n  \n  const specMap = {\n    'reumatologia': 'reumatologista',\n    'clinica geral': 'medico-clinico-geral',\n    'cardiologia': 'cardiologista',\n    'dermatologia': 'dermatologista',\n    'ginecologia': 'ginecologista',\n    'ortopedia': 'ortopedista-traumatologista',\n    'pediatria': 'pediatra',\n    'psiquiatria': 'psiquiatra',\n    'neurologia': 'neurologista',\n    'endocrinologia': 'endocrinologista',\n    'urologia': 'urologista',\n    'oftalmologia': 'oftalmologista',\n    'otorrinolaringologia': 'otorrino',\n    'nutrição': 'nutricionista',\n    'psicologia': 'psicologo',\n    'fisioterapia': 'fisioterapeuta',\n    'odontologia': 'dentista'\n  };\n  const specSlug = specMap[(tenant.speciality || '').toLowerCase()] || \n    (tenant.speciality || 'medico').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/\\s+/g, '-');\n  \n  const citySlug = (tenant.city || 'sao-paulo').toLowerCase()\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/\\s+/g, '-');\n  \n  const profileUrl = 'https://www.doctoralia.com.br/' + slug + '/' + specSlug + '/' + citySlug;\n  \n  try {\n    const html = await this.helpers.httpRequest({\n      method: 'GET', url: profileUrl,\n      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept-Language': 'pt-BR' },\n      encoding: 'utf-8', json: false, returnFullResponse: false\n    });\n    \n    if (typeof html === 'string' && html.length > 5000 && !html.includes('page-not-found') && !html.includes('404')) {\n      d.present = true;\n      d.url = profileUrl;\n      const rm = html.match(/data-rating=\"([\\d.]+)\"/);\n      if (rm) d.rating = parseFloat(rm[1]);\n      const rvm = html.match(/(\\d+)\\s*opini/i);\n      if (rvm) d.reviews_count = parseInt(rvm[1]);\n      d.online_booking = html.includes('Agendar consulta') || html.includes('booking-button');\n    }\n  } catch (profileErr) {\n    // 404 ou redirect = perfil nao existe (esperado)\n    d.present = false;\n  }\n} catch (e) { errors.push({ source: 'doctoralia', error: e.message }); }\n\n// --- WEBSITE + PAGESPEED ---\nlet w = { exists: false, ssl: false, mobile_score: 0, performance_score: 0 };\ntry {\n  if (tenant.website_url) {\n    try { await this.helpers.httpRequest({ method: 'HEAD', url: tenant.website_url }); w.exists = true; } catch (e) { w.exists = false; }\n    w.ssl = (tenant.website_url || '').startsWith('https');\n    if (w.exists && GOOGLE_API_KEY) {\n      const pd = await this.helpers.httpRequest({ method: 'GET', url: 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed', qs: { url: tenant.website_url, category: 'performance', strategy: 'mobile', key: GOOGLE_API_KEY } });\n      if (pd.lighthouseResult && pd.lighthouseResult.categories) { w.performance_score = Math.round((pd.lighthouseResult.categories.performance?.score || 0) * 100); w.mobile_score = w.performance_score; }\n    }\n  }\n} catch (e) { errors.push({ source: 'website', error: e.message }); }\n\n// --- CALCULAR SCORE ---\nlet gs = 0;\nif (g.rating) gs += Math.min(g.rating / 5.0, 1.0) * 12;\ngs += Math.min(g.reviews_count / 50, 1.0) * 10;\nif (g.has_hours) gs += 3; gs += Math.min(g.photos_count / 5, 1.0) * 3;\nif (g.verified) gs += 2; gs = Math.round(gs);\n\nlet ds = 0;\nif (d.present) ds += 5;\nif (d.rating) ds += Math.min(d.rating / 5.0, 1.0) * 5;\nds += Math.min(d.reviews_count / 30, 1.0) * 3;\nif (d.online_booking) ds += 2; ds = Math.round(ds);\n\nlet ss = 0; let seo = 0;\nif (w.exists) seo += 3; if (w.ssl) seo += 1;\nseo += Math.min(w.mobile_score / 50, 1.0) * 2;\nseo += Math.min(w.performance_score / 70, 1.0) * 2;\nseo = Math.round(seo); let ops = 0;\nconst total = Math.min(gs + ds + ss + seo + ops, 100);\nconst classification = total <= 25 ? 'critical' : total <= 50 ? 'developing' : total <= 75 ? 'good' : 'excellent';\n\nconst recs = [];\nif (!g.place_id) recs.push({ priority: 'high', category: 'google', message: 'Perfil nao encontrado no Google Maps', action: 'Crie um Google Meu Negocio' });\nif (g.reviews_count < 10) recs.push({ priority: 'high', category: 'google', message: 'Apenas ' + g.reviews_count + ' avaliacoes no Google', action: 'Ative pedido de review pos-consulta' });\nif (!d.present) recs.push({ priority: 'high', category: 'doctoralia', message: 'Sem perfil na Doctoralia', action: 'Crie perfil gratuito em doctoralia.com.br' });\nif (!w.exists && !tenant.website_url) recs.push({ priority: 'medium', category: 'website', message: 'Sem site proprio', action: 'Considere criar um site com agendamento online' });\n\nreturn { tenant_id: tenant.tenant_id, total_score: total, classification, google_score: gs, doctoralia_score: ds, social_score: ss, seo_score: seo, operational_score: ops, google_rating: g.rating, google_reviews_count: g.reviews_count, google_has_hours: g.has_hours, google_has_photos: g.has_photos, google_photos_count: g.photos_count, google_verified: g.verified, doctoralia_present: d.present, doctoralia_rating: d.rating, doctoralia_reviews_count: d.reviews_count, doctoralia_url: d.url, doctoralia_online_booking: d.online_booking, website_exists: w.exists, website_ssl: w.ssl, website_mobile_score: w.mobile_score, website_performance_score: w.performance_score, recommendations: JSON.stringify(recs), collection_errors: JSON.stringify(errors), _place_id_cache: g.place_id };"
+        }
+      },
+      {
+        "id": "8354c53e-5d10-4bd9-96e6-7d879187355d",
+        "name": "Preparar SQL",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          896,
+          192
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const d = $json;\nconst esc = (v) => { if (v === null || v === undefined) return 'NULL'; if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'; if (typeof v === 'number') return String(v); return \"'\" + String(v).replace(/'/g, \"''\") + \"'\"; };\nconst sql = 'INSERT INTO public.tenant_scores (tenant_id, total_score, classification, google_score, doctoralia_score, social_score, seo_score, operational_score, google_rating, google_reviews_count, google_has_hours, google_has_photos, google_photos_count, google_verified, doctoralia_present, doctoralia_rating, doctoralia_reviews_count, doctoralia_url, doctoralia_online_booking, website_exists, website_ssl, website_mobile_score, website_performance_score, recommendations, collection_errors, previous_score, score_change) SELECT ' + esc(d.tenant_id) + ', ' + d.total_score + ', ' + esc(d.classification) + ', ' + d.google_score + ', ' + d.doctoralia_score + ', ' + d.social_score + ', ' + d.seo_score + ', ' + d.operational_score + ', ' + (d.google_rating === null ? 'NULL' : d.google_rating) + ', ' + d.google_reviews_count + ', ' + d.google_has_hours + ', ' + d.google_has_photos + ', ' + d.google_photos_count + ', ' + d.google_verified + ', ' + d.doctoralia_present + ', ' + (d.doctoralia_rating === null ? 'NULL' : d.doctoralia_rating) + ', ' + d.doctoralia_reviews_count + ', ' + esc(d.doctoralia_url) + ', ' + d.doctoralia_online_booking + ', ' + d.website_exists + ', ' + d.website_ssl + ', ' + d.website_mobile_score + ', ' + d.website_performance_score + ', ' + esc(d.recommendations) + '::jsonb, ' + esc(d.collection_errors) + '::jsonb, (SELECT total_score FROM public.tenant_scores WHERE tenant_id = ' + esc(d.tenant_id) + ' ORDER BY collected_at DESC LIMIT 1), ' + d.total_score + ' - COALESCE((SELECT total_score FROM public.tenant_scores WHERE tenant_id = ' + esc(d.tenant_id) + ' ORDER BY collected_at DESC LIMIT 1), ' + d.total_score + ') RETURNING id, tenant_id, total_score, classification, score_change';\nreturn { ...d, _sql: sql };"
+        }
+      },
+      {
+        "id": "988fa65f-f847-4f09-97f2-455c891e1943",
+        "name": "Executar INSERT",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          1120,
+          192
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "={{ $json._sql }}",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "84ea875d-edf5-4df5-b754-33004636a0d7",
+        "name": "Cache Place ID",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          1344,
+          272
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "={{ $('Coletar e Calcular Score').item.json._place_id_cache ? \"UPDATE public.tenants SET google_place_id = '\" + $('Coletar e Calcular Score').item.json._place_id_cache + \"' WHERE tenant_id = '\" + $('Coletar e Calcular Score').item.json.tenant_id + \"' AND google_place_id IS NULL\" : 'SELECT 1' }}",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "544369aa-bf7c-4b57-a966-921fdd11e6ab",
+        "name": "Batch 3 por vez",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          448,
+          192
+        ],
+        "parameters": {
+          "batchSize": 3
+        }
+      }
+    ],
+    "connections": {
+      "Cron Semanal Seg 6h": {
+        "main": [
+          [
+            {
+              "node": "Buscar Tenants Ativos",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar Tenants Ativos": {
+        "main": [
+          [
+            {
+              "node": "Batch 3 por vez",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Coletar e Calcular Score": {
+        "main": [
+          [
+            {
+              "node": "Preparar SQL",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Preparar SQL": {
+        "main": [
+          [
+            {
+              "node": "Executar INSERT",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Executar INSERT": {
+        "main": [
+          [
+            {
+              "node": "Cache Place ID",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Cache Place ID": {
+        "main": [
+          [
+            {
+              "node": "Batch 3 por vez",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Batch 3 por vez": {
+        "main": [
+          [
+            {
+              "node": "Log Resultado",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Coletar e Calcular Score",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "import",
+    "name": "Version a1de0cde",
+    "description": "",
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-04T21:43:28.984Z",
+        "id": 2,
+        "workflowId": "ARpQhmFBxbVSqczQ",
+        "versionId": "a1de0cde-f95c-4273-8bcb-ecd7ebcfda65",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:33.663Z",
+        "id": 218,
+        "workflowId": "ARpQhmFBxbVSqczQ",
+        "versionId": "a1de0cde-f95c-4273-8bcb-ecd7ebcfda65",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:33.681Z",
+        "id": 219,
+        "workflowId": "ARpQhmFBxbVSqczQ",
+        "versionId": "a1de0cde-f95c-4273-8bcb-ecd7ebcfda65",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

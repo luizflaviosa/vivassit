@@ -1,0 +1,868 @@
+{
+  "id": "87vZl62KFCOqFbyI",
+  "name": "3. NPS Pesquisa Pós-Consulta",
+  "description": "Cron 19h BRT envia pesquisa NPS via Chatwoot (cria contato+conversa+mensagem em 1 call) pra cada paciente que terminou consulta hoje. Resposta numérica processada pelo Master Secretária Pre-Router.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 19 * * *"
+            }
+          ]
+        }
+      },
+      "id": "2f4c51da-0152-497f-8752-07cc52c5a20e",
+      "name": "Cron 19:00 BRT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  d.id AS doctor_id,\n  d.doctor_name,\n  d.calendar_id,\n  t.tenant_id,\n  t.evolution_instance_name,\n  t.chatwoot_url,\n  t.chatwoot_account_id,\n  t.chatwoot_inbox_id\nFROM public.tenant_doctors d\nJOIN public.tenants t ON t.tenant_id = d.tenant_id\nWHERE t.status = 'active'\n  AND t.evolution_status = 'connected'\n  AND t.evolution_instance_name IS NOT NULL\n  AND t.chatwoot_url IS NOT NULL\n  AND t.chatwoot_account_id IS NOT NULL\n  AND t.chatwoot_inbox_id IS NOT NULL\n  AND d.status = 'active'\n  AND d.calendar_id IS NOT NULL",
+        "options": {}
+      },
+      "id": "923b7874-4738-400c-8356-40b0594f9c75",
+      "name": "List Doctors",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        240,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "767545f6-d515-4a33-9194-4ff153ff1523",
+      "name": "Done",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        720,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.patient_feedback\n  (tenant_id, patient_name, patient_phone, doctor_name,\n   appointment_date, status, sent_at, booking_id)\nVALUES\n  ('{{ $('List Bookings Completed Today').item.json.tenant_id }}',\n   '{{ $('List Bookings Completed Today').item.json.patient_name }}',\n   '{{ $('List Bookings Completed Today').item.json.patient_phone }}',\n   '{{ $('List Bookings Completed Today').item.json.doctor_name }}',\n   '{{ $('List Bookings Completed Today').item.json.appointment_date }}',\n   'pending', NOW(),\n   '{{ $('List Bookings Completed Today').item.json.booking_id }}'::uuid)\nRETURNING id;",
+        "options": {}
+      },
+      "id": "499459fc-79c3-4d5e-9030-84bf85ac35ce",
+      "name": "Insert Pending",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1680,
+        -96
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('List Bookings Completed Today').item.json.chatwoot_url.replace(/\\/$/, '') }}/api/v1/accounts/{{ $('List Bookings Completed Today').item.json.chatwoot_account_id }}/conversations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"source_id\": \"{{ $('List Bookings Completed Today').item.json.patient_phone.replace('+','') }}\",\n  \"inbox_id\": \"{{ $('List Bookings Completed Today').item.json.chatwoot_inbox_id }}\",\n  \"contact\": {\n    \"name\": \"{{ $('List Bookings Completed Today').item.json.patient_name }}\",\n    \"phone_number\": \"{{ $('List Bookings Completed Today').item.json.patient_phone }}\"\n  },\n  \"message\": {\n    \"content\": \"Olá {{ $('List Bookings Completed Today').item.json.first_name }}! 👋\\n\\nComo foi sua consulta hoje com {{ $('List Bookings Completed Today').item.json.doctor_name }}?\\nDe 0 a 10, qual nota você daria?\\n\\n_Caso não tenha comparecido à consulta, é só ignorar esta mensagem._\"\n  },\n  \"status\": \"open\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        },
+        "body": ""
+      },
+      "id": "713f9eca-0711-44e6-a040-49bc46e56d74",
+      "name": "Chatwoot Send",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        -96
+      ],
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cs",
+              "leftValue": "={{ Number($json.id) > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "692f9f27-23c4-47d9-88a5-8193ef4517b1",
+      "name": "Send OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2160,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "b5852034-b65d-40fa-9d1d-a031c82656e2",
+      "name": "Loop Doctors",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.patient_feedback\nSET status = 'send_failed'\nWHERE id = {{ $('Insert Pending').item.json.id }}",
+        "options": {}
+      },
+      "id": "18385b11-6525-4b4f-afee-77e5b5e03dab",
+      "name": "Mark Send Failed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2400,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nps-test-trigger",
+        "options": {}
+      },
+      "id": "webhook-nps-test-001",
+      "name": "Webhook NPS Test",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -280
+      ],
+      "webhookId": "nps-test-trigger"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ft1",
+              "leftValue": "={{ $json.body.force_trigger }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-force-trigger-001",
+      "name": "Force Trigger?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        -280
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst phone = body.patient_phone || '';\nreturn [{ json: {\n  tenant_id: body.tenant_id || 'singulare',\n  chatwoot_url: body.chatwoot_url || 'https://chatwoot.singulare.org',\n  chatwoot_account_id: body.chatwoot_account_id || 1,\n  chatwoot_inbox_id: body.chatwoot_inbox_id || 3,\n  doctor_name: body.doctor_name || 'Dra. Paula Franzon',\n  appointment_date: new Date().toISOString(),\n  patient_phone: phone,\n  patient_name: body.patient_name || phone,\n  first_name: (body.patient_name || 'Paciente').split(' ')[0],\n  _test_mode: true\n}}];"
+      },
+      "id": "inject-test-data-001",
+      "name": "Inject Test Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        -280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  b.id::text                AS booking_id,\n  b.tenant_id,\n  b.patient_name,\n  b.patient_phone,\n  b.slot_start              AS appointment_date,\n  d.doctor_name,\n  t.evolution_instance_name,\n  t.chatwoot_url,\n  t.chatwoot_account_id,\n  t.chatwoot_inbox_id\nFROM public.doctor_bookings b\nJOIN public.tenant_doctors d ON d.id = b.doctor_id\nJOIN public.tenants t        ON t.tenant_id = b.tenant_id\nWHERE b.doctor_id = '{{ $json.doctor_id }}'\n  AND b.status = 'completed'\n  AND (b.slot_start AT TIME ZONE 'America/Sao_Paulo')::date\n      = ((now() AT TIME ZONE 'America/Sao_Paulo')::date)\n  AND NOT EXISTS (\n    SELECT 1 FROM public.patient_feedback f\n    WHERE f.booking_id = b.id\n  );",
+        "options": {}
+      },
+      "id": "pg-list-bookings-today",
+      "name": "List Bookings Completed Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        720,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cron 19:00 BRT": {
+      "main": [
+        [
+          {
+            "node": "List Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Doctors": {
+      "main": [
+        [
+          {
+            "node": "Loop Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Pending": {
+      "main": [
+        [
+          {
+            "node": "Chatwoot Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chatwoot Send": {
+      "main": [
+        [
+          {
+            "node": "Send OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send OK?": {
+      "main": [
+        [
+          {
+            "node": "Loop Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Send Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Doctors": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "List Bookings Completed Today",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Send Failed": {
+      "main": [
+        [
+          {
+            "node": "Loop Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook NPS Test": {
+      "main": [
+        [
+          {
+            "node": "Force Trigger?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Force Trigger?": {
+      "main": [
+        [
+          {
+            "node": "Inject Test Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Inject Test Data": {
+      "main": [
+        [
+          {
+            "node": "Insert Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Bookings Completed Today": {
+      "main": [
+        [
+          {
+            "node": "Insert Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Cron 19:00 BRT": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "aiBuilderAssisted": true
+  },
+  "pinData": {},
+  "activeVersionId": "0eb2180d-7821-49bb-88a7-362b91a7175f",
+  "versionCounter": 25,
+  "triggerCount": 2,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "87vZl62KFCOqFbyI",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-10T00:52:53.856Z",
+    "createdAt": "2026-05-10T00:52:53.856Z",
+    "versionId": "0eb2180d-7821-49bb-88a7-362b91a7175f",
+    "workflowId": "87vZl62KFCOqFbyI",
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 19 * * *"
+              }
+            ]
+          }
+        },
+        "id": "2f4c51da-0152-497f-8752-07cc52c5a20e",
+        "name": "Cron 19:00 BRT",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT\n  d.id AS doctor_id,\n  d.doctor_name,\n  d.calendar_id,\n  t.tenant_id,\n  t.evolution_instance_name,\n  t.chatwoot_url,\n  t.chatwoot_account_id,\n  t.chatwoot_inbox_id\nFROM public.tenant_doctors d\nJOIN public.tenants t ON t.tenant_id = d.tenant_id\nWHERE t.status = 'active'\n  AND t.evolution_status = 'connected'\n  AND t.evolution_instance_name IS NOT NULL\n  AND t.chatwoot_url IS NOT NULL\n  AND t.chatwoot_account_id IS NOT NULL\n  AND t.chatwoot_inbox_id IS NOT NULL\n  AND d.status = 'active'\n  AND d.calendar_id IS NOT NULL",
+          "options": {}
+        },
+        "id": "923b7874-4738-400c-8356-40b0594f9c75",
+        "name": "List Doctors",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          240,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {},
+        "id": "767545f6-d515-4a33-9194-4ff153ff1523",
+        "name": "Done",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          720,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO public.patient_feedback\n  (tenant_id, patient_name, patient_phone, doctor_name,\n   appointment_date, status, sent_at, booking_id)\nVALUES\n  ('{{ $('List Bookings Completed Today').item.json.tenant_id }}',\n   '{{ $('List Bookings Completed Today').item.json.patient_name }}',\n   '{{ $('List Bookings Completed Today').item.json.patient_phone }}',\n   '{{ $('List Bookings Completed Today').item.json.doctor_name }}',\n   '{{ $('List Bookings Completed Today').item.json.appointment_date }}',\n   'pending', NOW(),\n   '{{ $('List Bookings Completed Today').item.json.booking_id }}'::uuid)\nRETURNING id;",
+          "options": {}
+        },
+        "id": "499459fc-79c3-4d5e-9030-84bf85ac35ce",
+        "name": "Insert Pending",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          1680,
+          -96
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('List Bookings Completed Today').item.json.chatwoot_url.replace(/\\/$/, '') }}/api/v1/accounts/{{ $('List Bookings Completed Today').item.json.chatwoot_account_id }}/conversations",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"source_id\": \"{{ $('List Bookings Completed Today').item.json.patient_phone.replace('+','') }}\",\n  \"inbox_id\": \"{{ $('List Bookings Completed Today').item.json.chatwoot_inbox_id }}\",\n  \"contact\": {\n    \"name\": \"{{ $('List Bookings Completed Today').item.json.patient_name }}\",\n    \"phone_number\": \"{{ $('List Bookings Completed Today').item.json.patient_phone }}\"\n  },\n  \"message\": {\n    \"content\": \"Olá {{ $('List Bookings Completed Today').item.json.first_name }}! 👋\\n\\nComo foi sua consulta hoje com {{ $('List Bookings Completed Today').item.json.doctor_name }}?\\nDe 0 a 10, qual nota você daria?\\n\\n_Caso não tenha comparecido à consulta, é só ignorar esta mensagem._\"\n  },\n  \"status\": \"open\"\n}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          },
+          "body": ""
+        },
+        "id": "713f9eca-0711-44e6-a040-49bc46e56d74",
+        "name": "Chatwoot Send",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1920,
+          -96
+        ],
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "cs",
+                "leftValue": "={{ Number($json.id) > 0 }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "692f9f27-23c4-47d9-88a5-8193ef4517b1",
+        "name": "Send OK?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2160,
+          -96
+        ]
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "id": "b5852034-b65d-40fa-9d1d-a031c82656e2",
+        "name": "Loop Doctors",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          480,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "UPDATE public.patient_feedback\nSET status = 'send_failed'\nWHERE id = {{ $('Insert Pending').item.json.id }}",
+          "options": {}
+        },
+        "id": "18385b11-6525-4b4f-afee-77e5b5e03dab",
+        "name": "Mark Send Failed",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          2400,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "nps-test-trigger",
+          "options": {}
+        },
+        "id": "webhook-nps-test-001",
+        "name": "Webhook NPS Test",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          -280
+        ],
+        "webhookId": "nps-test-trigger"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "ft1",
+                "leftValue": "={{ $json.body.force_trigger }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "if-force-trigger-001",
+        "name": "Force Trigger?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          240,
+          -280
+        ]
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst phone = body.patient_phone || '';\nreturn [{ json: {\n  tenant_id: body.tenant_id || 'singulare',\n  chatwoot_url: body.chatwoot_url || 'https://chatwoot.singulare.org',\n  chatwoot_account_id: body.chatwoot_account_id || 1,\n  chatwoot_inbox_id: body.chatwoot_inbox_id || 3,\n  doctor_name: body.doctor_name || 'Dra. Paula Franzon',\n  appointment_date: new Date().toISOString(),\n  patient_phone: phone,\n  patient_name: body.patient_name || phone,\n  first_name: (body.patient_name || 'Paciente').split(' ')[0],\n  _test_mode: true\n}}];"
+        },
+        "id": "inject-test-data-001",
+        "name": "Inject Test Data",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          -280
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT\n  b.id::text                AS booking_id,\n  b.tenant_id,\n  b.patient_name,\n  b.patient_phone,\n  b.slot_start              AS appointment_date,\n  d.doctor_name,\n  t.evolution_instance_name,\n  t.chatwoot_url,\n  t.chatwoot_account_id,\n  t.chatwoot_inbox_id\nFROM public.doctor_bookings b\nJOIN public.tenant_doctors d ON d.id = b.doctor_id\nJOIN public.tenants t        ON t.tenant_id = b.tenant_id\nWHERE b.doctor_id = '{{ $json.doctor_id }}'\n  AND b.status = 'completed'\n  AND (b.slot_start AT TIME ZONE 'America/Sao_Paulo')::date\n      = ((now() AT TIME ZONE 'America/Sao_Paulo')::date)\n  AND NOT EXISTS (\n    SELECT 1 FROM public.patient_feedback f\n    WHERE f.booking_id = b.id\n  );",
+          "options": {}
+        },
+        "id": "pg-list-bookings-today",
+        "name": "List Bookings Completed Today",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          720,
+          0
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Cron 19:00 BRT": {
+        "main": [
+          [
+            {
+              "node": "List Doctors",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "List Doctors": {
+        "main": [
+          [
+            {
+              "node": "Loop Doctors",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Insert Pending": {
+        "main": [
+          [
+            {
+              "node": "Chatwoot Send",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Chatwoot Send": {
+        "main": [
+          [
+            {
+              "node": "Send OK?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send OK?": {
+        "main": [
+          [
+            {
+              "node": "Loop Doctors",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Mark Send Failed",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop Doctors": {
+        "main": [
+          [
+            {
+              "node": "Done",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "List Bookings Completed Today",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Mark Send Failed": {
+        "main": [
+          [
+            {
+              "node": "Loop Doctors",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook NPS Test": {
+        "main": [
+          [
+            {
+              "node": "Force Trigger?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Force Trigger?": {
+        "main": [
+          [
+            {
+              "node": "Inject Test Data",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          []
+        ]
+      },
+      "Inject Test Data": {
+        "main": [
+          [
+            {
+              "node": "Insert Pending",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "List Bookings Completed Today": {
+        "main": [
+          [
+            {
+              "node": "Insert Pending",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-10T00:52:53.922Z",
+        "id": 249,
+        "workflowId": "87vZl62KFCOqFbyI",
+        "versionId": "0eb2180d-7821-49bb-88a7-362b91a7175f",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-10T00:52:53.951Z",
+        "id": 250,
+        "workflowId": "87vZl62KFCOqFbyI",
+        "versionId": "0eb2180d-7821-49bb-88a7-362b91a7175f",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

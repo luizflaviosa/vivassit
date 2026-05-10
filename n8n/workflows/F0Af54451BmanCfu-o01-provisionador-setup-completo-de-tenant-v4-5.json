@@ -1,0 +1,1461 @@
+{
+  "id": "F0Af54451BmanCfu",
+  "name": "O01 — Provisionador · Setup Completo de Tenant · v4.5",
+  "description": "Onboarding rebuild 2026-05-03: paths data.* corretos + captura pair code; salva qr_code/qr_string/pairing_code; resposta inclui todos. Substitui v4.4.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "singulare-onboarding-v44",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1cae4e49-0809-4673-8a2a-9090fc3c6ba5",
+      "name": "Webhook Vivassit v4.4",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        96
+      ],
+      "webhookId": "24b9ea27-cf59-487a-85e2-e2db288f213e"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b=$input.first().json.body;let d;try{d=typeof b==='string'?JSON.parse(b):b;}catch(e){d=$input.first().json;}const r=d.real_phone||d.phone||'';return{real_phone:r.replace(/[\\s\\-\\(\\)]/g,''),clinic_name:d.clinic_name||'',admin_email:d.admin_email||'',address:d.address||'',doctor_name:d.doctor_name||'',doctor_crm:d.doctor_crm||'',speciality:d.speciality||d.specialty||'',consultation_duration:(d.consultation_duration||'30').toString(),establishment_type:d.establishment_type||'small_clinic',plan_type:d.plan_type||'professional',addon_human_support:!!d.addon_human_support,is_sob_medida:!!d.is_sob_medida,api_key_chatwoot:d.api_key_chatwoot||'oZy1eCh7dt3YdSthzov7YsJ9'};"
+      },
+      "id": "e0d47563-fbe2-4b13-9411-dbb9f666c3d9",
+      "name": "Processar Dados v4.4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "sob",
+              "leftValue": "={{ $json.is_sob_medida }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fc102584-2951-4f74-8c96-dbe0eb26f369",
+      "name": "Sob Medida? (skip)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({success:true,skipped:true,reason:\"sob_medida_proposal_pending\",message:\"Proposta sob medida — provisionamento pulado, equipe processará manualmente.\",version:\"4.4\"}) }}",
+        "options": {}
+      },
+      "id": "4ac6f9b2-31a2-413d-9491-13bbf6d68d52",
+      "name": "Respond Sob Medida Skip",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try{const d=$json;if(!/^\\+\\d{10,15}$/.test(d.real_phone))throw new Error('Phone invalido:'+d.real_phone);if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(d.admin_email))throw new Error('Email invalido');const s=d.clinic_name.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');const tid=s+'-'+Date.now().toString(36);return[{tenant_id:tid,clinic_name:d.clinic_name,email:d.admin_email,admin_email:d.admin_email,address:d.address||'',phone:d.real_phone,plan_type:d.plan_type,establishment_type:d.establishment_type,version:'4.4',doctor_name:d.doctor_name,doctor_crm:d.doctor_crm,speciality:d.speciality,consultation_duration:parseInt(d.consultation_duration)||30,addon_human_support:!!d.addon_human_support,api_key_chatwoot:d.api_key_chatwoot,calendar_name:d.clinic_name+' - Agenda Singulare',evolution_instance_name:tid,evolution_phone:d.real_phone.replace(/\\D/g,''),evolution_webhook_url:'https://n8n.singulare.org/webhook/evolution-events-v44',telegram_link:'https://t.me/SingulareBot?start='+tid,chatwoot_strategy:d.plan_type==='enterprise'?'DEDICATED':'SHARED'}];}catch(e){return[{status:'error',error:e.message,version:'4.4'}];}"
+      },
+      "id": "55d64cac-c603-4015-b18a-ccdd3bbe51e1",
+      "name": "Configurar Tenant v4.4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/calendar/v3/calendars",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "summary",
+              "value": "={{ $('Configurar Tenant v4.4').item.json.calendar_name }}"
+            },
+            {
+              "name": "timeZone",
+              "value": "America/Sao_Paulo"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "f80ac77a-bc64-4260-a564-197a4668477a",
+      "name": "Criar Calendar v4.4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        192
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "OkOV7izIvJcvD3wl",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Criar Calendar v4.4').item.json.id) }}/acl",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"role\": \"writer\",\n  \"scope\": { \"type\": \"user\", \"value\": \"atendimento-singulare@grand-quarter-462319-i7.iam.gserviceaccount.com\" }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "c6c3e3a8-d091-4b09-9f80-ddae0b16c442",
+      "name": "Compartilhar com SA v4.4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        192
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "OkOV7izIvJcvD3wl",
+          "name": "Google Calendar account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $('Configurar Tenant v4.4').item.json.tenant_id }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "id": "d413c0e8-fc71-4f6a-9d5f-67fb2b591e47",
+      "name": "Drive Folder v4.4",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1344,
+        192
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ZegivNH5EouVTbBe",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "instanceName": "={{ $('Configurar Tenant v4.4').item.json.tenant_id }}",
+        "number": "={{ $('Configurar Tenant v4.4').item.json.evolution_phone }}",
+        "options_Create_instance": {
+          "webhook": {
+            "webhookSettings": {
+              "webhookUrl": "={{ $('Configurar Tenant v4.4').item.json.evolution_webhook_url }}"
+            }
+          }
+        }
+      },
+      "id": "443b7120-f661-482d-866e-5601b8c1567b",
+      "name": "Criar Instancia v4.4",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        192
+      ],
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "instance-connect",
+        "instanceName": "={{ $('Criar Instancia v4.4').item.json?.instance?.instanceName || $('Configurar Tenant v4.4').item.json.tenant_id }}"
+      },
+      "id": "2365e085-3440-4fc8-81b1-1613ada5503f",
+      "name": "Conectar Instancia v4.4",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        1792,
+        192
+      ],
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "plan_check",
+              "leftValue": "={{ $('Configurar Tenant v4.4').item.json.plan_type }}",
+              "rightValue": "enterprise",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e087d084-7ab5-4e05-8fea-982f5ae83933",
+      "name": "Verificar Plano v4.4",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2016,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://chatwoot.singulare.org/api/v1/accounts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "account_name",
+              "value": "={{ $('Configurar Tenant v4.4').item.json.clinic_name }}"
+            },
+            {
+              "name": "owner_email",
+              "value": "={{ $('Configurar Tenant v4.4').item.json.email }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "3cfabc04-4c4e-412d-9371-5629ea7e8299",
+      "name": "Criar Chatwoot Dedicado v4.4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2240,
+        96
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gpCARqXkoPpDkUuF",
+          "name": "Header Auth account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "integrations-api",
+        "instanceName": "={{ ($('Criar Instancia v4.4').item.json?.instance?.instanceName || $('Configurar Tenant v4.4').item.json.tenant_id).slice(0,50) }}",
+        "chatwootUrl": "https://chatwoot.singulare.org/",
+        "chatwootAccountId": "={{ ($('Criar Chatwoot Dedicado v4.4').item.json?.id || 1).toString() }}",
+        "chatwootToken": "={{ $('Configurar Tenant v4.4').item.json.api_key_chatwoot }}",
+        "chatwootNameInbox": "={{ $('Configurar Tenant v4.4').item.json.tenant_id }}"
+      },
+      "id": "0da9b006-6ade-4fb0-80ae-af730db31d2b",
+      "name": "Inbox Enterprise v4.4",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        2464,
+        96
+      ],
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const t=$('Configurar Tenant v4.4').item.json;\nconst ev=$('Criar Instancia v4.4').item.json;\nconst con=$('Conectar Instancia v4.4').item.json;\nconst ca=$('Criar Calendar v4.4').item.json;\nconst dr=$('Drive Folder v4.4').item.json;\nlet acId='1',ibId='3',cwT='shared',cwD='https://chatwoot.singulare.org/';\ntry{const d=$('Criar Chatwoot Dedicado v4.4').item.json;if(d&&d.id){acId=d.id.toString();cwT='dedicated';}}catch(e){}\ntry{const ib=$input.item.json;if(ib&&ib.id)ibId=ib.id.toString();}catch(e){}\nconst qrCode=con?.data?.base64||con?.qrcode?.base64||null;\nconst qrString=con?.data?.code||con?.qrcode?.code||null;\nconst pairingCode=con?.data?.pairingCode||null;\nreturn[{\n  tenant_id:t.tenant_id,clinic_name:t.clinic_name,email:t.email,admin_email:t.admin_email,\n  address:t.address||'',\n  phone:t.phone,plan_type:t.plan_type,establishment_type:t.establishment_type,\n  doctor_name:t.doctor_name,doctor_crm:t.doctor_crm,speciality:t.speciality,\n  consultation_duration:t.consultation_duration,version:'4.4',status:'active',\n  subscription_status:'trial',\n  addon_human_support:!!t.addon_human_support,\n  calendar_id:ca?.id||'cal_'+Date.now(),\n  drive_folder_id:dr?.id||'drv_'+Date.now(),\n  evolution_instance_name:ev?.data?.instance?.instanceName||ev?.instance?.instanceName||t.tenant_id,\n  evolution_phone_number:t.evolution_phone,\n  evolution_qr_code:qrCode,\n  evolution_qr_string:qrString,\n  evolution_pairing_code:pairingCode,\n  evolution_status:ev?.data?.instance?.status||ev?.instance?.status||'created',\n  chatwoot_type:cwT,chatwoot_account_id:acId,chatwoot_inbox_id:ibId,\n  chatwoot_url:cwD,telegram_bot_link:t.telegram_link,\n  onboarding_status:'COMPLETO v4.4',provisioned_at:new Date().toISOString()\n}];"
+      },
+      "id": "eb5ec113-64df-4a7e-90c6-d4babf47c458",
+      "name": "Consolidar Dados v4.4",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2688,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "name",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "tenants"
+        },
+        "columns": "{{ 'tenant_id,clinic_name,email,phone,admin_email,address,plan_type,establishment_type,doctor_name,doctor_crm,speciality,consultation_duration,status,chatwoot_url,chatwoot_account_id,chatwoot_inbox_id,chatwoot_type,drive_folder_id,evolution_instance_name,evolution_phone_number,evolution_qr_code,evolution_qr_string,evolution_pairing_code,evolution_status,calendar_id,telegram_bot_link,version,subscription_status,provisioned_at' }}",
+        "options": {}
+      },
+      "id": "0a2aac71-9988-4a9b-abee-3e53a5069190",
+      "name": "Salvar Supabase v4.4",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2912,
+        192
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({success:true,tenant_id:$('Consolidar Dados v4.4').item.json.tenant_id,evolution_qr_code:$('Consolidar Dados v4.4').item.json.evolution_qr_code,evolution_qr_string:$('Consolidar Dados v4.4').item.json.evolution_qr_string,whatsapp_pairing_code:$('Consolidar Dados v4.4').item.json.evolution_pairing_code,evolution_instance_name:$('Consolidar Dados v4.4').item.json.evolution_instance_name,evolution_phone_number:$('Consolidar Dados v4.4').item.json.evolution_phone_number,evolution_status:$('Consolidar Dados v4.4').item.json.evolution_status,chatwoot_inbox_id:$('Consolidar Dados v4.4').item.json.chatwoot_inbox_id,telegram_bot_link:$('Consolidar Dados v4.4').item.json.telegram_bot_link,calendar_id:$('Consolidar Dados v4.4').item.json.calendar_id,drive_folder_id:$('Consolidar Dados v4.4').item.json.drive_folder_id,version:'4.4'}) }}",
+        "options": {}
+      },
+      "id": "6ebfead4-98ee-4c59-b660-29b6841979f6",
+      "name": "Respond Webhook v4.4",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3136,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "5749317361",
+        "text": "={{ '🎉 v4.4 ONBOARDING\\n\\n🏥 '+$('Consolidar Dados v4.4').item.json.clinic_name+'\\n👨‍⚕️ '+$('Consolidar Dados v4.4').item.json.doctor_name+'\\n📋 '+$('Consolidar Dados v4.4').item.json.plan_type.toUpperCase()+'\\n🆔 '+$('Consolidar Dados v4.4').item.json.tenant_id+($('Consolidar Dados v4.4').item.json.address?'\\n📍 '+$('Consolidar Dados v4.4').item.json.address:'')+'\\n📱 QR: '+($('Consolidar Dados v4.4').item.json.evolution_qr_code?'GERADO ✅':'PENDENTE ⚠️')+'\\n🔑 Pair: '+($('Consolidar Dados v4.4').item.json.evolution_pairing_code||'(numero nao-WA)')+'\\n💬 Inbox: '+$('Consolidar Dados v4.4').item.json.chatwoot_inbox_id+'\\n📅 SA Calendar: COMPARTILHADO ✅'+($('Consolidar Dados v4.4').item.json.addon_human_support?'\\n🤝 Add-on: Singulare Atendimento (R$ 297/mês)':'')+'\\n✅ Salvo Supabase!' }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "227b9a0f-23e3-4c5c-ae9f-795d939e6752",
+      "name": "Notif Admin v4.4",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3360,
+        192
+      ],
+      "webhookId": "a9f7d714-e546-416b-9e6a-83f2af5963fb",
+      "credentials": {
+        "telegramApi": {
+          "id": "sDb6ROA0185exLKN",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ct",
+              "name": "chatwoot_type",
+              "value": "shared",
+              "type": "string"
+            },
+            {
+              "id": "ca",
+              "name": "chatwoot_account_id",
+              "value": "1",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9f6f60bb-edf2-4329-9f7b-abfd91c4efb9",
+      "name": "Set Chatwoot Shared v4.4",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2240,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "integrations-api",
+        "instanceName": "={{ ($('Criar Instancia v4.4').item.json?.instance?.instanceName || $('Configurar Tenant v4.4').item.json.tenant_id).slice(0,50) }}",
+        "chatwootUrl": "https://chatwoot.singulare.org/",
+        "chatwootAccountId": "1",
+        "chatwootToken": "={{ $('Configurar Tenant v4.4').item.json.api_key_chatwoot }}",
+        "chatwootNameInbox": "={{ $('Configurar Tenant v4.4').item.json.tenant_id }}"
+      },
+      "id": "2c93b8a9-0520-48c3-b4a6-e503aec5b1c0",
+      "name": "Inbox Shared v4.4",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        2464,
+        288
+      ],
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook Vivassit v4.4": {
+      "main": [
+        [
+          {
+            "node": "Processar Dados v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Dados v4.4": {
+      "main": [
+        [
+          {
+            "node": "Sob Medida? (skip)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sob Medida? (skip)": {
+      "main": [
+        [
+          {
+            "node": "Respond Sob Medida Skip",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Configurar Tenant v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configurar Tenant v4.4": {
+      "main": [
+        [
+          {
+            "node": "Criar Calendar v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Calendar v4.4": {
+      "main": [
+        [
+          {
+            "node": "Compartilhar com SA v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compartilhar com SA v4.4": {
+      "main": [
+        [
+          {
+            "node": "Drive Folder v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive Folder v4.4": {
+      "main": [
+        [
+          {
+            "node": "Criar Instancia v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Instancia v4.4": {
+      "main": [
+        [
+          {
+            "node": "Conectar Instancia v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conectar Instancia v4.4": {
+      "main": [
+        [
+          {
+            "node": "Verificar Plano v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Plano v4.4": {
+      "main": [
+        [
+          {
+            "node": "Criar Chatwoot Dedicado v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Chatwoot Shared v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Chatwoot Dedicado v4.4": {
+      "main": [
+        [
+          {
+            "node": "Inbox Enterprise v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inbox Enterprise v4.4": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Dados v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidar Dados v4.4": {
+      "main": [
+        [
+          {
+            "node": "Salvar Supabase v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar Supabase v4.4": {
+      "main": [
+        [
+          {
+            "node": "Respond Webhook v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond Webhook v4.4": {
+      "main": [
+        [
+          {
+            "node": "Notif Admin v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Chatwoot Shared v4.4": {
+      "main": [
+        [
+          {
+            "node": "Inbox Shared v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inbox Shared v4.4": {
+      "main": [
+        [
+          {
+            "node": "Consolidar Dados v4.4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "pinData": {},
+  "activeVersionId": "7f559a25-8022-41a9-9019-591e538a3b7d",
+  "versionCounter": 19,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "F0Af54451BmanCfu",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-04T21:45:41.954Z",
+    "createdAt": "2026-05-04T21:18:47.436Z",
+    "versionId": "7f559a25-8022-41a9-9019-591e538a3b7d",
+    "workflowId": "F0Af54451BmanCfu",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "singulare-onboarding-v44",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "1cae4e49-0809-4673-8a2a-9090fc3c6ba5",
+        "name": "Webhook Vivassit v4.4",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          96
+        ],
+        "webhookId": "24b9ea27-cf59-487a-85e2-e2db288f213e"
+      },
+      {
+        "parameters": {
+          "jsCode": "const b=$input.first().json.body;let d;try{d=typeof b==='string'?JSON.parse(b):b;}catch(e){d=$input.first().json;}const r=d.real_phone||d.phone||'';return{real_phone:r.replace(/[\\s\\-\\(\\)]/g,''),clinic_name:d.clinic_name||'',admin_email:d.admin_email||'',address:d.address||'',doctor_name:d.doctor_name||'',doctor_crm:d.doctor_crm||'',speciality:d.speciality||d.specialty||'',consultation_duration:(d.consultation_duration||'30').toString(),establishment_type:d.establishment_type||'small_clinic',plan_type:d.plan_type||'professional',addon_human_support:!!d.addon_human_support,is_sob_medida:!!d.is_sob_medida,api_key_chatwoot:d.api_key_chatwoot||'oZy1eCh7dt3YdSthzov7YsJ9'};"
+        },
+        "id": "e0d47563-fbe2-4b13-9411-dbb9f666c3d9",
+        "name": "Processar Dados v4.4",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          224,
+          96
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "sob",
+                "leftValue": "={{ $json.is_sob_medida }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "fc102584-2951-4f74-8c96-dbe0eb26f369",
+        "name": "Sob Medida? (skip)",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          448,
+          96
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({success:true,skipped:true,reason:\"sob_medida_proposal_pending\",message:\"Proposta sob medida — provisionamento pulado, equipe processará manualmente.\",version:\"4.4\"}) }}",
+          "options": {}
+        },
+        "id": "4ac6f9b2-31a2-413d-9491-13bbf6d68d52",
+        "name": "Respond Sob Medida Skip",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          672,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "try{const d=$json;if(!/^\\+\\d{10,15}$/.test(d.real_phone))throw new Error('Phone invalido:'+d.real_phone);if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(d.admin_email))throw new Error('Email invalido');const s=d.clinic_name.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');const tid=s+'-'+Date.now().toString(36);return[{tenant_id:tid,clinic_name:d.clinic_name,email:d.admin_email,admin_email:d.admin_email,address:d.address||'',phone:d.real_phone,plan_type:d.plan_type,establishment_type:d.establishment_type,version:'4.4',doctor_name:d.doctor_name,doctor_crm:d.doctor_crm,speciality:d.speciality,consultation_duration:parseInt(d.consultation_duration)||30,addon_human_support:!!d.addon_human_support,api_key_chatwoot:d.api_key_chatwoot,calendar_name:d.clinic_name+' - Agenda Singulare',evolution_instance_name:tid,evolution_phone:d.real_phone.replace(/\\D/g,''),evolution_webhook_url:'https://n8n.singulare.org/webhook/evolution-events-v44',telegram_link:'https://t.me/SingulareBot?start='+tid,chatwoot_strategy:d.plan_type==='enterprise'?'DEDICATED':'SHARED'}];}catch(e){return[{status:'error',error:e.message,version:'4.4'}];}"
+        },
+        "id": "55d64cac-c603-4015-b18a-ccdd3bbe51e1",
+        "name": "Configurar Tenant v4.4",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          672,
+          192
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://www.googleapis.com/calendar/v3/calendars",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "googleCalendarOAuth2Api",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "summary",
+                "value": "={{ $('Configurar Tenant v4.4').item.json.calendar_name }}"
+              },
+              {
+                "name": "timeZone",
+                "value": "America/Sao_Paulo"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "id": "f80ac77a-bc64-4260-a564-197a4668477a",
+        "name": "Criar Calendar v4.4",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          896,
+          192
+        ],
+        "credentials": {
+          "googleCalendarOAuth2Api": {
+            "id": "OkOV7izIvJcvD3wl",
+            "name": "Google Calendar account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Criar Calendar v4.4').item.json.id) }}/acl",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "googleCalendarOAuth2Api",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"role\": \"writer\",\n  \"scope\": { \"type\": \"user\", \"value\": \"atendimento-singulare@grand-quarter-462319-i7.iam.gserviceaccount.com\" }\n}",
+          "options": {
+            "response": {
+              "response": {
+                "neverError": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "id": "c6c3e3a8-d091-4b09-9f80-ddae0b16c442",
+        "name": "Compartilhar com SA v4.4",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1120,
+          192
+        ],
+        "credentials": {
+          "googleCalendarOAuth2Api": {
+            "id": "OkOV7izIvJcvD3wl",
+            "name": "Google Calendar account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "resource": "folder",
+          "name": "={{ $('Configurar Tenant v4.4').item.json.tenant_id }}",
+          "driveId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "My Drive"
+          },
+          "folderId": {
+            "__rl": true,
+            "mode": "list",
+            "value": "root",
+            "cachedResultName": "/ (Root folder)"
+          },
+          "options": {}
+        },
+        "id": "d413c0e8-fc71-4f6a-9d5f-67fb2b591e47",
+        "name": "Drive Folder v4.4",
+        "type": "n8n-nodes-base.googleDrive",
+        "typeVersion": 3,
+        "position": [
+          1344,
+          192
+        ],
+        "credentials": {
+          "googleDriveOAuth2Api": {
+            "id": "ZegivNH5EouVTbBe",
+            "name": "Google Drive account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "instanceName": "={{ $('Configurar Tenant v4.4').item.json.tenant_id }}",
+          "number": "={{ $('Configurar Tenant v4.4').item.json.evolution_phone }}",
+          "options_Create_instance": {
+            "webhook": {
+              "webhookSettings": {
+                "webhookUrl": "={{ $('Configurar Tenant v4.4').item.json.evolution_webhook_url }}"
+              }
+            }
+          }
+        },
+        "id": "443b7120-f661-482d-866e-5601b8c1567b",
+        "name": "Criar Instancia v4.4",
+        "type": "n8n-nodes-evolution-api.evolutionApi",
+        "typeVersion": 1,
+        "position": [
+          1568,
+          192
+        ],
+        "credentials": {
+          "evolutionApi": {
+            "id": "yFAQwH6wPqroKla0",
+            "name": "Evolution account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "operation": "instance-connect",
+          "instanceName": "={{ $('Criar Instancia v4.4').item.json?.instance?.instanceName || $('Configurar Tenant v4.4').item.json.tenant_id }}"
+        },
+        "id": "2365e085-3440-4fc8-81b1-1613ada5503f",
+        "name": "Conectar Instancia v4.4",
+        "type": "n8n-nodes-evolution-api.evolutionApi",
+        "typeVersion": 1,
+        "position": [
+          1792,
+          192
+        ],
+        "credentials": {
+          "evolutionApi": {
+            "id": "yFAQwH6wPqroKla0",
+            "name": "Evolution account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "plan_check",
+                "leftValue": "={{ $('Configurar Tenant v4.4').item.json.plan_type }}",
+                "rightValue": "enterprise",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "e087d084-7ab5-4e05-8fea-982f5ae83933",
+        "name": "Verificar Plano v4.4",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2016,
+          192
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://chatwoot.singulare.org/api/v1/accounts",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "account_name",
+                "value": "={{ $('Configurar Tenant v4.4').item.json.clinic_name }}"
+              },
+              {
+                "name": "owner_email",
+                "value": "={{ $('Configurar Tenant v4.4').item.json.email }}"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "id": "3cfabc04-4c4e-412d-9371-5629ea7e8299",
+        "name": "Criar Chatwoot Dedicado v4.4",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2240,
+          96
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "gpCARqXkoPpDkUuF",
+            "name": "Header Auth account 2"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "resource": "integrations-api",
+          "instanceName": "={{ ($('Criar Instancia v4.4').item.json?.instance?.instanceName || $('Configurar Tenant v4.4').item.json.tenant_id).slice(0,50) }}",
+          "chatwootUrl": "https://chatwoot.singulare.org/",
+          "chatwootAccountId": "={{ ($('Criar Chatwoot Dedicado v4.4').item.json?.id || 1).toString() }}",
+          "chatwootToken": "={{ $('Configurar Tenant v4.4').item.json.api_key_chatwoot }}",
+          "chatwootNameInbox": "={{ $('Configurar Tenant v4.4').item.json.tenant_id }}"
+        },
+        "id": "0da9b006-6ade-4fb0-80ae-af730db31d2b",
+        "name": "Inbox Enterprise v4.4",
+        "type": "n8n-nodes-evolution-api.evolutionApi",
+        "typeVersion": 1,
+        "position": [
+          2464,
+          96
+        ],
+        "credentials": {
+          "evolutionApi": {
+            "id": "yFAQwH6wPqroKla0",
+            "name": "Evolution account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const t=$('Configurar Tenant v4.4').item.json;\nconst ev=$('Criar Instancia v4.4').item.json;\nconst con=$('Conectar Instancia v4.4').item.json;\nconst ca=$('Criar Calendar v4.4').item.json;\nconst dr=$('Drive Folder v4.4').item.json;\nlet acId='1',ibId='3',cwT='shared',cwD='https://chatwoot.singulare.org/';\ntry{const d=$('Criar Chatwoot Dedicado v4.4').item.json;if(d&&d.id){acId=d.id.toString();cwT='dedicated';}}catch(e){}\ntry{const ib=$input.item.json;if(ib&&ib.id)ibId=ib.id.toString();}catch(e){}\nconst qrCode=con?.data?.base64||con?.qrcode?.base64||null;\nconst qrString=con?.data?.code||con?.qrcode?.code||null;\nconst pairingCode=con?.data?.pairingCode||null;\nreturn[{\n  tenant_id:t.tenant_id,clinic_name:t.clinic_name,email:t.email,admin_email:t.admin_email,\n  address:t.address||'',\n  phone:t.phone,plan_type:t.plan_type,establishment_type:t.establishment_type,\n  doctor_name:t.doctor_name,doctor_crm:t.doctor_crm,speciality:t.speciality,\n  consultation_duration:t.consultation_duration,version:'4.4',status:'active',\n  subscription_status:'trial',\n  addon_human_support:!!t.addon_human_support,\n  calendar_id:ca?.id||'cal_'+Date.now(),\n  drive_folder_id:dr?.id||'drv_'+Date.now(),\n  evolution_instance_name:ev?.data?.instance?.instanceName||ev?.instance?.instanceName||t.tenant_id,\n  evolution_phone_number:t.evolution_phone,\n  evolution_qr_code:qrCode,\n  evolution_qr_string:qrString,\n  evolution_pairing_code:pairingCode,\n  evolution_status:ev?.data?.instance?.status||ev?.instance?.status||'created',\n  chatwoot_type:cwT,chatwoot_account_id:acId,chatwoot_inbox_id:ibId,\n  chatwoot_url:cwD,telegram_bot_link:t.telegram_link,\n  onboarding_status:'COMPLETO v4.4',provisioned_at:new Date().toISOString()\n}];"
+        },
+        "id": "eb5ec113-64df-4a7e-90c6-d4babf47c458",
+        "name": "Consolidar Dados v4.4",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2688,
+          192
+        ]
+      },
+      {
+        "parameters": {
+          "schema": {
+            "__rl": true,
+            "mode": "name",
+            "value": "public"
+          },
+          "table": {
+            "__rl": true,
+            "mode": "name",
+            "value": "tenants"
+          },
+          "columns": "{{ 'tenant_id,clinic_name,email,phone,admin_email,address,plan_type,establishment_type,doctor_name,doctor_crm,speciality,consultation_duration,status,chatwoot_url,chatwoot_account_id,chatwoot_inbox_id,chatwoot_type,drive_folder_id,evolution_instance_name,evolution_phone_number,evolution_qr_code,evolution_qr_string,evolution_pairing_code,evolution_status,calendar_id,telegram_bot_link,version,subscription_status,provisioned_at' }}",
+          "options": {}
+        },
+        "id": "0a2aac71-9988-4a9b-abee-3e53a5069190",
+        "name": "Salvar Supabase v4.4",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          2912,
+          192
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({success:true,tenant_id:$('Consolidar Dados v4.4').item.json.tenant_id,evolution_qr_code:$('Consolidar Dados v4.4').item.json.evolution_qr_code,evolution_qr_string:$('Consolidar Dados v4.4').item.json.evolution_qr_string,whatsapp_pairing_code:$('Consolidar Dados v4.4').item.json.evolution_pairing_code,evolution_instance_name:$('Consolidar Dados v4.4').item.json.evolution_instance_name,evolution_phone_number:$('Consolidar Dados v4.4').item.json.evolution_phone_number,evolution_status:$('Consolidar Dados v4.4').item.json.evolution_status,chatwoot_inbox_id:$('Consolidar Dados v4.4').item.json.chatwoot_inbox_id,telegram_bot_link:$('Consolidar Dados v4.4').item.json.telegram_bot_link,calendar_id:$('Consolidar Dados v4.4').item.json.calendar_id,drive_folder_id:$('Consolidar Dados v4.4').item.json.drive_folder_id,version:'4.4'}) }}",
+          "options": {}
+        },
+        "id": "6ebfead4-98ee-4c59-b660-29b6841979f6",
+        "name": "Respond Webhook v4.4",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          3136,
+          192
+        ]
+      },
+      {
+        "parameters": {
+          "chatId": "5749317361",
+          "text": "={{ '🎉 v4.4 ONBOARDING\\n\\n🏥 '+$('Consolidar Dados v4.4').item.json.clinic_name+'\\n👨‍⚕️ '+$('Consolidar Dados v4.4').item.json.doctor_name+'\\n📋 '+$('Consolidar Dados v4.4').item.json.plan_type.toUpperCase()+'\\n🆔 '+$('Consolidar Dados v4.4').item.json.tenant_id+($('Consolidar Dados v4.4').item.json.address?'\\n📍 '+$('Consolidar Dados v4.4').item.json.address:'')+'\\n📱 QR: '+($('Consolidar Dados v4.4').item.json.evolution_qr_code?'GERADO ✅':'PENDENTE ⚠️')+'\\n🔑 Pair: '+($('Consolidar Dados v4.4').item.json.evolution_pairing_code||'(numero nao-WA)')+'\\n💬 Inbox: '+$('Consolidar Dados v4.4').item.json.chatwoot_inbox_id+'\\n📅 SA Calendar: COMPARTILHADO ✅'+($('Consolidar Dados v4.4').item.json.addon_human_support?'\\n🤝 Add-on: Singulare Atendimento (R$ 297/mês)':'')+'\\n✅ Salvo Supabase!' }}",
+          "additionalFields": {
+            "parse_mode": "HTML"
+          }
+        },
+        "id": "227b9a0f-23e3-4c5c-ae9f-795d939e6752",
+        "name": "Notif Admin v4.4",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          3360,
+          192
+        ],
+        "webhookId": "a9f7d714-e546-416b-9e6a-83f2af5963fb",
+        "credentials": {
+          "telegramApi": {
+            "id": "sDb6ROA0185exLKN",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "ct",
+                "name": "chatwoot_type",
+                "value": "shared",
+                "type": "string"
+              },
+              {
+                "id": "ca",
+                "name": "chatwoot_account_id",
+                "value": "1",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "9f6f60bb-edf2-4329-9f7b-abfd91c4efb9",
+        "name": "Set Chatwoot Shared v4.4",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          2240,
+          288
+        ]
+      },
+      {
+        "parameters": {
+          "resource": "integrations-api",
+          "instanceName": "={{ ($('Criar Instancia v4.4').item.json?.instance?.instanceName || $('Configurar Tenant v4.4').item.json.tenant_id).slice(0,50) }}",
+          "chatwootUrl": "https://chatwoot.singulare.org/",
+          "chatwootAccountId": "1",
+          "chatwootToken": "={{ $('Configurar Tenant v4.4').item.json.api_key_chatwoot }}",
+          "chatwootNameInbox": "={{ $('Configurar Tenant v4.4').item.json.tenant_id }}"
+        },
+        "id": "2c93b8a9-0520-48c3-b4a6-e503aec5b1c0",
+        "name": "Inbox Shared v4.4",
+        "type": "n8n-nodes-evolution-api.evolutionApi",
+        "typeVersion": 1,
+        "position": [
+          2464,
+          288
+        ],
+        "credentials": {
+          "evolutionApi": {
+            "id": "yFAQwH6wPqroKla0",
+            "name": "Evolution account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      }
+    ],
+    "connections": {
+      "Webhook Vivassit v4.4": {
+        "main": [
+          [
+            {
+              "node": "Processar Dados v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Processar Dados v4.4": {
+        "main": [
+          [
+            {
+              "node": "Sob Medida? (skip)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Sob Medida? (skip)": {
+        "main": [
+          [
+            {
+              "node": "Respond Sob Medida Skip",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Configurar Tenant v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Configurar Tenant v4.4": {
+        "main": [
+          [
+            {
+              "node": "Criar Calendar v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Criar Calendar v4.4": {
+        "main": [
+          [
+            {
+              "node": "Compartilhar com SA v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Compartilhar com SA v4.4": {
+        "main": [
+          [
+            {
+              "node": "Drive Folder v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Drive Folder v4.4": {
+        "main": [
+          [
+            {
+              "node": "Criar Instancia v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Criar Instancia v4.4": {
+        "main": [
+          [
+            {
+              "node": "Conectar Instancia v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Conectar Instancia v4.4": {
+        "main": [
+          [
+            {
+              "node": "Verificar Plano v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Verificar Plano v4.4": {
+        "main": [
+          [
+            {
+              "node": "Criar Chatwoot Dedicado v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Set Chatwoot Shared v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Criar Chatwoot Dedicado v4.4": {
+        "main": [
+          [
+            {
+              "node": "Inbox Enterprise v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Inbox Enterprise v4.4": {
+        "main": [
+          [
+            {
+              "node": "Consolidar Dados v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Consolidar Dados v4.4": {
+        "main": [
+          [
+            {
+              "node": "Salvar Supabase v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Salvar Supabase v4.4": {
+        "main": [
+          [
+            {
+              "node": "Respond Webhook v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Respond Webhook v4.4": {
+        "main": [
+          [
+            {
+              "node": "Notif Admin v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Chatwoot Shared v4.4": {
+        "main": [
+          [
+            {
+              "node": "Inbox Shared v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Inbox Shared v4.4": {
+        "main": [
+          [
+            {
+              "node": "Consolidar Dados v4.4",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "import",
+    "name": "Version fdf225cc",
+    "description": "",
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-04T21:45:41.948Z",
+        "id": 5,
+        "workflowId": "F0Af54451BmanCfu",
+        "versionId": "7f559a25-8022-41a9-9019-591e538a3b7d",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:29.677Z",
+        "id": 214,
+        "workflowId": "F0Af54451BmanCfu",
+        "versionId": "7f559a25-8022-41a9-9019-591e538a3b7d",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:29.706Z",
+        "id": 215,
+        "workflowId": "F0Af54451BmanCfu",
+        "versionId": "7f559a25-8022-41a9-9019-591e538a3b7d",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

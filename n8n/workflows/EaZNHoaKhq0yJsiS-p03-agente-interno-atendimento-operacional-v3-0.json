@@ -1,0 +1,1155 @@
+{
+  "id": "EaZNHoaKhq0yJsiS",
+  "name": "P03 — Agente Interno · Atendimento Operacional · v3.0",
+  "description": "v3.2 — usa credential names que já existem (Google Gemini(PaLM) Api account, Postgres account) pra auto-assignment.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "singulare-internal-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0fa0fd8b-fcfc-4dc7-88dc-1fb45e5bafb8",
+      "name": "Receber Chat Web",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        112
+      ],
+      "webhookId": "12415b7d-08bb-4097-b496-633b5234bac8"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "m",
+              "name": "message",
+              "value": "={{ $json.body.message }}",
+              "type": "string"
+            },
+            {
+              "id": "t",
+              "name": "tenant_id",
+              "value": "={{ $json.body.tenant_id }}",
+              "type": "string"
+            },
+            {
+              "id": "u",
+              "name": "user_id",
+              "value": "={{ $json.body.user_id }}",
+              "type": "string"
+            },
+            {
+              "id": "r",
+              "name": "role",
+              "value": "={{ $json.body.role || \"owner\" }}",
+              "type": "string"
+            },
+            {
+              "id": "c",
+              "name": "clinic_name",
+              "value": "={{ $json.body.clinic_name || \"sua clínica\" }}",
+              "type": "string"
+            },
+            {
+              "id": "s",
+              "name": "session_key",
+              "value": "={{ \"singulare_chat_\" + ($json.body.tenant_id || \"default\") + \"_\" + ($json.body.user_id || \"anon\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d06edb81-3d06-4891-acd6-f113060f0fcc",
+      "name": "Set Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Set Input').item.json.message }}",
+        "options": {
+          "systemMessage": "=Você é o assistente interno da {{ $('Set Input').item.json.clinic_name }}.\n\nCONTEXTO TEMPORAL CRÍTICO: Hoje é {{ $now.toFormat('yyyy-MM-dd') }} ({{ $now.setLocale('pt-BR').toFormat('cccc') }}). NUNCA chute datas do seu treinamento — calcule sempre a partir desta data de hoje.\n\nSEU INTERLOCUTOR: role = \"{{ $('Set Input').item.json.role }}\".\n\nESCOPO DE VISÃO POR ROLE (regra rígida):\n- role=doctor → INDIVIDUAL. Você fala com a médica/médico em pessoa. Quando ela pergunta \"minha agenda\", \"meus pacientes\", \"minha próxima semana\" — o backend JÁ filtra automaticamente pelo doctor_id dela. Diga \"sua agenda\", \"seus pacientes\". NUNCA passe doctor_id em params (é ignorado e pode causar confusão). NUNCA cite outros médicos.\n- role=admin/owner/staff → COLETIVO. Você fala com quem administra a clínica. Pode ver TODOS os médicos. Quando perguntar \"agenda da Dra X\", \"faturamento do Dr Y\": (1) primeiro chame `medicos_listar` pra resolver nome → doctor_id, (2) depois chame a tool de agenda/etc passando `doctor_id` no params. Sem doctor_id = visão coletiva (todos somados).\n- role=viewer → coletivo só leitura.\n\nResponda em 1-2 frases curtas, português BR, sem markdown.\n\nUse `singulare_dispatch` pra dados. Os nomes dos PARÂMETROS são em INGLÊS — não traduza, copie literalmente do schema abaixo.\n\n▸ READS (executa direto, mode pode omitir):\n- agenda_hoje               → { doctor_id?: \"uuid\" (admin/owner only) }\n- agenda_periodo            → { start: \"YYYY-MM-DD\", end: \"YYYY-MM-DD\", status?: \"booked\"|\"confirmed\"|\"completed\"|\"cancelled\"|\"all\", doctor_id?: \"uuid\" (admin/owner only) }\n- medicos_listar            → params: {} — devolve doctor_id, name, specialty, crm. Doctor vê só ele; admin/owner vê todos.\n- pacientes_count           → { since?: \"YYYY-MM-DD\" }\n- pacientes_proximos        → { weeks_ahead?: number (1-12, default 2), doctor_id?: \"uuid\" (admin/owner only) }\n- pagamentos_status         → { start?: \"YYYY-MM-DD\", end?: \"YYYY-MM-DD\" } [coletivo — backend ainda não filtra por médico]\n- pagamentos_pendentes      → { include_overdue_only?: boolean } [coletivo]\n- nps_resumo                → { since?: \"YYYY-MM-DD\" } [coletivo]\n- reviews_externos          → params: {} [coletivo]\n- documentos_listar         → { paciente_id?: \"uuid\", status?: \"draft\"|\"sent\"|\"signed\"|\"all\", limit?: number, doctor_id?: \"uuid\" (admin/owner only) }\n\nCONTEXTO DE DADOS (importante): a agenda de fato vem da tabela doctor_bookings (source of truth — onde o bot grava bookings). Status canônicos: booked (recém-marcada), confirmed (reconfirmada pelo paciente), completed (atendimento ocorreu), cancelled. NÃO use 'scheduled' — esse termo não existe no enum (o equivalente é 'booked'). Os campos retornados incluem patient_name e patient_phone direto. Evento no Google Calendar é espelhado via calendar_event_id (campo in_calendar=true/false na resposta).\n\n▸ WRITES (SEMPRE mode=\"propose\" — humano confirma; nunca mode=\"execute\" direto):\n- consulta_reagendar        → { appointment_id: \"uuid_do_booking\", new_date: \"YYYY-MM-DDTHH:mm\" }  [só atualiza DB; Calendar fica desincronizado, há aviso no card]\n- consulta_cancelar         → { appointment_id: \"uuid_do_booking\", reason?: string }  [só atualiza DB; Calendar idem]\n- paciente_criar            → { name: string, phone: \"+55...\", birthdate?: \"YYYY-MM-DD\", email?: string }\n- cobranca_avulsa           → { paciente_id: \"uuid\", valor: number, descricao: string, metodo?: \"pix\"|\"cartao\"|\"boleto\" }\n- documento_gerar           → { template_id: \"uuid\", paciente_id: \"uuid\" }\n- documento_assinar         → { documento_id: \"uuid\" }\n\nEXEMPLO de cálculo de \"próxima semana\" (hoje = {{ $now.toFormat('yyyy-MM-dd') }}):\n  start = {{ $now.plus({ days: 1 }).startOf('week').toFormat('yyyy-MM-dd') }} (segunda-feira da próxima semana)\n  end   = {{ $now.plus({ days: 1 }).endOf('week').toFormat('yyyy-MM-dd') }}   (domingo)\n\nEXEMPLO 2 (admin/owner perguntando \"agenda da Dra Paula próxima semana\"):\n  1. dispatch { tool: \"medicos_listar\" } → pega doctor_id da Paula\n  2. dispatch { tool: \"agenda_periodo\", params: { start, end, doctor_id: <id_da_paula> } }\n\nSe dispatch retornar `{ card }`, copie o card como JSON UMA LINHA entre [[CARD]] e [[/CARD]].",
+          "maxIterations": 6,
+          "enableStreaming": false
+        }
+      },
+      "id": "9d65c93b-bc64-4f8c-bd99-3910524f3c6f",
+      "name": "Agente Interno Singulare",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        560,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "71d8e0a6-59de-4210-ae1b-1e8d3f6fc9d3",
+      "name": "Gemini",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        336
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "IfMvUmMoeAZrytgT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Set Input').item.json.session_key }}",
+        "tableName": "n8n_historico_mensagens",
+        "contextWindowLength": 10
+      },
+      "id": "e6c3a617-abc2-43dc-9371-dc24bc473f3f",
+      "name": "Memória Chat",
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        576,
+        336
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Executa qualquer tool do Singulare. Reads executam direto. Writes — sempre mode=propose.",
+        "method": "POST",
+        "url": "https://app.singulare.org/api/interno/tools",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tool: $fromAI(\"tool\", \"Nome exato da tool\", \"string\"), params: $fromAI(\"params\", \"Objeto JSON com parâmetros\", \"json\") || {}, tenant_id: $(\"Set Input\").item.json.tenant_id, user_id: $(\"Set Input\").item.json.user_id, role: $(\"Set Input\").item.json.role, mode: $fromAI(\"mode\", \"propose ou execute\", \"string\") || \"propose\" }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "91624794-fe0f-49dd-baf3-935b38a80077",
+      "name": "singulare_dispatch",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        720,
+        400
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "f3EsS9DLhzuhFW6g",
+          "name": "Header Auth N8N TO VERCEL"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "696569e7-8355-4f3d-abd2-b8b851ef1d35",
+      "name": "Refletir",
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1,
+      "position": [
+        832,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.output }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "5e51266a-7c9e-4a60-a069-81f1166de28d",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1040,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "IUFMBjkYRcp20xr7",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/IUFMBjkYRcp20xr7",
+          "cachedResultName": "5. Enviar agendamento"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "mensagem",
+              "displayName": "mensagem",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "id_conta",
+              "displayName": "id_conta",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "id_conversa",
+              "displayName": "id_conversa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "url_chatwoot",
+              "displayName": "url_chatwoot",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        304
+      ],
+      "id": "8a009bc8-9042-4a0e-bd40-1757f878d7b5",
+      "name": "Call '5. Enviar agendamento'"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://n8n:5678/mcp/db6bc79d-ba32-41c4-b492-f0f5bbcb8fd3/sse",
+        "serverTransport": "sse",
+        "authentication": "none",
+        "include": "selected",
+        "includeTools": [],
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        928,
+        400
+      ],
+      "id": "ae46d5d7-c1ce-4714-b084-a9f9ab03a95b",
+      "name": "MCP Client"
+    },
+    {
+      "id": "sm-1778263822858",
+      "name": "Salvar_memoria",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        400,
+        600
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      },
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Salva mensagem AI no histórico (n8n_historico_mensagens). Use sempre que enviar resposta importante pro paciente via outras tools.",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "n8n_historico_mensagens"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $fromAI(\"session_id\", \"Telefone E.164 sem +\", \"string\") }}",
+            "message": "={ \"type\": \"ai\", \"content\": \"{{ $fromAI('content', 'Mensagem enviada', 'string') }}\" }",
+            "tenant_id": "={{ $('Set Input').item.json.tenant_id }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tenant_id",
+              "displayName": "tenant_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "le-1778263822858",
+      "name": "Ler_emails",
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.1,
+      "position": [
+        580,
+        600
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "C6feR6xeiwrFJ35Y",
+          "name": "Gmail account"
+        }
+      },
+      "webhookId": "le-wh-1778263822858",
+      "parameters": {
+        "operation": "getAll",
+        "limit": 5,
+        "filters": {}
+      }
+    },
+    {
+      "id": "ct-1778263822858",
+      "name": "Criar_tarefa",
+      "type": "n8n-nodes-base.googleTasksTool",
+      "typeVersion": 1,
+      "position": [
+        760,
+        600
+      ],
+      "credentials": {
+        "googleTasksOAuth2Api": {
+          "id": "U8H0pchPJHaNf03t",
+          "name": "Google Tasks account"
+        }
+      },
+      "parameters": {
+        "task": "YXdwUHJaRVoxWDdudFNGNg",
+        "title": "={{ $fromAI(\"Title\", \"Título da tarefa\", \"string\") }}",
+        "additionalFields": {
+          "dueDate": "={{ $fromAI(\"Due_Date\", \"Data limite ISO\", \"string\") }}",
+          "notes": "={{ $fromAI(\"Notes\", \"Notas adicionais\", \"string\") }}",
+          "status": "needsAction"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receber Chat Web": {
+      "main": [
+        [
+          {
+            "node": "Set Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Input": {
+      "main": [
+        [
+          {
+            "node": "Agente Interno Singulare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Interno Singulare": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente Interno Singulare",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memória Chat": {
+      "ai_memory": [
+        [
+          {
+            "node": "Agente Interno Singulare",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "singulare_dispatch": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Interno Singulare",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refletir": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Interno Singulare",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call '5. Enviar agendamento'": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Interno Singulare",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Interno Singulare",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar_memoria": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Interno Singulare",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler_emails": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Interno Singulare",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar_tarefa": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente Interno Singulare",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "pinData": {},
+  "activeVersionId": "475bb31a-5d2f-4cce-8943-1e2b37841bdc",
+  "versionCounter": 59,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "EaZNHoaKhq0yJsiS",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-09T12:36:04.560Z",
+    "createdAt": "2026-05-09T12:36:04.560Z",
+    "versionId": "475bb31a-5d2f-4cce-8943-1e2b37841bdc",
+    "workflowId": "EaZNHoaKhq0yJsiS",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "singulare-internal-chat",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "0fa0fd8b-fcfc-4dc7-88dc-1fb45e5bafb8",
+        "name": "Receber Chat Web",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          112
+        ],
+        "webhookId": "12415b7d-08bb-4097-b496-633b5234bac8"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "m",
+                "name": "message",
+                "value": "={{ $json.body.message }}",
+                "type": "string"
+              },
+              {
+                "id": "t",
+                "name": "tenant_id",
+                "value": "={{ $json.body.tenant_id }}",
+                "type": "string"
+              },
+              {
+                "id": "u",
+                "name": "user_id",
+                "value": "={{ $json.body.user_id }}",
+                "type": "string"
+              },
+              {
+                "id": "r",
+                "name": "role",
+                "value": "={{ $json.body.role || \"owner\" }}",
+                "type": "string"
+              },
+              {
+                "id": "c",
+                "name": "clinic_name",
+                "value": "={{ $json.body.clinic_name || \"sua clínica\" }}",
+                "type": "string"
+              },
+              {
+                "id": "s",
+                "name": "session_key",
+                "value": "={{ \"singulare_chat_\" + ($json.body.tenant_id || \"default\") + \"_\" + ($json.body.user_id || \"anon\") }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "d06edb81-3d06-4891-acd6-f113060f0fcc",
+        "name": "Set Input",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          224,
+          112
+        ]
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('Set Input').item.json.message }}",
+          "options": {
+            "systemMessage": "=Você é o assistente interno da {{ $('Set Input').item.json.clinic_name }}.\n\nCONTEXTO TEMPORAL CRÍTICO: Hoje é {{ $now.toFormat('yyyy-MM-dd') }} ({{ $now.setLocale('pt-BR').toFormat('cccc') }}). NUNCA chute datas do seu treinamento — calcule sempre a partir desta data de hoje.\n\nSEU INTERLOCUTOR: role = \"{{ $('Set Input').item.json.role }}\".\n\nESCOPO DE VISÃO POR ROLE (regra rígida):\n- role=doctor → INDIVIDUAL. Você fala com a médica/médico em pessoa. Quando ela pergunta \"minha agenda\", \"meus pacientes\", \"minha próxima semana\" — o backend JÁ filtra automaticamente pelo doctor_id dela. Diga \"sua agenda\", \"seus pacientes\". NUNCA passe doctor_id em params (é ignorado e pode causar confusão). NUNCA cite outros médicos.\n- role=admin/owner/staff → COLETIVO. Você fala com quem administra a clínica. Pode ver TODOS os médicos. Quando perguntar \"agenda da Dra X\", \"faturamento do Dr Y\": (1) primeiro chame `medicos_listar` pra resolver nome → doctor_id, (2) depois chame a tool de agenda/etc passando `doctor_id` no params. Sem doctor_id = visão coletiva (todos somados).\n- role=viewer → coletivo só leitura.\n\nResponda em 1-2 frases curtas, português BR, sem markdown.\n\nUse `singulare_dispatch` pra dados. Os nomes dos PARÂMETROS são em INGLÊS — não traduza, copie literalmente do schema abaixo.\n\n▸ READS (executa direto, mode pode omitir):\n- agenda_hoje               → { doctor_id?: \"uuid\" (admin/owner only) }\n- agenda_periodo            → { start: \"YYYY-MM-DD\", end: \"YYYY-MM-DD\", status?: \"booked\"|\"confirmed\"|\"completed\"|\"cancelled\"|\"all\", doctor_id?: \"uuid\" (admin/owner only) }\n- medicos_listar            → params: {} — devolve doctor_id, name, specialty, crm. Doctor vê só ele; admin/owner vê todos.\n- pacientes_count           → { since?: \"YYYY-MM-DD\" }\n- pacientes_proximos        → { weeks_ahead?: number (1-12, default 2), doctor_id?: \"uuid\" (admin/owner only) }\n- pagamentos_status         → { start?: \"YYYY-MM-DD\", end?: \"YYYY-MM-DD\" } [coletivo — backend ainda não filtra por médico]\n- pagamentos_pendentes      → { include_overdue_only?: boolean } [coletivo]\n- nps_resumo                → { since?: \"YYYY-MM-DD\" } [coletivo]\n- reviews_externos          → params: {} [coletivo]\n- documentos_listar         → { paciente_id?: \"uuid\", status?: \"draft\"|\"sent\"|\"signed\"|\"all\", limit?: number, doctor_id?: \"uuid\" (admin/owner only) }\n\nCONTEXTO DE DADOS (importante): a agenda de fato vem da tabela doctor_bookings (source of truth — onde o bot grava bookings). Status canônicos: booked (recém-marcada), confirmed (reconfirmada pelo paciente), completed (atendimento ocorreu), cancelled. NÃO use 'scheduled' — esse termo não existe no enum (o equivalente é 'booked'). Os campos retornados incluem patient_name e patient_phone direto. Evento no Google Calendar é espelhado via calendar_event_id (campo in_calendar=true/false na resposta).\n\n▸ WRITES (SEMPRE mode=\"propose\" — humano confirma; nunca mode=\"execute\" direto):\n- consulta_reagendar        → { appointment_id: \"uuid_do_booking\", new_date: \"YYYY-MM-DDTHH:mm\" }  [só atualiza DB; Calendar fica desincronizado, há aviso no card]\n- consulta_cancelar         → { appointment_id: \"uuid_do_booking\", reason?: string }  [só atualiza DB; Calendar idem]\n- paciente_criar            → { name: string, phone: \"+55...\", birthdate?: \"YYYY-MM-DD\", email?: string }\n- cobranca_avulsa           → { paciente_id: \"uuid\", valor: number, descricao: string, metodo?: \"pix\"|\"cartao\"|\"boleto\" }\n- documento_gerar           → { template_id: \"uuid\", paciente_id: \"uuid\" }\n- documento_assinar         → { documento_id: \"uuid\" }\n\nEXEMPLO de cálculo de \"próxima semana\" (hoje = {{ $now.toFormat('yyyy-MM-dd') }}):\n  start = {{ $now.plus({ days: 1 }).startOf('week').toFormat('yyyy-MM-dd') }} (segunda-feira da próxima semana)\n  end   = {{ $now.plus({ days: 1 }).endOf('week').toFormat('yyyy-MM-dd') }}   (domingo)\n\nEXEMPLO 2 (admin/owner perguntando \"agenda da Dra Paula próxima semana\"):\n  1. dispatch { tool: \"medicos_listar\" } → pega doctor_id da Paula\n  2. dispatch { tool: \"agenda_periodo\", params: { start, end, doctor_id: <id_da_paula> } }\n\nSe dispatch retornar `{ card }`, copie o card como JSON UMA LINHA entre [[CARD]] e [[/CARD]].",
+            "maxIterations": 6,
+            "enableStreaming": false
+          }
+        },
+        "id": "9d65c93b-bc64-4f8c-bd99-3910524f3c6f",
+        "name": "Agente Interno Singulare",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "position": [
+          560,
+          96
+        ]
+      },
+      {
+        "parameters": {
+          "modelName": "models/gemini-2.5-flash",
+          "options": {
+            "temperature": 0.3
+          }
+        },
+        "id": "71d8e0a6-59de-4210-ae1b-1e8d3f6fc9d3",
+        "name": "Gemini",
+        "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+        "typeVersion": 1.1,
+        "position": [
+          448,
+          336
+        ],
+        "credentials": {
+          "googlePalmApi": {
+            "id": "IfMvUmMoeAZrytgT",
+            "name": "Google Gemini(PaLM) Api account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "sessionIdType": "customKey",
+          "sessionKey": "={{ $('Set Input').item.json.session_key }}",
+          "tableName": "n8n_historico_mensagens",
+          "contextWindowLength": 10
+        },
+        "id": "e6c3a617-abc2-43dc-9371-dc24bc473f3f",
+        "name": "Memória Chat",
+        "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+        "typeVersion": 1.3,
+        "position": [
+          576,
+          336
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "toolDescription": "Executa qualquer tool do Singulare. Reads executam direto. Writes — sempre mode=propose.",
+          "method": "POST",
+          "url": "https://app.singulare.org/api/interno/tools",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ tool: $fromAI(\"tool\", \"Nome exato da tool\", \"string\"), params: $fromAI(\"params\", \"Objeto JSON com parâmetros\", \"json\") || {}, tenant_id: $(\"Set Input\").item.json.tenant_id, user_id: $(\"Set Input\").item.json.user_id, role: $(\"Set Input\").item.json.role, mode: $fromAI(\"mode\", \"propose ou execute\", \"string\") || \"propose\" }) }}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "id": "91624794-fe0f-49dd-baf3-935b38a80077",
+        "name": "singulare_dispatch",
+        "type": "n8n-nodes-base.httpRequestTool",
+        "typeVersion": 4.4,
+        "position": [
+          720,
+          400
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "f3EsS9DLhzuhFW6g",
+            "name": "Header Auth N8N TO VERCEL"
+          }
+        }
+      },
+      {
+        "parameters": {},
+        "id": "696569e7-8355-4f3d-abd2-b8b851ef1d35",
+        "name": "Refletir",
+        "type": "@n8n/n8n-nodes-langchain.toolThink",
+        "typeVersion": 1,
+        "position": [
+          832,
+          336
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "={{ $json.output }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ]
+            }
+          }
+        },
+        "id": "5e51266a-7c9e-4a60-a069-81f1166de28d",
+        "name": "Responder",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          1040,
+          112
+        ]
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "IUFMBjkYRcp20xr7",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/IUFMBjkYRcp20xr7",
+            "cachedResultName": "5. Enviar agendamento"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "mensagem",
+                "displayName": "mensagem",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "id_conta",
+                "displayName": "id_conta",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "id_conversa",
+                "displayName": "id_conversa",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "url_chatwoot",
+                "displayName": "url_chatwoot",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2.2,
+        "position": [
+          720,
+          304
+        ],
+        "id": "8a009bc8-9042-4a0e-bd40-1757f878d7b5",
+        "name": "Call '5. Enviar agendamento'"
+      },
+      {
+        "parameters": {
+          "endpointUrl": "http://n8n:5678/mcp/db6bc79d-ba32-41c4-b492-f0f5bbcb8fd3/sse",
+          "serverTransport": "sse",
+          "authentication": "none",
+          "include": "selected",
+          "includeTools": [],
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+        "typeVersion": 1.2,
+        "position": [
+          928,
+          400
+        ],
+        "id": "ae46d5d7-c1ce-4714-b084-a9f9ab03a95b",
+        "name": "MCP Client"
+      },
+      {
+        "id": "sm-1778263822858",
+        "name": "Salvar_memoria",
+        "type": "n8n-nodes-base.postgresTool",
+        "typeVersion": 2.6,
+        "position": [
+          400,
+          600
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        },
+        "parameters": {
+          "descriptionType": "manual",
+          "toolDescription": "Salva mensagem AI no histórico (n8n_historico_mensagens). Use sempre que enviar resposta importante pro paciente via outras tools.",
+          "schema": {
+            "__rl": true,
+            "mode": "list",
+            "value": "public"
+          },
+          "table": {
+            "__rl": true,
+            "mode": "list",
+            "value": "n8n_historico_mensagens"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "session_id": "={{ $fromAI(\"session_id\", \"Telefone E.164 sem +\", \"string\") }}",
+              "message": "={ \"type\": \"ai\", \"content\": \"{{ $fromAI('content', 'Mensagem enviada', 'string') }}\" }",
+              "tenant_id": "={{ $('Set Input').item.json.tenant_id }}"
+            },
+            "matchingColumns": [
+              "id"
+            ],
+            "schema": [
+              {
+                "id": "session_id",
+                "displayName": "session_id",
+                "required": true,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "message",
+                "displayName": "message",
+                "required": true,
+                "defaultMatch": false,
+                "display": true,
+                "type": "object",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "tenant_id",
+                "displayName": "tenant_id",
+                "required": true,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "le-1778263822858",
+        "name": "Ler_emails",
+        "type": "n8n-nodes-base.gmailTool",
+        "typeVersion": 2.1,
+        "position": [
+          580,
+          600
+        ],
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "C6feR6xeiwrFJ35Y",
+            "name": "Gmail account"
+          }
+        },
+        "webhookId": "le-wh-1778263822858",
+        "parameters": {
+          "operation": "getAll",
+          "limit": 5,
+          "filters": {}
+        }
+      },
+      {
+        "id": "ct-1778263822858",
+        "name": "Criar_tarefa",
+        "type": "n8n-nodes-base.googleTasksTool",
+        "typeVersion": 1,
+        "position": [
+          760,
+          600
+        ],
+        "credentials": {
+          "googleTasksOAuth2Api": {
+            "id": "U8H0pchPJHaNf03t",
+            "name": "Google Tasks account"
+          }
+        },
+        "parameters": {
+          "task": "YXdwUHJaRVoxWDdudFNGNg",
+          "title": "={{ $fromAI(\"Title\", \"Título da tarefa\", \"string\") }}",
+          "additionalFields": {
+            "dueDate": "={{ $fromAI(\"Due_Date\", \"Data limite ISO\", \"string\") }}",
+            "notes": "={{ $fromAI(\"Notes\", \"Notas adicionais\", \"string\") }}",
+            "status": "needsAction"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Receber Chat Web": {
+        "main": [
+          [
+            {
+              "node": "Set Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Input": {
+        "main": [
+          [
+            {
+              "node": "Agente Interno Singulare",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Agente Interno Singulare": {
+        "main": [
+          [
+            {
+              "node": "Responder",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gemini": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Agente Interno Singulare",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Memória Chat": {
+        "ai_memory": [
+          [
+            {
+              "node": "Agente Interno Singulare",
+              "type": "ai_memory",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "singulare_dispatch": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agente Interno Singulare",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Refletir": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agente Interno Singulare",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Call '5. Enviar agendamento'": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agente Interno Singulare",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "MCP Client": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agente Interno Singulare",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Salvar_memoria": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agente Interno Singulare",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ler_emails": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agente Interno Singulare",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Criar_tarefa": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agente Interno Singulare",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-09T12:36:04.681Z",
+        "id": 231,
+        "workflowId": "EaZNHoaKhq0yJsiS",
+        "versionId": "475bb31a-5d2f-4cce-8943-1e2b37841bdc",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-09T12:36:04.711Z",
+        "id": 232,
+        "workflowId": "EaZNHoaKhq0yJsiS",
+        "versionId": "475bb31a-5d2f-4cce-8943-1e2b37841bdc",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

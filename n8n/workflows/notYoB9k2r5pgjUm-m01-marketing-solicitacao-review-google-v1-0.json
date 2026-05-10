@@ -1,0 +1,526 @@
+{
+  "id": "notYoB9k2r5pgjUm",
+  "name": "M01 — Marketing · Solicitação Review Google · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "marketing-nps-review",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-1",
+      "name": "Webhook NPS Score >= 9",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "marketing-nps-review-001"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  t.tenant_id,\n  t.clinic_name,\n  t.google_place_id,\n  t.evolution_instance_name,\n  t.chatwoot_url,\n  t.chatwoot_account_id,\n  t.chatwoot_inbox_id,\n  f.id        AS feedback_id,\n  f.patient_phone,\n  f.patient_name,\n  f.doctor_name,\n  f.nps_score,\n  f.booking_id\nFROM public.patient_feedback f\nJOIN public.tenants t ON t.tenant_id = f.tenant_id\nWHERE f.id = {{ $json.body.feedback_id }}\n  AND f.nps_score >= 9\n  AND t.google_place_id IS NOT NULL\n  AND t.google_place_id <> ''",
+        "options": {}
+      },
+      "id": "pg-lookup",
+      "name": "Lookup Tenant + Feedback",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "has-tenant",
+              "leftValue": "={{ $json.tenant_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-eligible",
+      "name": "Tem place_id e score>=9?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nconst reviewUrl = `https://search.google.com/local/writereview?placeid=${item.google_place_id}`;\nconst firstName = (item.patient_name || 'tudo bem').split(' ')[0];\nconst doctor = item.doctor_name || 'sua consulta';\n\nconst message = `Oi ${firstName}! 💜\\n\\nQue bom que sua experiência com ${doctor} foi excelente!\\n\\nSe puder, ajude a gente em 30 segundos deixando uma avaliação no Google:\\n\\n${reviewUrl}\\n\\nMuito obrigada! 🙏`;\n\nreturn { ...item, message, review_url: reviewUrl };"
+      },
+      "id": "code-build-msg",
+      "name": "Build WhatsApp Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.chatwoot_url.replace(/\\/$/, '') }}/api/v1/accounts/{{ $json.chatwoot_account_id }}/conversations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"source_id\": \"{{ $json.patient_phone }}\",\n  \"inbox_id\": {{ $json.chatwoot_inbox_id }},\n  \"contact\": {\n    \"name\": \"{{ $json.patient_name }}\",\n    \"phone_number\": \"{{ $json.patient_phone }}\"\n  },\n  \"message\": {\n    \"content\": \"{{ $json.message.replace(/\\n/g, '\\\\n').replace(/\"/g, '\\\\\"') }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "send-whatsapp",
+      "name": "Chatwoot Send Review Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        240
+      ],
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE public.patient_feedback\nSET status = 'review_requested',\n    feedback_text = COALESCE(feedback_text, '') || E'\\n[review_requested:' || NOW()::text || ']'\nWHERE id = {{ $('Lookup Tenant + Feedback').item.json.feedback_id }}",
+        "options": {}
+      },
+      "id": "mark-sent",
+      "name": "Mark Review Requested",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1340,
+        240
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"sent\": true, \"feedback_id\": $('Lookup Tenant + Feedback').item.json.feedback_id, \"review_url\": $('Build WhatsApp Message').item.json.review_url }",
+        "options": {}
+      },
+      "id": "resp-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": false, \"reason\": \"no_eligible\", \"detail\": \"Feedback não encontrado, score<9, ou tenant sem google_place_id.\" }",
+        "options": {}
+      },
+      "id": "resp-skip",
+      "name": "Respond Skipped",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook NPS Score >= 9": {
+      "main": [
+        [
+          {
+            "node": "Lookup Tenant + Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Tenant + Feedback": {
+      "main": [
+        [
+          {
+            "node": "Tem place_id e score>=9?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem place_id e score>=9?": {
+      "main": [
+        [
+          {
+            "node": "Build WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build WhatsApp Message": {
+      "main": [
+        [
+          {
+            "node": "Chatwoot Send Review Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chatwoot Send Review Request": {
+      "main": [
+        [
+          {
+            "node": "Mark Review Requested",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Review Requested": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "activeVersionId": "33cd677d-dca6-455f-b89f-fb035fc17589",
+  "versionCounter": 3,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-10T00:24:11.917Z",
+      "createdAt": "2026-05-10T00:24:11.917Z",
+      "role": "workflow:owner",
+      "workflowId": "notYoB9k2r5pgjUm",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-10T00:24:11.917Z",
+    "createdAt": "2026-05-10T00:24:11.917Z",
+    "versionId": "33cd677d-dca6-455f-b89f-fb035fc17589",
+    "workflowId": "notYoB9k2r5pgjUm",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "marketing-nps-review",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "wh-1",
+        "name": "Webhook NPS Score >= 9",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          240,
+          300
+        ],
+        "webhookId": "marketing-nps-review-001"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT\n  t.tenant_id,\n  t.clinic_name,\n  t.google_place_id,\n  t.evolution_instance_name,\n  t.chatwoot_url,\n  t.chatwoot_account_id,\n  t.chatwoot_inbox_id,\n  f.id        AS feedback_id,\n  f.patient_phone,\n  f.patient_name,\n  f.doctor_name,\n  f.nps_score,\n  f.booking_id\nFROM public.patient_feedback f\nJOIN public.tenants t ON t.tenant_id = f.tenant_id\nWHERE f.id = {{ $json.body.feedback_id }}\n  AND f.nps_score >= 9\n  AND t.google_place_id IS NOT NULL\n  AND t.google_place_id <> ''",
+          "options": {}
+        },
+        "id": "pg-lookup",
+        "name": "Lookup Tenant + Feedback",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          460,
+          300
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "typeValidation": "loose"
+            },
+            "conditions": [
+              {
+                "id": "has-tenant",
+                "leftValue": "={{ $json.tenant_id }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        },
+        "id": "if-eligible",
+        "name": "Tem place_id e score>=9?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          680,
+          300
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const item = $input.item.json;\nconst reviewUrl = `https://search.google.com/local/writereview?placeid=${item.google_place_id}`;\nconst firstName = (item.patient_name || 'tudo bem').split(' ')[0];\nconst doctor = item.doctor_name || 'sua consulta';\n\nconst message = `Oi ${firstName}! 💜\\n\\nQue bom que sua experiência com ${doctor} foi excelente!\\n\\nSe puder, ajude a gente em 30 segundos deixando uma avaliação no Google:\\n\\n${reviewUrl}\\n\\nMuito obrigada! 🙏`;\n\nreturn { ...item, message, review_url: reviewUrl };"
+        },
+        "id": "code-build-msg",
+        "name": "Build WhatsApp Message",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          900,
+          240
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.chatwoot_url.replace(/\\/$/, '') }}/api/v1/accounts/{{ $json.chatwoot_account_id }}/conversations",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"source_id\": \"{{ $json.patient_phone }}\",\n  \"inbox_id\": {{ $json.chatwoot_inbox_id }},\n  \"contact\": {\n    \"name\": \"{{ $json.patient_name }}\",\n    \"phone_number\": \"{{ $json.patient_phone }}\"\n  },\n  \"message\": {\n    \"content\": \"{{ $json.message.replace(/\\n/g, '\\\\n').replace(/\"/g, '\\\\\"') }}\"\n  }\n}",
+          "options": {}
+        },
+        "id": "send-whatsapp",
+        "name": "Chatwoot Send Review Request",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1120,
+          240
+        ],
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "UPDATE public.patient_feedback\nSET status = 'review_requested',\n    feedback_text = COALESCE(feedback_text, '') || E'\\n[review_requested:' || NOW()::text || ']'\nWHERE id = {{ $('Lookup Tenant + Feedback').item.json.feedback_id }}",
+          "options": {}
+        },
+        "id": "mark-sent",
+        "name": "Mark Review Requested",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          1340,
+          240
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={ \"ok\": true, \"sent\": true, \"feedback_id\": $('Lookup Tenant + Feedback').item.json.feedback_id, \"review_url\": $('Build WhatsApp Message').item.json.review_url }",
+          "options": {}
+        },
+        "id": "resp-ok",
+        "name": "Respond OK",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          1560,
+          240
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={ \"ok\": false, \"reason\": \"no_eligible\", \"detail\": \"Feedback não encontrado, score<9, ou tenant sem google_place_id.\" }",
+          "options": {}
+        },
+        "id": "resp-skip",
+        "name": "Respond Skipped",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          900,
+          420
+        ]
+      }
+    ],
+    "connections": {
+      "Webhook NPS Score >= 9": {
+        "main": [
+          [
+            {
+              "node": "Lookup Tenant + Feedback",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Lookup Tenant + Feedback": {
+        "main": [
+          [
+            {
+              "node": "Tem place_id e score>=9?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tem place_id e score>=9?": {
+        "main": [
+          [
+            {
+              "node": "Build WhatsApp Message",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond Skipped",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build WhatsApp Message": {
+        "main": [
+          [
+            {
+              "node": "Chatwoot Send Review Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Chatwoot Send Review Request": {
+        "main": [
+          [
+            {
+              "node": "Mark Review Requested",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Mark Review Requested": {
+        "main": [
+          [
+            {
+              "node": "Respond OK",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-10T00:24:22.953Z",
+        "id": 246,
+        "workflowId": "notYoB9k2r5pgjUm",
+        "versionId": "33cd677d-dca6-455f-b89f-fb035fc17589",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

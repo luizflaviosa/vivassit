@@ -1,0 +1,433 @@
+{
+  "id": "MpxmIgkGaYcrJBQh",
+  "name": "PJe — REST API Internal Endpoints v3",
+  "description": "Testa 6 variações de endpoints REST internos do PJe baseados na documentação oficial (docs.pje.jus.br padrão /api/v1/processos/:cabecalho) para encontrar qual retorna partes sem autenticação.",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "09e4a3d9-dcf5-442e-bec5-095b350b51a8",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "id": "a1b63fc5-7fc5-498f-97a8-36d301b82f6b",
+      "name": "EP1 pje api v1 cabecalho",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        540,
+        60
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://pje.trt2.jus.br/pje/api/v1/processos/10002441020265020004:cabecalho",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json, text/plain, */*"
+            },
+            {
+              "name": "X-Requested-With",
+              "value": "XMLHttpRequest"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a8d60994-4ae4-4475-b402-f2dd376d236e",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        840,
+        320
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "f03abb92-160c-43c1-a8be-c6fd0187b6c1",
+      "name": "EP2 consultaprocessual api v1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        540,
+        160
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://pje.trt2.jus.br/consultaprocessual/api/v1/processos/10002441020265020004",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json, text/plain, */*"
+            },
+            {
+              "name": "X-Requested-With",
+              "value": "XMLHttpRequest"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "41432ae8-00b8-4298-9f03-6e0dac06086a",
+      "name": "EP3 pje consultaprocessual api processos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        540,
+        260
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://pje.trt2.jus.br/pje/consultaprocessual/api/v1/processos?numero=10002441020265020004",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json, text/plain, */*"
+            },
+            {
+              "name": "X-Requested-With",
+              "value": "XMLHttpRequest"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "8ba44590-e743-4f76-8126-ab9e5ddf6535",
+      "name": "EP4 pje-legacy api v1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        540,
+        360
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://pje.trt2.jus.br/pje-legacy/api/v1/processos/10002441020265020004:cabecalho",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json, text/plain, */*"
+            },
+            {
+              "name": "X-Requested-With",
+              "value": "XMLHttpRequest"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "2dfb5a44-86b9-4f3b-8a2f-179d0898496f",
+      "name": "EP5 rest processo cabecalho",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        540,
+        460
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://pje.trt2.jus.br/pje/rest/processo/cabecalho/1000244-10.2026.5.02.0004",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json, text/plain, */*"
+            },
+            {
+              "name": "X-Requested-With",
+              "value": "XMLHttpRequest"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fe185ed9-ab8a-4282-82ed-67ba58bd9b8e",
+      "name": "EP6 api v1 numero mascarado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        540,
+        560
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://pje.trt2.jus.br/pje/api/v1/processos/1000244-10.2026.5.02.0004",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json, text/plain, */*"
+            },
+            {
+              "name": "X-Requested-With",
+              "value": "XMLHttpRequest"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a91a3272-3dcf-4654-821d-fffdaf85f51d",
+      "name": "Summarize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        320
+      ],
+      "parameters": {
+        "jsCode": "\nconst epNames = [\n  '/pje/api/v1/processos/{num}:cabecalho',\n  '/consultaprocessual/api/v1/processos/{num}',\n  '/pje/consultaprocessual/api/v1/processos?numero=',\n  '/pje-legacy/api/v1/processos/{num}:cabecalho',\n  '/pje/rest/processo/cabecalho/{masked}',\n  '/pje/api/v1/processos/{masked}',\n];\nreturn $input.all().map((item, i) => {\n  const r = item.json;\n  const status = r.statusCode || '?';\n  const body = String(r.body || r.data || JSON.stringify(r)).substring(0, 600);\n  const ct = r.headers ? r.headers['content-type'] || '' : '';\n  const isJson = ct.includes('json') || body.trim().startsWith('{') || body.trim().startsWith('[');\n  const is200 = status === 200 || status === '200';\n  return { json: {\n    endpoint: epNames[i] || 'ep' + (i+1),\n    status, content_type: ct, is_json: isJson, is_200: is200,\n    body_preview: body\n  }};\n});\n"
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "EP1 pje api v1 cabecalho",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EP2 consultaprocessual api v1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EP3 pje consultaprocessual api processos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EP4 pje-legacy api v1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EP5 rest processo cabecalho",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "EP6 api v1 numero mascarado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EP1 pje api v1 cabecalho": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Summarize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EP2 consultaprocessual api v1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "EP3 pje consultaprocessual api processos": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "EP4 pje-legacy api v1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "EP5 rest processo cabecalho": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "EP6 api v1 numero mascarado": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true
+  },
+  "pinData": null,
+  "activeVersionId": null,
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "MpxmIgkGaYcrJBQh",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

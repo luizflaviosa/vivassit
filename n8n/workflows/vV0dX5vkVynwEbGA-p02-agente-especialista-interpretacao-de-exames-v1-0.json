@@ -1,0 +1,1246 @@
+{
+  "id": "vV0dX5vkVynwEbGA",
+  "name": "P02 — Agente Especialista · Interpretação de Exames · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        288,
+        288
+      ],
+      "id": "71d190d1-64ce-4dd3-ad4f-c62d2fdc35d6",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "IfMvUmMoeAZrytgT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.telefone }}",
+        "tableName": "=n8n_historico_exames_memory"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        464,
+        304
+      ],
+      "id": "9b3ee968-aea7-443f-9767-421c86d19a97",
+      "name": "Postgres Chat Memory1",
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "text": "=Você recebe 1 URL de documento (PDF/DOC/DOCX/TXT/XML/JSON) via `documentUrls`. Leia o arquivo e EXTRAIA os dados do(s) exame(s).\n\nSAÍDA OBRIGATÓRIA — responda exclusivamente com um JSON válido UTF-8 (sem markdown, sem explicações), em EXATAMENTE UM dos formatos:\n1) { \"analysis\": { ... } }\n2) { \"analyses\": [ { ... }, ... ] }\n\nEsquema de cada análise:\n{\n  \"patient\": { \"name\": string|null, \"record_id\": string|null, \"birthdate\": string|null },\n  \"exam\": { \"type\": string, \"lab\": string|null, \"date_requested\": string|null, \"date_report\": string|null, \"section\": string|null },\n  \"results\": [\n    { \"name\": string, \"value\": number|string|null, \"unit\": string|null,\n      \"ref_min\": number|null, \"ref_max\": number|null, \"ref_text\": string|null,\n      \"prev_value\": number|null, \"prev_date\": string|null }\n  ],\n  \"notes\": [ string ],\n  \"metadata\": { \"internal_id\": string|null, \"source_url\": string }\n}\n\nRegras:\n- Use number para valores numéricos (ex.: 12.3), nunca string.\n- Datas em \"YYYY-MM-DD\" quando possível; senão null.\n- Se houver múltiplos exames → use \"analyses\"; se for único → \"analysis\".\n- Preencha \"metadata.source_url\" com a URL do documento.\n- Campos ausentes → null (ou omita em arrays).\n- Não inclua markdown, ``` ou texto extra.",
+        "documentUrls": "={{ String($json.urls) }}",
+        "simplify": "={{ $fromAI('Simplify_Output', ``, 'boolean') }}",
+        "options": {
+          "maxOutputTokens": 8192
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGeminiTool",
+      "typeVersion": 1,
+      "position": [
+        624,
+        320
+      ],
+      "id": "200eab2f-9e4d-4228-a29d-2a95b14f1f68",
+      "name": "Analise Documentos",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "IfMvUmMoeAZrytgT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "text": "Você recebe 1 URL de imagem de exame médico via `imageUrls`. Faça OCR e EXTRAIA os dados do(s) exame(s).\n\nSAÍDA OBRIGATÓRIA — responda exclusivamente com um JSON válido UTF-8 (sem markdown, sem explicações), em EXATAMENTE UM dos formatos:\n1) { \"analysis\": { ... } }\n2) { \"analyses\": [ { ... }, ... ] }\n\nEsquema de cada análise:\n{\n  \"patient\": { \"name\": string|null, \"record_id\": string|null, \"birthdate\": string|null },\n  \"exam\": { \"type\": string, \"lab\": string|null, \"date_requested\": string|null, \"date_report\": string|null, \"section\": string|null },\n  \"results\": [\n    { \"name\": string, \"value\": number|string|null, \"unit\": string|null,\n      \"ref_min\": number|null, \"ref_max\": number|null, \"ref_text\": string|null,\n      \"prev_value\": number|null, \"prev_date\": string|null }\n  ],\n  \"notes\": [ string ],\n  \"metadata\": { \"internal_id\": string|null, \"source_url\": string }\n}\n\nRegras:\n- Use number para valores numéricos (ex.: 12.3), nunca string.\n- Datas em \"YYYY-MM-DD\" quando possível; senão null.\n- Se houver múltiplos exames → use \"analyses\"; se for único → \"analysis\".\n- Preencha \"metadata.source_url\" com a URL da imagem.\n- Campos ausentes → null (ou omita em arrays).\n- Não inclua markdown, ``` ou texto extra.",
+        "imageUrls": "={{ typeof $json.urls === 'string'\n    ? $json.urls.split(/,|\\n/).map(s => s.trim()).filter(Boolean)[0] \n    : (Array.isArray($json.urls) ? String($json.urls[0] ?? '').trim() : '') \n}}",
+        "simplify": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Simplify_Output', ``, 'boolean') }}",
+        "options": {
+          "maxOutputTokens": 8192
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGeminiTool",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        352
+      ],
+      "id": "4627df41-2c97-4042-ad96-202a734206f2",
+      "name": "Analise de Imagens",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "IfMvUmMoeAZrytgT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Busque exames para analisar usando o telefone do paciente como chave e busque todas as url disponíveis para o paciente.",
+        "operation": "update",
+        "tableId": "n8n_historico_exames",
+        "filterType": "string",
+        "filterString": "={{$json.urls}}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "relatorio_html",
+              "fieldValue": "={{ $fromAI('relatorio_html', $('gerar_relatorio_html').item.json.html, 'string') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        944,
+        304
+      ],
+      "id": "f3605961-d8ae-4d74-8317-febe65cc943f",
+      "name": "Banco de Dados Exames",
+      "credentials": {
+        "supabaseApi": {
+          "id": "kabbqqhjJ9ZS0yDA",
+          "name": "Supabase account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Você é um orquestrador determinístico de análise de exames.\n\nENTRADAS DO ITEM\n- tipo   = {{$json.tipo}}     // 'pdf_text' | 'url' | 'image_url'\n- content = {{$json.content}} // texto markdown extraído OU url original\n- urls   = {{$json.urls}}     // url original (sempre)\n- telefone = {{$json.telefone}}\n\nREGRAS OBRIGATÓRIAS\n\n[SE tipo == 'pdf_text']\n  1) O texto do PDF já foi extraído — NÃO chame Analise Documentos.\n  2) Chame gerar_relatorio_html com: { \"raw\": \"{{$json.content}}\" }\n  3) Capture o retorno como OUT.\n\n[SE tipo == 'url' OU tipo == 'image_url']\n  1) Se tipo == 'image_url' (URL termina em .jpg .jpeg .png etc.):\n       Chame Analise de Imagens (sem parâmetros). O nó injeta imageUrls.\n     Senão:\n       Chame Analise Documentos (sem parâmetros). O nó injeta documentUrls.\n  2) Capture a SAÍDA CRUA da tool. Chame isso de RAW.\n  3) Chame gerar_relatorio_html com: { \"raw\": RAW }\n  4) Capture o retorno como OUT.\n\nRESPOSTA FINAL — responda ao fluxo principal APENAS com este JSON:\n{\n  \"html\": <html retornado por gerar_relatorio_html>,\n  \"summary\": <summary retornado por gerar_relatorio_html>,\n  \"analyses_received\": <número retornado por gerar_relatorio_html>,\n  \"url_file\": \"{{$json.urls}}\",\n  \"telefone_paciente\": \"{{$json.telefone}}\"\n}\n\nPROIBIÇÕES\n- Não inclua markdown, nem ```.\n- Não invente campos. Se a análise falhar, gerar_relatorio_html já retorna json de erro.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        960,
+        0
+      ],
+      "id": "264236a7-bff5-44b3-88db-2da07b17bbea",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "telefone"
+            },
+            {
+              "name": "id_conversa"
+            },
+            {
+              "name": "urls"
+            },
+            {
+              "name": "entrada"
+            },
+            {
+              "name": "id_mensagem"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -112,
+        0
+      ],
+      "id": "45ec518c-0940-4ba5-9e6c-9c8a7693ef29",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "69d5b894-e9a8-4ead-a697-414b4a1e074e",
+              "name": "telefone",
+              "value": "={{ $json.telefone }}",
+              "type": "string"
+            },
+            {
+              "id": "67d6fb68-6d8d-40a9-b49b-5bb3b399cfed",
+              "name": "id_conversa",
+              "value": "={{ $json.id_conversa }}",
+              "type": "string"
+            },
+            {
+              "id": "e86ebe92-5725-40f3-b60c-e92de969f109",
+              "name": "urls",
+              "value": "={{ $json.urls ? (Array.isArray($json.urls) ? $json.urls.filter(url => url && url.trim()).join(',') : String($json.urls).trim()) : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "dd62321d-a36e-46fc-be02-5a2237627f06",
+              "name": "entrada",
+              "value": "={{ $json.entrada }}",
+              "type": "string"
+            },
+            {
+              "id": "7305f708-2efb-4330-9462-ab2078dd44df",
+              "name": "id_mensagem",
+              "value": "={{ $json.id_mensagem }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        128,
+        0
+      ],
+      "id": "51e94bbd-6d9c-4830-83f6-f01a6f57f88c",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normaliza `urls` e cria 1 item por URL (string)\nconst extras = {\n  telefone: $json.telefone ?? '',\n  id_conversa: $json.id_conversa ?? '',\n  id_mensagem: $json.id_mensagem ?? '',\n  entrada: $json.entrada ?? ''\n};\n\nfunction toList(raw) {\n  if (!raw) return [];\n  if (Array.isArray(raw)) return raw;\n  if (typeof raw === 'string') {\n    const s = raw.trim();\n    if (!s) return [];\n    if (s.startsWith('[')) {\n      try {\n        const arr = JSON.parse(s);\n        return Array.isArray(arr) ? arr : [];\n      } catch { return []; }\n    }\n    if (s.includes(',')) return s.split(',').map(x => x.trim()).filter(Boolean);\n    return [s];\n  }\n  return [];\n}\n\nconst urls = toList($json.urls).filter(Boolean);\n\nreturn urls.map(u => ({\n  json: { ...extras, urls: u }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        0
+      ],
+      "id": "94b455bf-5adf-436b-8765-4550eb296dd7",
+      "name": "Explodir URLs p/ Exames"
+    },
+    {
+      "parameters": {
+        "description": "Sua função é receber os dados JSON da analise dos exames e gerar um relatorio html.",
+        "jsCode": "/**\n * HTML Generator — Relatório de Exames (HTML5 + CSS responsivo)\n * Entradas possíveis (vindas do Agent/tools via $fromAI):\n *  - analysis (obj) | analyses (array)\n *  - raw | result | output | data | response  (string JSON OU objeto diretamente)\n * Saídas:\n *  - json.html, json.summary, json.analyses_received\n *  - binary.report (HTML em base64, se Buffer existir)\n */\n\nconst WARN_TOL = 0.05;           // 5%\nconst EMPTY_TEXT_POLICY = 'warn'; // 'warn' | 'crit'\n\n/* ----------------- Utils básicos ----------------- */\nfunction stripFences(s) {\n  if (typeof s !== 'string') return s;\n  let t = s.trim();\n  // remove ```json ... ``` ou ``` ... ```\n  t = t.replace(/^```[a-zA-Z]*\\s*/i, '').replace(/```$/i, '').trim();\n  return t;\n}\nfunction esc(s){ return String(s ?? '—').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }\nfunction ptNumber(n){ if (typeof n !== 'number' || !isFinite(n)) return String(n ?? '—'); return n.toLocaleString('pt-BR',{ maximumFractionDigits: 2 }); }\nfunction ptDate(d){\n  if (!d) return '—';\n  const dt = new Date(d);\n  if (!isNaN(dt)) {\n    const dd = String(dt.getDate()).padStart(2,'0');\n    const mm = String(dt.getMonth()+1).padStart(2,'0');\n    const yyyy = dt.getFullYear();\n    return `${dd}/${mm}/${yyyy}`;\n  }\n  return String(d);\n}\n\n/* ----------------- Normalização de dados ----------------- */\nfunction toISODate(s){\n  if (!s || typeof s !== 'string') return null;\n  const t = s.trim();\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(t)) return t;\n  const m1 = /^(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})$/.exec(t); // dd/mm/yyyy\n  if (m1){\n    const dd = m1[1].padStart(2,'0'), mm = m1[2].padStart(2,'0'), yyyy = m1[3];\n    return `${yyyy}-${mm}-${dd}`;\n  }\n  return null;\n}\nfunction numOrNull(v){\n  if (typeof v === 'number') return isFinite(v)? v : null;\n  if (typeof v === 'string'){\n    const t = v.replace(',', '.').trim();\n    if (/^[\\+\\-]?\\d+(\\.\\d+)?$/.test(t)) return Number(t);\n  }\n  return null;\n}\nfunction cleanResult(r){\n  if (!r || typeof r !== 'object') return null;\n  const out = { ...r };\n  if ('value' in out){\n    const n = numOrNull(out.value);\n    if (n !== null) out.value = n;\n  }\n  if ('ref_min' in out){\n    const n = numOrNull(out.ref_min);\n    out.ref_min = (n !== null)? n : (typeof out.ref_min === 'number'? out.ref_min : null);\n  }\n  if ('ref_max' in out){\n    const n = numOrNull(out.ref_max);\n    out.ref_max = (n !== null)? n : (typeof out.ref_max === 'number'? out.ref_max : null);\n  }\n  if ('prev_value' in out){\n    const n = numOrNull(out.prev_value);\n    out.prev_value = (n !== null)? n : (typeof out.prev_value === 'number'? out.prev_value : null);\n  }\n  if (out.prev_date){\n    out.prev_date = toISODate(String(out.prev_date)) ?? out.prev_date ?? null;\n  }\n  return out;\n}\nfunction normalizeOne(a){\n  if (!a || typeof a !== 'object') return null;\n  const out = { ...a };\n  if (out.exam){\n    if (out.exam.date_requested) out.exam.date_requested = toISODate(String(out.exam.date_requested)) ?? out.exam.date_requested ?? null;\n    if (out.exam.date_report)    out.exam.date_report    = toISODate(String(out.exam.date_report))    ?? out.exam.date_report    ?? null;\n  }\n  if (Array.isArray(out.results)) out.results = out.results.map(cleanResult).filter(Boolean);\n  if (!Array.isArray(out.notes)) out.notes = out.notes ? [String(out.notes)] : [];\n  return out;\n}\n\n/* ----------------- Parse e elevação de root ----------------- */\nfunction safeParseJsonish(maybeJson){\n  // aceita string, objeto ou array\n  if (!maybeJson) return null;\n  if (typeof maybeJson === 'string'){\n    const stripped = stripFences(maybeJson);\n    try { return JSON.parse(stripped); } catch { return null; }\n  }\n  if (typeof maybeJson === 'object'){\n    // já é objeto/array\n    return maybeJson;\n  }\n  return null;\n}\n\nfunction looksLikeAnalysis(obj){\n  return obj && typeof obj === 'object' && (\n    obj.patient || obj.exam || obj.results || obj.notes || obj.metadata\n  );\n}\nfunction coerceRoot(candidate){\n  // candidate pode ser string JSON, obj com analysis/analyses, array de análises, ou analysis direto\n  const data = safeParseJsonish(candidate) ?? candidate;\n\n  if (!data) return null;\n\n  if (Array.isArray(data)) {\n    // array de análises?\n    const arr = data.map(normalizeOne).filter(Boolean);\n    return arr.length ? { analyses: arr } : null;\n  }\n\n  if (typeof data === 'object') {\n    if (Array.isArray(data.analyses)) {\n      const arr = data.analyses.map(normalizeOne).filter(Boolean);\n      if (arr.length) return { analyses: arr };\n    }\n    if (data.analysis && typeof data.analysis === 'object') {\n      const one = normalizeOne(data.analysis);\n      if (one) return { analysis: one };\n    }\n    // objeto no formato da análise\n    if (looksLikeAnalysis(data)) {\n      const one = normalizeOne(data);\n      if (one) return { analysis: one };\n    }\n    // tentar procurar de forma profunda\n    for (const k of Object.keys(data)) {\n      const v = data[k];\n      const r = coerceRoot(v);\n      if (r) return r;\n    }\n  }\n\n  return null;\n}\n\nfunction getAnalysesFromInputs(){\n  // 1) Vias \"diretas\" do Agent\n  const one  = $fromAI('analysis', `{}`, 'json');\n  const many = $fromAI('analyses', `[]`, 'json');\n\n  if (many && Array.isArray(many) && many.length) {\n    return { root: { analyses: many.map(normalizeOne).filter(Boolean) }, source: 'fromAI:analyses' };\n  }\n  if (one && Object.keys(one || {}).length){\n    return { root: { analysis: normalizeOne(one) }, source: 'fromAI:analysis' };\n  }\n\n  // 2) Vias \"genéricas\" (string OU objeto)\n  const candidates = [\n    $fromAI('raw', ``, 'json') || $fromAI('raw', ``, 'string'),\n    $fromAI('result', ``, 'json') || $fromAI('result', ``, 'string'),\n    $fromAI('data', ``, 'json') || $fromAI('data', ``, 'string'),\n    $fromAI('output', ``, 'json') || $fromAI('output', ``, 'string'),\n    $fromAI('response', ``, 'json') || $fromAI('response', ``, 'string'),\n  ].filter(v => v !== undefined && v !== null && String(v).trim() !== '');\n\n  for (const c of candidates) {\n    const r = coerceRoot(c);\n    if (r) return { root: r, source: 'fromAI:generic' };\n  }\n\n  // 3) Nada encontrado\n  return { root: null, source: 'none' };\n}\n\n/* ----------------- Lógica clínica (status/trend) ----------------- */\nfunction computeStatus(r){\n  const isNum = v => typeof v === 'number' && isFinite(v);\n  const { value, ref_min, ref_max, ref_text } = r;\n  if (isNum(value) && (isNum(ref_min) || isNum(ref_max))){\n    const v = value;\n    if (isNum(ref_min) && v < ref_min) return (v >= ref_min * (1 - WARN_TOL)) ? 'warn' : 'crit';\n    if (isNum(ref_max) && v > ref_max) return (v <= ref_max * (1 + WARN_TOL)) ? 'warn' : 'crit';\n    return 'ok';\n  }\n  if (ref_text != null){\n    const a = String(value ?? '').trim().toLowerCase();\n    const b = String(ref_text ?? '').trim().toLowerCase();\n    if (!a && b) return EMPTY_TEXT_POLICY;\n    if (!b) return 'ok';\n    return (a === b) ? 'ok' : 'crit';\n  }\n  return 'ok';\n}\nfunction statusLabel(c){ return c==='ok'?'Normal':(c==='warn'?'Limítrofe':'Alterado'); }\nfunction trendInfo(r){\n  const isNum = v => typeof v === 'number' && isFinite(v);\n  if (!isNum(r.value) || !isNum(r.prev_value)) return { text:'—' };\n  const d = r.value - r.prev_value;\n  const pct = r.prev_value === 0 ? null : (d / r.prev_value) * 100;\n  const absTxt = `${d>=0?'+':''}${ptNumber(d)}`;\n  const pctTxt = (pct==null)? '' : ` (${pct>=0?'+':''}${ptNumber(pct)}%)`;\n  let arrow = '■ estável';\n  if (pct != null){ if (pct > 1) arrow='▲ aumento'; else if (pct < -1) arrow='▼ queda'; }\n  return { text: `${absTxt}${pctTxt} · ${arrow}` };\n}\nfunction mapSection(exam){\n  const explicit = String(exam?.section ?? '').toLowerCase().trim();\n  if (explicit) return explicit;\n  const t = String(exam?.type ?? '').toLowerCase();\n  if (/urina|eas|urin/.test(t)) return 'urina';\n  if (/hemograma|hematologia|eritro|leuco|plaqueta/.test(t)) return 'hematologia';\n  if (/bioqu[ií]mica|metabolismo|enzima|creatinina|ureia|glic/.test(t)) return 'bioquimica';\n  if (/imagem|raio-x|radiografia|resson|tomografia|ultra/.test(t)) return 'imagem';\n  return 'geral';\n}\n\n/* ----------------- Renderização ----------------- */\nfunction renderSummaryCards(exam, counts){ return `\n  <div class=\"grid cols-3\">\n    <div class=\"card\">\n      <div class=\"kv\"><span class=\"k\">Tipo de Exame</span><span class=\"v\">${esc(exam.type)}</span></div>\n      <div class=\"kv\"><span class=\"k\">Laboratório</span><span class=\"v\">${esc(exam.lab)}</span></div>\n    </div>\n    <div class=\"card\">\n      <div class=\"kv\"><span class=\"k\">Data (Solicitação)</span><span class=\"v\">${ptDate(exam.date_requested)}</span></div>\n      <div class=\"kv\"><span class=\"k\">Data (Laudo)</span><span class=\"v\">${ptDate(exam.date_report)}</span></div>\n    </div>\n    <div class=\"card\">\n      <div class=\"kv\"><span class=\"k\">Alterações</span><span class=\"v\"><span class=\"badge crit\" aria-label=\"Resultados alterados\">${counts.crit}</span></span></div>\n      <div class=\"kv\"><span class=\"k\">Limítrofes</span><span class=\"v\"><span class=\"badge warn\" aria-label=\"Resultados limítrofes\">${counts.warn}</span></span></div>\n    </div>\n  </div>\n`; }\nfunction buildTableRows(results){\n  return results.map(r=>{\n    const unit = r.unit ? ` ${esc(r.unit)}` : '';\n    const res = (typeof r.value === 'number') ? `${ptNumber(r.value)}${unit}` : esc(r.value ?? '—');\n    let refCol = '—';\n    if (typeof r.ref_min === 'number' || typeof r.ref_max === 'number'){\n      const min = (typeof r.ref_min === 'number') ? ptNumber(r.ref_min) : '—';\n      const max = (typeof r.ref_max === 'number') ? ptNumber(r.ref_max) : '—';\n      refCol = `${min} – ${max}`;\n    } else if (r.ref_text) {\n      refCol = esc(r.ref_text);\n    }\n    const badgeClass = r._status === 'ok' ? 'ok' : (r._status === 'warn' ? 'warn' : 'crit');\n    const badge = `<span class=\"badge ${badgeClass}\" aria-label=\"Status: ${esc(r._status_label)}\">${esc(r._status_label)}</span>`;\n    return `\n      <tr>\n        <td data-label=\"Medida\">${esc(r.name)}</td>\n        <td data-label=\"Resultado\">${res}</td>\n        <td data-label=\"Ref.\">${refCol}</td>\n        <td data-label=\"Status\">${badge}</td>\n        <td data-label=\"Tendência\" class=\"trend\">${esc(r._trend)}</td>\n      </tr>\n    `;\n  }).join('');\n}\nfunction renderExamSection(a){\n  const patient = a.patient ?? {};\n  const exam = a.exam ?? {};\n  const results = Array.isArray(a.results) ? a.results : [];\n  const notes = Array.isArray(a.notes) ? a.notes : [];\n\n  const enriched = results.map(r=>{\n    const cls = computeStatus(r);\n    const label = statusLabel(cls);\n    const tr = trendInfo(r);\n    return { ...r, _status: cls, _status_label: label, _trend: tr.text };\n  }).sort((x,y)=>{\n    const rank = { crit:0, warn:1, ok:2 };\n    const rx = rank[x._status] ?? 9;\n    const ry = rank[y._status] ?? 9;\n    if (rx !== ry) return rx - ry;\n    return String(x.name ?? '').localeCompare(String(y.name ?? ''), 'pt-BR');\n  });\n\n  const counts = {\n    crit: enriched.filter(r=>r._status==='crit').length,\n    warn: enriched.filter(r=>r._status==='warn').length,\n    ok:   enriched.filter(r=>r._status==='ok').length,\n  };\n\n  const summaryCards = renderSummaryCards(exam, counts);\n  const alertBanner = (counts.crit>0 || counts.warn>0) ? `\n    <div class=\"alert\" role=\"status\" aria-live=\"polite\">\n      <span class=\"icon\">⚠️</span>\n      <div><strong>Achados relevantes:</strong> ${counts.crit} alterado(s) e ${counts.warn} limítrofe(s). Revisão clínica recomendada.</div>\n    </div>` : '';\n\n  const rows = buildTableRows(enriched);\n  const obsBlock = notes.length ? `\n    <div class=\"card note\" style=\"margin-top:14px\">\n      <strong>Observações:</strong>\n      <ul style=\"margin:.4rem 0 0; padding-left:18px; color:var(--ink-3)\">\n        ${notes.map(n=>`<li>${esc(n)}</li>`).join('')}\n      </ul>\n    </div>` : '';\n\n  return {\n    sectionHtml: `\n      <section>\n        <h2 class=\"section-title\">${esc(exam.type || 'Exame')}</h2>\n        ${summaryCards}\n        ${alertBanner}\n        <div class=\"table-wrap\" style=\"margin-top:14px\">\n          <table aria-label=\"Tabela de resultados\">\n            <thead>\n              <tr>\n                <th scope=\"col\">Medida</th>\n                <th scope=\"col\">Resultado</th>\n                <th scope=\"col\">Ref. (min–max / texto)</th>\n                <th scope=\"col\">Status</th>\n                <th scope=\"col\">Tendência</th>\n              </tr>\n            </thead>\n            <tbody>${rows}</tbody>\n          </table>\n        </div>\n        ${obsBlock}\n      </section>\n    `,\n    counts,\n    sectionKey: mapSection(exam),\n    patient\n  };\n}\nfunction makeHTMLForMany(analyses){\n  const rendered = analyses.map(renderExamSection);\n  const firstPatient = rendered.map(r=>r.patient).find(p=>(p?.name || p?.record_id)) || {};\n\n  const globalCounts = { crit:0, warn:0, ok:0 };\n  const sections = {};\n  for (const r of rendered){\n    globalCounts.crit += r.counts.crit;\n    globalCounts.warn += r.counts.warn;\n    globalCounts.ok   += r.counts.ok;\n    const key = r.sectionKey || 'geral';\n    if (!sections[key]) sections[key] = { crit:0, warn:0, ok:0, exams:0 };\n    sections[key].crit += r.counts.crit;\n    sections[key].warn += r.counts.warn;\n    sections[key].ok   += r.counts.ok;\n    sections[key].exams += 1;\n  }\n  const showGlobalAlert = globalCounts.crit>0 || globalCounts.warn>0;\n\n  const sectionCards = Object.entries(sections).map(([sec,c])=>`\n    <div class=\"card\">\n      <div class=\"kv\"><span class=\"k\">Seção</span><span class=\"v\" style=\"text-transform:capitalize\">${esc(sec)}</span></div>\n      <div class=\"kv\"><span class=\"k\">Exames</span><span class=\"v\">${c.exams}</span></div>\n      <div class=\"kv\"><span class=\"k\">Alterações</span><span class=\"v\"><span class=\"badge crit\">${c.crit}</span></span></div>\n      <div class=\"kv\"><span class=\"k\">Limítrofes</span><span class=\"v\"><span class=\"badge warn\">${c.warn}</span></span></div>\n      <div class=\"kv\"><span class=\"k\">Normais</span><span class=\"v\"><span class=\"badge ok\">${c.ok}</span></span></div>\n    </div>`).join('');\n\n  const headerSummary = `\n    <div class=\"grid cols-3\">\n      <div class=\"card\">\n        <div class=\"kv\"><span class=\"k\">Paciente</span><span class=\"v\">${esc(firstPatient.name) || '—'}</span></div>\n        <div class=\"kv\"><span class=\"k\">Prontuário</span><span class=\"v\">${esc(firstPatient.record_id) || '—'}</span></div>\n      </div>\n      <div class=\"card\">\n        <div class=\"kv\"><span class=\"k\">Exames analisados</span><span class=\"v\">${analyses.length}</span></div>\n        <div class=\"kv\"><span class=\"k\">Gerado em</span><span class=\"v\">${ptDate(new Date())}</span></div>\n      </div>\n      <div class=\"card\">\n        <div class=\"kv\"><span class=\"k\">Alterações</span><span class=\"v\"><span class=\"badge crit\">${globalCounts.crit}</span></span></div>\n        <div class=\"kv\"><span class=\"k\">Limítrofes</span><span class=\"v\"><span class=\"badge warn\">${globalCounts.warn}</span></span></div>\n      </div>\n    </div>`;\n\n  const globalAlert = showGlobalAlert ? `\n    <div class=\"alert\" role=\"status\" aria-live=\"polite\">\n      <span class=\"icon\">⚠️</span>\n      <div><strong>Resumo geral:</strong> ${globalCounts.crit} alterado(s) e ${globalCounts.warn} limítrofe(s) no conjunto de exames.</div>\n    </div>` : '';\n\n  const sectionsSummaryBlock = `\n    <section>\n      <h2 class=\"section-title\">Resumo por Seção</h2>\n      <div class=\"grid cols-3\">${sectionCards}</div>\n    </section>`;\n\n  const html = `<!doctype html>\n<html lang=\"pt-BR\">\n<head>\n<meta charset=\"utf-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n<title>Relatório de Exames | ${esc(firstPatient.name || 'Paciente')}</title>\n<meta name=\"color-scheme\" content=\"light dark\">\n<style>\n  :root{ --bg:#f6f7f9; --paper:#ffffff; --ink:#0f172a; --ink-2:#334155; --ink-3:#64748b; --line:#e5e7eb; --brand:#0ea5e9; --green:#11a36a; --amber:#c77900; --red:#c92a2a; --chip:#f1f5f9; --radius:16px; --shadow:0 10px 30px rgba(15,23,42,.08); }\n  @media (prefers-color-scheme: dark){\n    :root{ --bg:#0b1220; --paper:#0f172a; --ink:#e5e7eb; --ink-2:#cbd5e1; --ink-3:#94a3b8; --line:#1f2937; --chip:#111827; }\n    .alert{background:#2b1b1b;color:#f6d6d6;border-left-color:#f87171}\n    .note{background:#0d2433;color:#cde8ff;border-left-color:#38bdf8}\n    tbody tr:hover{background:#121826}\n  }\n  *{box-sizing:border-box} html,body{height:100%}\n  body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; color:var(--ink); background:linear-gradient(180deg,#f8fafc 0,#eef2f7 100%); }\n  @media (prefers-color-scheme: dark){ body{ background:linear-gradient(180deg,#0d1526 0,#0b1220 100%) } }\n  .container{max-width:1040px;margin-inline:auto;padding:24px}\n  header.hero{ display:grid;gap:18px; background:conic-gradient(from 180deg at 50% 0%, #e0f2fe 0turn, #f0f9ff .25turn, #e8f7f1 .5turn, #fff 1turn); border:1px solid var(--line);border-radius:calc(var(--radius) + 4px); padding:22px;box-shadow:var(--shadow); }\n  @media (prefers-color-scheme: dark){ header.hero{ background:conic-gradient(from 180deg at 50% 0%, #0e2230 0turn, #0b1d2a .25turn, #0d1f17 .5turn, #0f172a 1turn) } }\n  .title{margin:0;font-weight:800;letter-spacing:.2px;line-height:1.15; font-size:clamp(1.25rem, 2vw + .5rem, 1.8rem);color:#0b3d60}\n  @media (prefers-color-scheme: dark){ .title{color:#8bd1ff} }\n  .subtitle{margin:0;color:var(--ink-3)}\n  .grid{display:grid;gap:12px}\n  @media(min-width:720px){ .grid.cols-3{grid-template-columns:repeat(3,1fr)} .grid.cols-2{grid-template-columns:repeat(2,1fr)} }\n  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}\n  .kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dashed #eef2f7}\n  .kv:last-child{border-bottom:0}\n  .k{color:var(--ink-3);font-weight:600} .v{color:var(--ink-2);font-weight:700}\n  .alert{display:flex;align-items:flex-start;gap:12px;border-left:8px solid var(--red); background:#fff1f1;color:#7a1d1d;border-radius:12px;padding:12px 14px;animation:pop .3s ease-out}\n  .alert .icon{font-size:1.2rem;line-height:1}\n  @keyframes pop { from{transform:scale(.98);opacity:.7} to{transform:scale(1);opacity:1} }\n  .note{border-left:6px solid var(--brand);background:#eaf7ff;color:#0a4770;border-radius:12px;padding:12px 14px}\n  .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--chip);font-size:.85rem;font-weight:700;color:var(--ink-2)}\n  .ok{color:var(--green);background:#e7fbf3} .warn{color:var(--amber);background:#fff5e6} .crit{color:var(--red);background:#ffe8e8}\n  .table-wrap{overflow:auto;border-radius:12px;border:1px solid var(--line);background:var(--paper);box-shadow:var(--shadow);margin-top:14px}\n  table{width:100%;border-collapse:collapse;min-width:720px}\n  th,td{padding:12px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}\n  th{background:#f8fafc;font-weight:800;color:var(--ink-2);position:sticky;top:0;z-index:1} /* texto com contraste correto */\n  tbody tr:hover{background:#fafafa}\n  .trend{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9rem;color:var(--ink-2)}\n  .muted{color:var(--ink-3)} .section-title{margin:18px 0 10px;font-size:1.1rem}\n  @media (max-width: 640px){\n    table{min-width:unset;border:0} thead{display:none}\n    tbody tr{display:block;border-bottom:1px solid var(--line);padding:10px 8px}\n    tbody tr:hover{background:transparent}\n    td{display:flex;justify-content:space-between;gap:12px;border:0;padding:8px 4px}\n    td::before{content:attr(data-label);font-weight:700;color:var(--ink-2)}\n    .table-wrap{padding:2px}\n  }\n  footer{margin-top:26px;color:var(--ink-3);font-size:.9rem;text-align:center}\n  @media print{ body{background:#fff} .card, .table-wrap, header.hero{box-shadow:none} .card, .table-wrap{page-break-inside:avoid} a{color:#000;text-decoration:none} }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <header class=\"hero\">\n      <h1 class=\"title\">Relatório de Exames — Consolidado</h1>\n      <p class=\"subtitle\">Paciente: <strong class=\"muted\">${esc(firstPatient.name) || '—'}</strong> · Prontuário: <strong class=\"muted\">${esc(firstPatient.record_id) || '—'}</strong></p>\n      ${headerSummary}\n      ${globalAlert}\n    </header>\n\n    ${sectionsSummaryBlock}\n\n    ${rendered.map(r=>r.sectionHtml).join('')}\n\n    <footer>Relatório gerado automaticamente. Revisão clínica recomendada.</footer>\n  </div>\n</body>\n</html>`;\n\n  return { html, summary: { globalCounts, sections } };\n}\n\n/* ----------------- MAIN ----------------- */\nconst probe = getAnalysesFromInputs();\nlet root = probe.root;\n\nif (!root) {\n  // Não falha mudo: retorna HTML explicando a ausência de dados\n  const html = `<!doctype html><meta charset=\"utf-8\"><title>Relatório</title>\n  <style>body{font-family:system-ui,Segoe UI,Roboto,Inter,Arial,sans-serif;padding:20px;color:#0f172a}</style>\n  <h1>Relatório não gerado</h1>\n  <p>Não foi possível localizar uma análise válida (analysis/analyses) nos dados recebidos.</p>`;\n  return {\n    ok: false,\n    analyses_received: 0,\n    summary: { error: 'Nenhuma análise válida encontrada', _debug: { source: probe.source } },\n    html\n  };\n}\n\nconst list = root.analyses ? root.analyses : [ root.analysis ].filter(Boolean);\n\n// Render com blindagem\nlet html = \"\";\nlet summary = {};\ntry {\n  const out = makeHTMLForMany(list);\n  html = out.html;\n  summary = out.summary;\n} catch (err) {\n  html = \"<!doctype html><meta charset='utf-8'><title>Relatório</title><p>Falha ao gerar HTML.</p>\";\n  summary = { error: String(err && err.message || err) };\n}\n\n// Binário opcional\nconst internalId = (list[0]?.metadata?.internal_id) || (list[0]?.patient?.record_id) || 'exames';\nconst fileName = `relatorio-${String(internalId).replace(/[^a-z0-9_-]+/gi,'_')}.html`;\n\nlet binary;\ntry {\n  if (typeof Buffer !== 'undefined' && Buffer.from) {\n    binary = {\n      report: {\n        data: Buffer.from(html, 'utf8').toString('base64'),\n        fileName,\n        fileExtension: 'html',\n        mimeType: 'text/html'\n      }\n    };\n  }\n} catch { /* ignore */ }\n\n// Devolve sempre algo útil\nreturn {\n  ok: true,\n  analyses_received: list.length,\n  summary: { ...summary, _debug: { ...(summary?._debug||{}), source: probe.source, count: list.length } },\n  html,\n  ...(binary ? { _binary_hint: \"O arquivo HTML também está em binary.report\", binary } : {})\n};"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        784,
+        320
+      ],
+      "id": "d9cfd374-b95f-4f93-a976-ce6ff45b11cd",
+      "name": "gerar_relatorio_html",
+      "executeOnce": false,
+      "retryOnFail": false,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "n8n_historico_exames",
+          "mode": "list",
+          "cachedResultName": "n8n_historico_exames"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": 0
+          },
+          "matchingColumns": [
+            "url_file",
+            "telefone_paciente"
+          ],
+          "schema": [
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telefone_paciente",
+              "displayName": "telefone_paciente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "analise_json",
+              "displayName": "analise_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "relatorio_html",
+              "displayName": "relatorio_html",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "url_file",
+              "displayName": "url_file",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "file_type",
+              "displayName": "file_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "download_arquivo",
+              "displayName": "download_arquivo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1312,
+        0
+      ],
+      "id": "a630ff15-dce2-4b95-b158-7aebaec1609b",
+      "name": "Insert or update rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "id": "firecrawl-pdf",
+      "name": "Firecrawl Extrair PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        544,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.firecrawl.dev/v1/scrape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer fc-48474e4ad6144be2aa4212f372ee38e4"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\"url\": \"{{ $json.urls }}\", \"formats\": [\"markdown\"], \"onlyMainContent\": false, \"timeout\": 30000}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "preparar-conteudo",
+      "name": "Preparar Conteúdo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Campos originais do Explodir (HTTP Request substitui $json com a resposta)\n// Usar .first() — .item não existe em Code nodes e bloqueia\nconst orig = $('Explodir URLs p/ Exames').first().json;\nconst prev = $input.first().json;  // resposta do Firecrawl\n\nconst base = {\n  telefone: orig.telefone ?? '',\n  id_conversa: orig.id_conversa ?? '',\n  id_mensagem: orig.id_mensagem ?? '',\n  entrada: orig.entrada ?? '',\n  urls: orig.urls ?? ''   // URL original preservada\n};\n\n// Verificar resultado Firecrawl\nconst fcData = prev.data ?? {};\nconst markdown = (fcData.markdown ?? '').trim();\nconst isImage = /\\.(jpe?g|png|gif|webp|tiff?|bmp)($|\\?)/i.test(base.urls);\nconst textOk = !isImage && markdown.length >= 200;\n\nif (textOk) {\n  return [{ json: {\n    ...base,\n    tipo: 'pdf_text',\n    content: markdown,\n    content_len: markdown.length\n  }}];\n} else {\n  return [{ json: {\n    ...base,\n    tipo: isImage ? 'image_url' : 'url',\n    content: base.urls,\n    content_len: 0,\n    fc_chars: markdown.length\n  }}];\n}"
+      }
+    }
+  ],
+  "connections": {
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analise Documentos": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analise de Imagens": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Banco de Dados Exames": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Explodir URLs p/ Exames",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Insert or update rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explodir URLs p/ Exames": {
+      "main": [
+        [
+          {
+            "node": "Firecrawl Extrair PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gerar_relatorio_html": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Firecrawl Extrair PDF": {
+      "main": [
+        [
+          {
+            "node": "Preparar Conteúdo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Conteúdo": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "telefone": "+5511945671290",
+          "id_conversa": "4",
+          "urls": "https://chatwoot.singulare.org/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBcjBDIiwiZXhwIjpudWxsLCJwdXIiOiJibG9iX2lkIn19--5b2db8e2e3783e842fcbdecf78bcc4c676e380b0/Exames%2028.06.25-10.pdf",
+          "entrada": "file",
+          "id_mensagem": "1919"
+        }
+      }
+    ]
+  },
+  "activeVersionId": "fd5db687-b9f0-4dd2-ad66-7b639fcbcc9b",
+  "versionCounter": 47,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "vV0dX5vkVynwEbGA",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-08T12:46:33.990Z",
+    "createdAt": "2026-05-08T12:46:33.990Z",
+    "versionId": "fd5db687-b9f0-4dd2-ad66-7b639fcbcc9b",
+    "workflowId": "vV0dX5vkVynwEbGA",
+    "nodes": [
+      {
+        "parameters": {},
+        "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+        "typeVersion": 1,
+        "position": [
+          288,
+          288
+        ],
+        "id": "71d190d1-64ce-4dd3-ad4f-c62d2fdc35d6",
+        "name": "Google Gemini Chat Model1",
+        "credentials": {
+          "googlePalmApi": {
+            "id": "IfMvUmMoeAZrytgT",
+            "name": "Google Gemini(PaLM) Api account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "sessionIdType": "customKey",
+          "sessionKey": "={{ $json.telefone }}",
+          "tableName": "=n8n_historico_exames_memory"
+        },
+        "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+        "typeVersion": 1.3,
+        "position": [
+          464,
+          304
+        ],
+        "id": "9b3ee968-aea7-443f-9767-421c86d19a97",
+        "name": "Postgres Chat Memory1",
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        },
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "resource": "document",
+          "modelId": {
+            "__rl": true,
+            "value": "models/gemini-2.5-flash",
+            "mode": "list",
+            "cachedResultName": "models/gemini-2.5-flash"
+          },
+          "text": "=Você recebe 1 URL de documento (PDF/DOC/DOCX/TXT/XML/JSON) via `documentUrls`. Leia o arquivo e EXTRAIA os dados do(s) exame(s).\n\nSAÍDA OBRIGATÓRIA — responda exclusivamente com um JSON válido UTF-8 (sem markdown, sem explicações), em EXATAMENTE UM dos formatos:\n1) { \"analysis\": { ... } }\n2) { \"analyses\": [ { ... }, ... ] }\n\nEsquema de cada análise:\n{\n  \"patient\": { \"name\": string|null, \"record_id\": string|null, \"birthdate\": string|null },\n  \"exam\": { \"type\": string, \"lab\": string|null, \"date_requested\": string|null, \"date_report\": string|null, \"section\": string|null },\n  \"results\": [\n    { \"name\": string, \"value\": number|string|null, \"unit\": string|null,\n      \"ref_min\": number|null, \"ref_max\": number|null, \"ref_text\": string|null,\n      \"prev_value\": number|null, \"prev_date\": string|null }\n  ],\n  \"notes\": [ string ],\n  \"metadata\": { \"internal_id\": string|null, \"source_url\": string }\n}\n\nRegras:\n- Use number para valores numéricos (ex.: 12.3), nunca string.\n- Datas em \"YYYY-MM-DD\" quando possível; senão null.\n- Se houver múltiplos exames → use \"analyses\"; se for único → \"analysis\".\n- Preencha \"metadata.source_url\" com a URL do documento.\n- Campos ausentes → null (ou omita em arrays).\n- Não inclua markdown, ``` ou texto extra.",
+          "documentUrls": "={{ String($json.urls) }}",
+          "simplify": "={{ $fromAI('Simplify_Output', ``, 'boolean') }}",
+          "options": {
+            "maxOutputTokens": 8192
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.googleGeminiTool",
+        "typeVersion": 1,
+        "position": [
+          624,
+          320
+        ],
+        "id": "200eab2f-9e4d-4228-a29d-2a95b14f1f68",
+        "name": "Analise Documentos",
+        "credentials": {
+          "googlePalmApi": {
+            "id": "IfMvUmMoeAZrytgT",
+            "name": "Google Gemini(PaLM) Api account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "resource": "image",
+          "operation": "analyze",
+          "modelId": {
+            "__rl": true,
+            "value": "models/gemini-2.5-flash",
+            "mode": "list",
+            "cachedResultName": "models/gemini-2.5-flash"
+          },
+          "text": "Você recebe 1 URL de imagem de exame médico via `imageUrls`. Faça OCR e EXTRAIA os dados do(s) exame(s).\n\nSAÍDA OBRIGATÓRIA — responda exclusivamente com um JSON válido UTF-8 (sem markdown, sem explicações), em EXATAMENTE UM dos formatos:\n1) { \"analysis\": { ... } }\n2) { \"analyses\": [ { ... }, ... ] }\n\nEsquema de cada análise:\n{\n  \"patient\": { \"name\": string|null, \"record_id\": string|null, \"birthdate\": string|null },\n  \"exam\": { \"type\": string, \"lab\": string|null, \"date_requested\": string|null, \"date_report\": string|null, \"section\": string|null },\n  \"results\": [\n    { \"name\": string, \"value\": number|string|null, \"unit\": string|null,\n      \"ref_min\": number|null, \"ref_max\": number|null, \"ref_text\": string|null,\n      \"prev_value\": number|null, \"prev_date\": string|null }\n  ],\n  \"notes\": [ string ],\n  \"metadata\": { \"internal_id\": string|null, \"source_url\": string }\n}\n\nRegras:\n- Use number para valores numéricos (ex.: 12.3), nunca string.\n- Datas em \"YYYY-MM-DD\" quando possível; senão null.\n- Se houver múltiplos exames → use \"analyses\"; se for único → \"analysis\".\n- Preencha \"metadata.source_url\" com a URL da imagem.\n- Campos ausentes → null (ou omita em arrays).\n- Não inclua markdown, ``` ou texto extra.",
+          "imageUrls": "={{ typeof $json.urls === 'string'\n    ? $json.urls.split(/,|\\n/).map(s => s.trim()).filter(Boolean)[0] \n    : (Array.isArray($json.urls) ? String($json.urls[0] ?? '').trim() : '') \n}}",
+          "simplify": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Simplify_Output', ``, 'boolean') }}",
+          "options": {
+            "maxOutputTokens": 8192
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.googleGeminiTool",
+        "typeVersion": 1,
+        "position": [
+          1072,
+          352
+        ],
+        "id": "4627df41-2c97-4042-ad96-202a734206f2",
+        "name": "Analise de Imagens",
+        "credentials": {
+          "googlePalmApi": {
+            "id": "IfMvUmMoeAZrytgT",
+            "name": "Google Gemini(PaLM) Api account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "descriptionType": "manual",
+          "toolDescription": "Busque exames para analisar usando o telefone do paciente como chave e busque todas as url disponíveis para o paciente.",
+          "operation": "update",
+          "tableId": "n8n_historico_exames",
+          "filterType": "string",
+          "filterString": "={{$json.urls}}",
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "relatorio_html",
+                "fieldValue": "={{ $fromAI('relatorio_html', $('gerar_relatorio_html').item.json.html, 'string') }}"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.supabaseTool",
+        "typeVersion": 1,
+        "position": [
+          944,
+          304
+        ],
+        "id": "f3605961-d8ae-4d74-8317-febe65cc943f",
+        "name": "Banco de Dados Exames",
+        "credentials": {
+          "supabaseApi": {
+            "id": "kabbqqhjJ9ZS0yDA",
+            "name": "Supabase account"
+          }
+        },
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Você é um orquestrador determinístico de análise de exames.\n\nENTRADAS DO ITEM\n- tipo   = {{$json.tipo}}     // 'pdf_text' | 'url' | 'image_url'\n- content = {{$json.content}} // texto markdown extraído OU url original\n- urls   = {{$json.urls}}     // url original (sempre)\n- telefone = {{$json.telefone}}\n\nREGRAS OBRIGATÓRIAS\n\n[SE tipo == 'pdf_text']\n  1) O texto do PDF já foi extraído — NÃO chame Analise Documentos.\n  2) Chame gerar_relatorio_html com: { \"raw\": \"{{$json.content}}\" }\n  3) Capture o retorno como OUT.\n\n[SE tipo == 'url' OU tipo == 'image_url']\n  1) Se tipo == 'image_url' (URL termina em .jpg .jpeg .png etc.):\n       Chame Analise de Imagens (sem parâmetros). O nó injeta imageUrls.\n     Senão:\n       Chame Analise Documentos (sem parâmetros). O nó injeta documentUrls.\n  2) Capture a SAÍDA CRUA da tool. Chame isso de RAW.\n  3) Chame gerar_relatorio_html com: { \"raw\": RAW }\n  4) Capture o retorno como OUT.\n\nRESPOSTA FINAL — responda ao fluxo principal APENAS com este JSON:\n{\n  \"html\": <html retornado por gerar_relatorio_html>,\n  \"summary\": <summary retornado por gerar_relatorio_html>,\n  \"analyses_received\": <número retornado por gerar_relatorio_html>,\n  \"url_file\": \"{{$json.urls}}\",\n  \"telefone_paciente\": \"{{$json.telefone}}\"\n}\n\nPROIBIÇÕES\n- Não inclua markdown, nem ```.\n- Não invente campos. Se a análise falhar, gerar_relatorio_html já retorna json de erro.",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 2.1,
+        "position": [
+          960,
+          0
+        ],
+        "id": "264236a7-bff5-44b3-88db-2da07b17bbea",
+        "name": "AI Agent"
+      },
+      {
+        "parameters": {
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "telefone"
+              },
+              {
+                "name": "id_conversa"
+              },
+              {
+                "name": "urls"
+              },
+              {
+                "name": "entrada"
+              },
+              {
+                "name": "id_mensagem"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -112,
+          0
+        ],
+        "id": "45ec518c-0940-4ba5-9e6c-9c8a7693ef29",
+        "name": "When Executed by Another Workflow"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "69d5b894-e9a8-4ead-a697-414b4a1e074e",
+                "name": "telefone",
+                "value": "={{ $json.telefone }}",
+                "type": "string"
+              },
+              {
+                "id": "67d6fb68-6d8d-40a9-b49b-5bb3b399cfed",
+                "name": "id_conversa",
+                "value": "={{ $json.id_conversa }}",
+                "type": "string"
+              },
+              {
+                "id": "e86ebe92-5725-40f3-b60c-e92de969f109",
+                "name": "urls",
+                "value": "={{ $json.urls ? (Array.isArray($json.urls) ? $json.urls.filter(url => url && url.trim()).join(',') : String($json.urls).trim()) : '' }}",
+                "type": "string"
+              },
+              {
+                "id": "dd62321d-a36e-46fc-be02-5a2237627f06",
+                "name": "entrada",
+                "value": "={{ $json.entrada }}",
+                "type": "string"
+              },
+              {
+                "id": "7305f708-2efb-4330-9462-ab2078dd44df",
+                "name": "id_mensagem",
+                "value": "={{ $json.id_mensagem }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          128,
+          0
+        ],
+        "id": "51e94bbd-6d9c-4830-83f6-f01a6f57f88c",
+        "name": "Edit Fields"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Normaliza `urls` e cria 1 item por URL (string)\nconst extras = {\n  telefone: $json.telefone ?? '',\n  id_conversa: $json.id_conversa ?? '',\n  id_mensagem: $json.id_mensagem ?? '',\n  entrada: $json.entrada ?? ''\n};\n\nfunction toList(raw) {\n  if (!raw) return [];\n  if (Array.isArray(raw)) return raw;\n  if (typeof raw === 'string') {\n    const s = raw.trim();\n    if (!s) return [];\n    if (s.startsWith('[')) {\n      try {\n        const arr = JSON.parse(s);\n        return Array.isArray(arr) ? arr : [];\n      } catch { return []; }\n    }\n    if (s.includes(',')) return s.split(',').map(x => x.trim()).filter(Boolean);\n    return [s];\n  }\n  return [];\n}\n\nconst urls = toList($json.urls).filter(Boolean);\n\nreturn urls.map(u => ({\n  json: { ...extras, urls: u }\n}));"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          320,
+          0
+        ],
+        "id": "94b455bf-5adf-436b-8765-4550eb296dd7",
+        "name": "Explodir URLs p/ Exames"
+      },
+      {
+        "parameters": {
+          "description": "Sua função é receber os dados JSON da analise dos exames e gerar um relatorio html.",
+          "jsCode": "/**\n * HTML Generator — Relatório de Exames (HTML5 + CSS responsivo)\n * Entradas possíveis (vindas do Agent/tools via $fromAI):\n *  - analysis (obj) | analyses (array)\n *  - raw | result | output | data | response  (string JSON OU objeto diretamente)\n * Saídas:\n *  - json.html, json.summary, json.analyses_received\n *  - binary.report (HTML em base64, se Buffer existir)\n */\n\nconst WARN_TOL = 0.05;           // 5%\nconst EMPTY_TEXT_POLICY = 'warn'; // 'warn' | 'crit'\n\n/* ----------------- Utils básicos ----------------- */\nfunction stripFences(s) {\n  if (typeof s !== 'string') return s;\n  let t = s.trim();\n  // remove ```json ... ``` ou ``` ... ```\n  t = t.replace(/^```[a-zA-Z]*\\s*/i, '').replace(/```$/i, '').trim();\n  return t;\n}\nfunction esc(s){ return String(s ?? '—').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }\nfunction ptNumber(n){ if (typeof n !== 'number' || !isFinite(n)) return String(n ?? '—'); return n.toLocaleString('pt-BR',{ maximumFractionDigits: 2 }); }\nfunction ptDate(d){\n  if (!d) return '—';\n  const dt = new Date(d);\n  if (!isNaN(dt)) {\n    const dd = String(dt.getDate()).padStart(2,'0');\n    const mm = String(dt.getMonth()+1).padStart(2,'0');\n    const yyyy = dt.getFullYear();\n    return `${dd}/${mm}/${yyyy}`;\n  }\n  return String(d);\n}\n\n/* ----------------- Normalização de dados ----------------- */\nfunction toISODate(s){\n  if (!s || typeof s !== 'string') return null;\n  const t = s.trim();\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(t)) return t;\n  const m1 = /^(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})$/.exec(t); // dd/mm/yyyy\n  if (m1){\n    const dd = m1[1].padStart(2,'0'), mm = m1[2].padStart(2,'0'), yyyy = m1[3];\n    return `${yyyy}-${mm}-${dd}`;\n  }\n  return null;\n}\nfunction numOrNull(v){\n  if (typeof v === 'number') return isFinite(v)? v : null;\n  if (typeof v === 'string'){\n    const t = v.replace(',', '.').trim();\n    if (/^[\\+\\-]?\\d+(\\.\\d+)?$/.test(t)) return Number(t);\n  }\n  return null;\n}\nfunction cleanResult(r){\n  if (!r || typeof r !== 'object') return null;\n  const out = { ...r };\n  if ('value' in out){\n    const n = numOrNull(out.value);\n    if (n !== null) out.value = n;\n  }\n  if ('ref_min' in out){\n    const n = numOrNull(out.ref_min);\n    out.ref_min = (n !== null)? n : (typeof out.ref_min === 'number'? out.ref_min : null);\n  }\n  if ('ref_max' in out){\n    const n = numOrNull(out.ref_max);\n    out.ref_max = (n !== null)? n : (typeof out.ref_max === 'number'? out.ref_max : null);\n  }\n  if ('prev_value' in out){\n    const n = numOrNull(out.prev_value);\n    out.prev_value = (n !== null)? n : (typeof out.prev_value === 'number'? out.prev_value : null);\n  }\n  if (out.prev_date){\n    out.prev_date = toISODate(String(out.prev_date)) ?? out.prev_date ?? null;\n  }\n  return out;\n}\nfunction normalizeOne(a){\n  if (!a || typeof a !== 'object') return null;\n  const out = { ...a };\n  if (out.exam){\n    if (out.exam.date_requested) out.exam.date_requested = toISODate(String(out.exam.date_requested)) ?? out.exam.date_requested ?? null;\n    if (out.exam.date_report)    out.exam.date_report    = toISODate(String(out.exam.date_report))    ?? out.exam.date_report    ?? null;\n  }\n  if (Array.isArray(out.results)) out.results = out.results.map(cleanResult).filter(Boolean);\n  if (!Array.isArray(out.notes)) out.notes = out.notes ? [String(out.notes)] : [];\n  return out;\n}\n\n/* ----------------- Parse e elevação de root ----------------- */\nfunction safeParseJsonish(maybeJson){\n  // aceita string, objeto ou array\n  if (!maybeJson) return null;\n  if (typeof maybeJson === 'string'){\n    const stripped = stripFences(maybeJson);\n    try { return JSON.parse(stripped); } catch { return null; }\n  }\n  if (typeof maybeJson === 'object'){\n    // já é objeto/array\n    return maybeJson;\n  }\n  return null;\n}\n\nfunction looksLikeAnalysis(obj){\n  return obj && typeof obj === 'object' && (\n    obj.patient || obj.exam || obj.results || obj.notes || obj.metadata\n  );\n}\nfunction coerceRoot(candidate){\n  // candidate pode ser string JSON, obj com analysis/analyses, array de análises, ou analysis direto\n  const data = safeParseJsonish(candidate) ?? candidate;\n\n  if (!data) return null;\n\n  if (Array.isArray(data)) {\n    // array de análises?\n    const arr = data.map(normalizeOne).filter(Boolean);\n    return arr.length ? { analyses: arr } : null;\n  }\n\n  if (typeof data === 'object') {\n    if (Array.isArray(data.analyses)) {\n      const arr = data.analyses.map(normalizeOne).filter(Boolean);\n      if (arr.length) return { analyses: arr };\n    }\n    if (data.analysis && typeof data.analysis === 'object') {\n      const one = normalizeOne(data.analysis);\n      if (one) return { analysis: one };\n    }\n    // objeto no formato da análise\n    if (looksLikeAnalysis(data)) {\n      const one = normalizeOne(data);\n      if (one) return { analysis: one };\n    }\n    // tentar procurar de forma profunda\n    for (const k of Object.keys(data)) {\n      const v = data[k];\n      const r = coerceRoot(v);\n      if (r) return r;\n    }\n  }\n\n  return null;\n}\n\nfunction getAnalysesFromInputs(){\n  // 1) Vias \"diretas\" do Agent\n  const one  = $fromAI('analysis', `{}`, 'json');\n  const many = $fromAI('analyses', `[]`, 'json');\n\n  if (many && Array.isArray(many) && many.length) {\n    return { root: { analyses: many.map(normalizeOne).filter(Boolean) }, source: 'fromAI:analyses' };\n  }\n  if (one && Object.keys(one || {}).length){\n    return { root: { analysis: normalizeOne(one) }, source: 'fromAI:analysis' };\n  }\n\n  // 2) Vias \"genéricas\" (string OU objeto)\n  const candidates = [\n    $fromAI('raw', ``, 'json') || $fromAI('raw', ``, 'string'),\n    $fromAI('result', ``, 'json') || $fromAI('result', ``, 'string'),\n    $fromAI('data', ``, 'json') || $fromAI('data', ``, 'string'),\n    $fromAI('output', ``, 'json') || $fromAI('output', ``, 'string'),\n    $fromAI('response', ``, 'json') || $fromAI('response', ``, 'string'),\n  ].filter(v => v !== undefined && v !== null && String(v).trim() !== '');\n\n  for (const c of candidates) {\n    const r = coerceRoot(c);\n    if (r) return { root: r, source: 'fromAI:generic' };\n  }\n\n  // 3) Nada encontrado\n  return { root: null, source: 'none' };\n}\n\n/* ----------------- Lógica clínica (status/trend) ----------------- */\nfunction computeStatus(r){\n  const isNum = v => typeof v === 'number' && isFinite(v);\n  const { value, ref_min, ref_max, ref_text } = r;\n  if (isNum(value) && (isNum(ref_min) || isNum(ref_max))){\n    const v = value;\n    if (isNum(ref_min) && v < ref_min) return (v >= ref_min * (1 - WARN_TOL)) ? 'warn' : 'crit';\n    if (isNum(ref_max) && v > ref_max) return (v <= ref_max * (1 + WARN_TOL)) ? 'warn' : 'crit';\n    return 'ok';\n  }\n  if (ref_text != null){\n    const a = String(value ?? '').trim().toLowerCase();\n    const b = String(ref_text ?? '').trim().toLowerCase();\n    if (!a && b) return EMPTY_TEXT_POLICY;\n    if (!b) return 'ok';\n    return (a === b) ? 'ok' : 'crit';\n  }\n  return 'ok';\n}\nfunction statusLabel(c){ return c==='ok'?'Normal':(c==='warn'?'Limítrofe':'Alterado'); }\nfunction trendInfo(r){\n  const isNum = v => typeof v === 'number' && isFinite(v);\n  if (!isNum(r.value) || !isNum(r.prev_value)) return { text:'—' };\n  const d = r.value - r.prev_value;\n  const pct = r.prev_value === 0 ? null : (d / r.prev_value) * 100;\n  const absTxt = `${d>=0?'+':''}${ptNumber(d)}`;\n  const pctTxt = (pct==null)? '' : ` (${pct>=0?'+':''}${ptNumber(pct)}%)`;\n  let arrow = '■ estável';\n  if (pct != null){ if (pct > 1) arrow='▲ aumento'; else if (pct < -1) arrow='▼ queda'; }\n  return { text: `${absTxt}${pctTxt} · ${arrow}` };\n}\nfunction mapSection(exam){\n  const explicit = String(exam?.section ?? '').toLowerCase().trim();\n  if (explicit) return explicit;\n  const t = String(exam?.type ?? '').toLowerCase();\n  if (/urina|eas|urin/.test(t)) return 'urina';\n  if (/hemograma|hematologia|eritro|leuco|plaqueta/.test(t)) return 'hematologia';\n  if (/bioqu[ií]mica|metabolismo|enzima|creatinina|ureia|glic/.test(t)) return 'bioquimica';\n  if (/imagem|raio-x|radiografia|resson|tomografia|ultra/.test(t)) return 'imagem';\n  return 'geral';\n}\n\n/* ----------------- Renderização ----------------- */\nfunction renderSummaryCards(exam, counts){ return `\n  <div class=\"grid cols-3\">\n    <div class=\"card\">\n      <div class=\"kv\"><span class=\"k\">Tipo de Exame</span><span class=\"v\">${esc(exam.type)}</span></div>\n      <div class=\"kv\"><span class=\"k\">Laboratório</span><span class=\"v\">${esc(exam.lab)}</span></div>\n    </div>\n    <div class=\"card\">\n      <div class=\"kv\"><span class=\"k\">Data (Solicitação)</span><span class=\"v\">${ptDate(exam.date_requested)}</span></div>\n      <div class=\"kv\"><span class=\"k\">Data (Laudo)</span><span class=\"v\">${ptDate(exam.date_report)}</span></div>\n    </div>\n    <div class=\"card\">\n      <div class=\"kv\"><span class=\"k\">Alterações</span><span class=\"v\"><span class=\"badge crit\" aria-label=\"Resultados alterados\">${counts.crit}</span></span></div>\n      <div class=\"kv\"><span class=\"k\">Limítrofes</span><span class=\"v\"><span class=\"badge warn\" aria-label=\"Resultados limítrofes\">${counts.warn}</span></span></div>\n    </div>\n  </div>\n`; }\nfunction buildTableRows(results){\n  return results.map(r=>{\n    const unit = r.unit ? ` ${esc(r.unit)}` : '';\n    const res = (typeof r.value === 'number') ? `${ptNumber(r.value)}${unit}` : esc(r.value ?? '—');\n    let refCol = '—';\n    if (typeof r.ref_min === 'number' || typeof r.ref_max === 'number'){\n      const min = (typeof r.ref_min === 'number') ? ptNumber(r.ref_min) : '—';\n      const max = (typeof r.ref_max === 'number') ? ptNumber(r.ref_max) : '—';\n      refCol = `${min} – ${max}`;\n    } else if (r.ref_text) {\n      refCol = esc(r.ref_text);\n    }\n    const badgeClass = r._status === 'ok' ? 'ok' : (r._status === 'warn' ? 'warn' : 'crit');\n    const badge = `<span class=\"badge ${badgeClass}\" aria-label=\"Status: ${esc(r._status_label)}\">${esc(r._status_label)}</span>`;\n    return `\n      <tr>\n        <td data-label=\"Medida\">${esc(r.name)}</td>\n        <td data-label=\"Resultado\">${res}</td>\n        <td data-label=\"Ref.\">${refCol}</td>\n        <td data-label=\"Status\">${badge}</td>\n        <td data-label=\"Tendência\" class=\"trend\">${esc(r._trend)}</td>\n      </tr>\n    `;\n  }).join('');\n}\nfunction renderExamSection(a){\n  const patient = a.patient ?? {};\n  const exam = a.exam ?? {};\n  const results = Array.isArray(a.results) ? a.results : [];\n  const notes = Array.isArray(a.notes) ? a.notes : [];\n\n  const enriched = results.map(r=>{\n    const cls = computeStatus(r);\n    const label = statusLabel(cls);\n    const tr = trendInfo(r);\n    return { ...r, _status: cls, _status_label: label, _trend: tr.text };\n  }).sort((x,y)=>{\n    const rank = { crit:0, warn:1, ok:2 };\n    const rx = rank[x._status] ?? 9;\n    const ry = rank[y._status] ?? 9;\n    if (rx !== ry) return rx - ry;\n    return String(x.name ?? '').localeCompare(String(y.name ?? ''), 'pt-BR');\n  });\n\n  const counts = {\n    crit: enriched.filter(r=>r._status==='crit').length,\n    warn: enriched.filter(r=>r._status==='warn').length,\n    ok:   enriched.filter(r=>r._status==='ok').length,\n  };\n\n  const summaryCards = renderSummaryCards(exam, counts);\n  const alertBanner = (counts.crit>0 || counts.warn>0) ? `\n    <div class=\"alert\" role=\"status\" aria-live=\"polite\">\n      <span class=\"icon\">⚠️</span>\n      <div><strong>Achados relevantes:</strong> ${counts.crit} alterado(s) e ${counts.warn} limítrofe(s). Revisão clínica recomendada.</div>\n    </div>` : '';\n\n  const rows = buildTableRows(enriched);\n  const obsBlock = notes.length ? `\n    <div class=\"card note\" style=\"margin-top:14px\">\n      <strong>Observações:</strong>\n      <ul style=\"margin:.4rem 0 0; padding-left:18px; color:var(--ink-3)\">\n        ${notes.map(n=>`<li>${esc(n)}</li>`).join('')}\n      </ul>\n    </div>` : '';\n\n  return {\n    sectionHtml: `\n      <section>\n        <h2 class=\"section-title\">${esc(exam.type || 'Exame')}</h2>\n        ${summaryCards}\n        ${alertBanner}\n        <div class=\"table-wrap\" style=\"margin-top:14px\">\n          <table aria-label=\"Tabela de resultados\">\n            <thead>\n              <tr>\n                <th scope=\"col\">Medida</th>\n                <th scope=\"col\">Resultado</th>\n                <th scope=\"col\">Ref. (min–max / texto)</th>\n                <th scope=\"col\">Status</th>\n                <th scope=\"col\">Tendência</th>\n              </tr>\n            </thead>\n            <tbody>${rows}</tbody>\n          </table>\n        </div>\n        ${obsBlock}\n      </section>\n    `,\n    counts,\n    sectionKey: mapSection(exam),\n    patient\n  };\n}\nfunction makeHTMLForMany(analyses){\n  const rendered = analyses.map(renderExamSection);\n  const firstPatient = rendered.map(r=>r.patient).find(p=>(p?.name || p?.record_id)) || {};\n\n  const globalCounts = { crit:0, warn:0, ok:0 };\n  const sections = {};\n  for (const r of rendered){\n    globalCounts.crit += r.counts.crit;\n    globalCounts.warn += r.counts.warn;\n    globalCounts.ok   += r.counts.ok;\n    const key = r.sectionKey || 'geral';\n    if (!sections[key]) sections[key] = { crit:0, warn:0, ok:0, exams:0 };\n    sections[key].crit += r.counts.crit;\n    sections[key].warn += r.counts.warn;\n    sections[key].ok   += r.counts.ok;\n    sections[key].exams += 1;\n  }\n  const showGlobalAlert = globalCounts.crit>0 || globalCounts.warn>0;\n\n  const sectionCards = Object.entries(sections).map(([sec,c])=>`\n    <div class=\"card\">\n      <div class=\"kv\"><span class=\"k\">Seção</span><span class=\"v\" style=\"text-transform:capitalize\">${esc(sec)}</span></div>\n      <div class=\"kv\"><span class=\"k\">Exames</span><span class=\"v\">${c.exams}</span></div>\n      <div class=\"kv\"><span class=\"k\">Alterações</span><span class=\"v\"><span class=\"badge crit\">${c.crit}</span></span></div>\n      <div class=\"kv\"><span class=\"k\">Limítrofes</span><span class=\"v\"><span class=\"badge warn\">${c.warn}</span></span></div>\n      <div class=\"kv\"><span class=\"k\">Normais</span><span class=\"v\"><span class=\"badge ok\">${c.ok}</span></span></div>\n    </div>`).join('');\n\n  const headerSummary = `\n    <div class=\"grid cols-3\">\n      <div class=\"card\">\n        <div class=\"kv\"><span class=\"k\">Paciente</span><span class=\"v\">${esc(firstPatient.name) || '—'}</span></div>\n        <div class=\"kv\"><span class=\"k\">Prontuário</span><span class=\"v\">${esc(firstPatient.record_id) || '—'}</span></div>\n      </div>\n      <div class=\"card\">\n        <div class=\"kv\"><span class=\"k\">Exames analisados</span><span class=\"v\">${analyses.length}</span></div>\n        <div class=\"kv\"><span class=\"k\">Gerado em</span><span class=\"v\">${ptDate(new Date())}</span></div>\n      </div>\n      <div class=\"card\">\n        <div class=\"kv\"><span class=\"k\">Alterações</span><span class=\"v\"><span class=\"badge crit\">${globalCounts.crit}</span></span></div>\n        <div class=\"kv\"><span class=\"k\">Limítrofes</span><span class=\"v\"><span class=\"badge warn\">${globalCounts.warn}</span></span></div>\n      </div>\n    </div>`;\n\n  const globalAlert = showGlobalAlert ? `\n    <div class=\"alert\" role=\"status\" aria-live=\"polite\">\n      <span class=\"icon\">⚠️</span>\n      <div><strong>Resumo geral:</strong> ${globalCounts.crit} alterado(s) e ${globalCounts.warn} limítrofe(s) no conjunto de exames.</div>\n    </div>` : '';\n\n  const sectionsSummaryBlock = `\n    <section>\n      <h2 class=\"section-title\">Resumo por Seção</h2>\n      <div class=\"grid cols-3\">${sectionCards}</div>\n    </section>`;\n\n  const html = `<!doctype html>\n<html lang=\"pt-BR\">\n<head>\n<meta charset=\"utf-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n<title>Relatório de Exames | ${esc(firstPatient.name || 'Paciente')}</title>\n<meta name=\"color-scheme\" content=\"light dark\">\n<style>\n  :root{ --bg:#f6f7f9; --paper:#ffffff; --ink:#0f172a; --ink-2:#334155; --ink-3:#64748b; --line:#e5e7eb; --brand:#0ea5e9; --green:#11a36a; --amber:#c77900; --red:#c92a2a; --chip:#f1f5f9; --radius:16px; --shadow:0 10px 30px rgba(15,23,42,.08); }\n  @media (prefers-color-scheme: dark){\n    :root{ --bg:#0b1220; --paper:#0f172a; --ink:#e5e7eb; --ink-2:#cbd5e1; --ink-3:#94a3b8; --line:#1f2937; --chip:#111827; }\n    .alert{background:#2b1b1b;color:#f6d6d6;border-left-color:#f87171}\n    .note{background:#0d2433;color:#cde8ff;border-left-color:#38bdf8}\n    tbody tr:hover{background:#121826}\n  }\n  *{box-sizing:border-box} html,body{height:100%}\n  body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; color:var(--ink); background:linear-gradient(180deg,#f8fafc 0,#eef2f7 100%); }\n  @media (prefers-color-scheme: dark){ body{ background:linear-gradient(180deg,#0d1526 0,#0b1220 100%) } }\n  .container{max-width:1040px;margin-inline:auto;padding:24px}\n  header.hero{ display:grid;gap:18px; background:conic-gradient(from 180deg at 50% 0%, #e0f2fe 0turn, #f0f9ff .25turn, #e8f7f1 .5turn, #fff 1turn); border:1px solid var(--line);border-radius:calc(var(--radius) + 4px); padding:22px;box-shadow:var(--shadow); }\n  @media (prefers-color-scheme: dark){ header.hero{ background:conic-gradient(from 180deg at 50% 0%, #0e2230 0turn, #0b1d2a .25turn, #0d1f17 .5turn, #0f172a 1turn) } }\n  .title{margin:0;font-weight:800;letter-spacing:.2px;line-height:1.15; font-size:clamp(1.25rem, 2vw + .5rem, 1.8rem);color:#0b3d60}\n  @media (prefers-color-scheme: dark){ .title{color:#8bd1ff} }\n  .subtitle{margin:0;color:var(--ink-3)}\n  .grid{display:grid;gap:12px}\n  @media(min-width:720px){ .grid.cols-3{grid-template-columns:repeat(3,1fr)} .grid.cols-2{grid-template-columns:repeat(2,1fr)} }\n  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}\n  .kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dashed #eef2f7}\n  .kv:last-child{border-bottom:0}\n  .k{color:var(--ink-3);font-weight:600} .v{color:var(--ink-2);font-weight:700}\n  .alert{display:flex;align-items:flex-start;gap:12px;border-left:8px solid var(--red); background:#fff1f1;color:#7a1d1d;border-radius:12px;padding:12px 14px;animation:pop .3s ease-out}\n  .alert .icon{font-size:1.2rem;line-height:1}\n  @keyframes pop { from{transform:scale(.98);opacity:.7} to{transform:scale(1);opacity:1} }\n  .note{border-left:6px solid var(--brand);background:#eaf7ff;color:#0a4770;border-radius:12px;padding:12px 14px}\n  .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--chip);font-size:.85rem;font-weight:700;color:var(--ink-2)}\n  .ok{color:var(--green);background:#e7fbf3} .warn{color:var(--amber);background:#fff5e6} .crit{color:var(--red);background:#ffe8e8}\n  .table-wrap{overflow:auto;border-radius:12px;border:1px solid var(--line);background:var(--paper);box-shadow:var(--shadow);margin-top:14px}\n  table{width:100%;border-collapse:collapse;min-width:720px}\n  th,td{padding:12px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}\n  th{background:#f8fafc;font-weight:800;color:var(--ink-2);position:sticky;top:0;z-index:1} /* texto com contraste correto */\n  tbody tr:hover{background:#fafafa}\n  .trend{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9rem;color:var(--ink-2)}\n  .muted{color:var(--ink-3)} .section-title{margin:18px 0 10px;font-size:1.1rem}\n  @media (max-width: 640px){\n    table{min-width:unset;border:0} thead{display:none}\n    tbody tr{display:block;border-bottom:1px solid var(--line);padding:10px 8px}\n    tbody tr:hover{background:transparent}\n    td{display:flex;justify-content:space-between;gap:12px;border:0;padding:8px 4px}\n    td::before{content:attr(data-label);font-weight:700;color:var(--ink-2)}\n    .table-wrap{padding:2px}\n  }\n  footer{margin-top:26px;color:var(--ink-3);font-size:.9rem;text-align:center}\n  @media print{ body{background:#fff} .card, .table-wrap, header.hero{box-shadow:none} .card, .table-wrap{page-break-inside:avoid} a{color:#000;text-decoration:none} }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <header class=\"hero\">\n      <h1 class=\"title\">Relatório de Exames — Consolidado</h1>\n      <p class=\"subtitle\">Paciente: <strong class=\"muted\">${esc(firstPatient.name) || '—'}</strong> · Prontuário: <strong class=\"muted\">${esc(firstPatient.record_id) || '—'}</strong></p>\n      ${headerSummary}\n      ${globalAlert}\n    </header>\n\n    ${sectionsSummaryBlock}\n\n    ${rendered.map(r=>r.sectionHtml).join('')}\n\n    <footer>Relatório gerado automaticamente. Revisão clínica recomendada.</footer>\n  </div>\n</body>\n</html>`;\n\n  return { html, summary: { globalCounts, sections } };\n}\n\n/* ----------------- MAIN ----------------- */\nconst probe = getAnalysesFromInputs();\nlet root = probe.root;\n\nif (!root) {\n  // Não falha mudo: retorna HTML explicando a ausência de dados\n  const html = `<!doctype html><meta charset=\"utf-8\"><title>Relatório</title>\n  <style>body{font-family:system-ui,Segoe UI,Roboto,Inter,Arial,sans-serif;padding:20px;color:#0f172a}</style>\n  <h1>Relatório não gerado</h1>\n  <p>Não foi possível localizar uma análise válida (analysis/analyses) nos dados recebidos.</p>`;\n  return {\n    ok: false,\n    analyses_received: 0,\n    summary: { error: 'Nenhuma análise válida encontrada', _debug: { source: probe.source } },\n    html\n  };\n}\n\nconst list = root.analyses ? root.analyses : [ root.analysis ].filter(Boolean);\n\n// Render com blindagem\nlet html = \"\";\nlet summary = {};\ntry {\n  const out = makeHTMLForMany(list);\n  html = out.html;\n  summary = out.summary;\n} catch (err) {\n  html = \"<!doctype html><meta charset='utf-8'><title>Relatório</title><p>Falha ao gerar HTML.</p>\";\n  summary = { error: String(err && err.message || err) };\n}\n\n// Binário opcional\nconst internalId = (list[0]?.metadata?.internal_id) || (list[0]?.patient?.record_id) || 'exames';\nconst fileName = `relatorio-${String(internalId).replace(/[^a-z0-9_-]+/gi,'_')}.html`;\n\nlet binary;\ntry {\n  if (typeof Buffer !== 'undefined' && Buffer.from) {\n    binary = {\n      report: {\n        data: Buffer.from(html, 'utf8').toString('base64'),\n        fileName,\n        fileExtension: 'html',\n        mimeType: 'text/html'\n      }\n    };\n  }\n} catch { /* ignore */ }\n\n// Devolve sempre algo útil\nreturn {\n  ok: true,\n  analyses_received: list.length,\n  summary: { ...summary, _debug: { ...(summary?._debug||{}), source: probe.source, count: list.length } },\n  html,\n  ...(binary ? { _binary_hint: \"O arquivo HTML também está em binary.report\", binary } : {})\n};"
+        },
+        "type": "@n8n/n8n-nodes-langchain.toolCode",
+        "typeVersion": 1.3,
+        "position": [
+          784,
+          320
+        ],
+        "id": "d9cfd374-b95f-4f93-a976-ce6ff45b11cd",
+        "name": "gerar_relatorio_html",
+        "executeOnce": false,
+        "retryOnFail": false,
+        "alwaysOutputData": false
+      },
+      {
+        "parameters": {
+          "operation": "upsert",
+          "schema": {
+            "__rl": true,
+            "mode": "list",
+            "value": "public"
+          },
+          "table": {
+            "__rl": true,
+            "value": "n8n_historico_exames",
+            "mode": "list",
+            "cachedResultName": "n8n_historico_exames"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "id": 0
+            },
+            "matchingColumns": [
+              "url_file",
+              "telefone_paciente"
+            ],
+            "schema": [
+              {
+                "id": "session_id",
+                "displayName": "session_id",
+                "required": true,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "telefone_paciente",
+                "displayName": "telefone_paciente",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "timestamp",
+                "displayName": "timestamp",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "dateTime",
+                "canBeUsedToMatch": false
+              },
+              {
+                "id": "analise_json",
+                "displayName": "analise_json",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "object",
+                "canBeUsedToMatch": false
+              },
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false
+              },
+              {
+                "id": "relatorio_html",
+                "displayName": "relatorio_html",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false
+              },
+              {
+                "id": "url_file",
+                "displayName": "url_file",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "file_type",
+                "displayName": "file_type",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false
+              },
+              {
+                "id": "download_arquivo",
+                "displayName": "download_arquivo",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false
+              },
+              {
+                "id": "id",
+                "displayName": "id",
+                "required": false,
+                "defaultMatch": true,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          1312,
+          0
+        ],
+        "id": "a630ff15-dce2-4b95-b158-7aebaec1609b",
+        "name": "Insert or update rows in a table",
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        },
+        "disabled": true
+      },
+      {
+        "id": "firecrawl-pdf",
+        "name": "Firecrawl Extrair PDF",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          544,
+          0
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.firecrawl.dev/v1/scrape",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "Bearer fc-48474e4ad6144be2aa4212f372ee38e4"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={\"url\": \"{{ $json.urls }}\", \"formats\": [\"markdown\"], \"onlyMainContent\": false, \"timeout\": 30000}",
+          "options": {}
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "preparar-conteudo",
+        "name": "Preparar Conteúdo",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          760,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// Campos originais do Explodir (HTTP Request substitui $json com a resposta)\n// Usar .first() — .item não existe em Code nodes e bloqueia\nconst orig = $('Explodir URLs p/ Exames').first().json;\nconst prev = $input.first().json;  // resposta do Firecrawl\n\nconst base = {\n  telefone: orig.telefone ?? '',\n  id_conversa: orig.id_conversa ?? '',\n  id_mensagem: orig.id_mensagem ?? '',\n  entrada: orig.entrada ?? '',\n  urls: orig.urls ?? ''   // URL original preservada\n};\n\n// Verificar resultado Firecrawl\nconst fcData = prev.data ?? {};\nconst markdown = (fcData.markdown ?? '').trim();\nconst isImage = /\\.(jpe?g|png|gif|webp|tiff?|bmp)($|\\?)/i.test(base.urls);\nconst textOk = !isImage && markdown.length >= 200;\n\nif (textOk) {\n  return [{ json: {\n    ...base,\n    tipo: 'pdf_text',\n    content: markdown,\n    content_len: markdown.length\n  }}];\n} else {\n  return [{ json: {\n    ...base,\n    tipo: isImage ? 'image_url' : 'url',\n    content: base.urls,\n    content_len: 0,\n    fc_chars: markdown.length\n  }}];\n}"
+        }
+      }
+    ],
+    "connections": {
+      "Google Gemini Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Postgres Chat Memory1": {
+        "ai_memory": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_memory",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Analise Documentos": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Analise de Imagens": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Banco de Dados Exames": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "Edit Fields",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Edit Fields": {
+        "main": [
+          [
+            {
+              "node": "Explodir URLs p/ Exames",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Agent": {
+        "main": [
+          [
+            {
+              "node": "Insert or update rows in a table",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Explodir URLs p/ Exames": {
+        "main": [
+          [
+            {
+              "node": "Firecrawl Extrair PDF",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "gerar_relatorio_html": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Firecrawl Extrair PDF": {
+        "main": [
+          [
+            {
+              "node": "Preparar Conteúdo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Preparar Conteúdo": {
+        "main": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-08T12:46:34.074Z",
+        "id": 174,
+        "workflowId": "vV0dX5vkVynwEbGA",
+        "versionId": "fd5db687-b9f0-4dd2-ad66-7b639fcbcc9b",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T12:46:34.104Z",
+        "id": 175,
+        "workflowId": "vV0dX5vkVynwEbGA",
+        "versionId": "fd5db687-b9f0-4dd2-ad66-7b639fcbcc9b",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:35:58.999Z",
+        "id": 186,
+        "workflowId": "vV0dX5vkVynwEbGA",
+        "versionId": "fd5db687-b9f0-4dd2-ad66-7b639fcbcc9b",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:35:59.019Z",
+        "id": 187,
+        "workflowId": "vV0dX5vkVynwEbGA",
+        "versionId": "fd5db687-b9f0-4dd2-ad66-7b639fcbcc9b",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

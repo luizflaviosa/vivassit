@@ -1,0 +1,1185 @@
+{
+  "id": "lFts4claYokTfgvy",
+  "name": "F01 — Checkout · Pagamento via Mercado Pago · v1.0",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pagamento-pos-consulta",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        -80
+      ],
+      "id": "d022db99-50d4-4087-a940-3cf4a8775ead",
+      "name": "Trigger Pagamento",
+      "webhookId": "unique-webhook-id-payment"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "nome_paciente",
+              "value": "={{ $json.body.nome_paciente }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "email_paciente",
+              "value": "={{ $json.body.email_paciente }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "valor_consulta",
+              "value": "={{ $json.body.valor_consulta }}",
+              "type": "number"
+            },
+            {
+              "id": "5",
+              "name": "medico_nome",
+              "value": "={{ $json.body.medico_nome }}",
+              "type": "string"
+            },
+            {
+              "id": "6",
+              "name": "data_consulta",
+              "value": "={{ $json.body.data_consulta }}",
+              "type": "string"
+            },
+            {
+              "id": "7",
+              "name": "id_conversa",
+              "value": "={{ $json.body.id_conversa }}",
+              "type": "string"
+            },
+            {
+              "id": "8",
+              "name": "id_conta",
+              "value": "={{ $json.body.id_conta }}",
+              "type": "string"
+            },
+            {
+              "id": "9",
+              "name": "url_chatwoot",
+              "value": "=chatwoot.singulare.org",
+              "type": "string"
+            },
+            {
+              "id": "10",
+              "name": "metodos_pagamento",
+              "value": "={{ $json.metodos_pagamento || ['credit_card', 'debit_card', 'pix', 'bolbancario'] }}",
+              "type": "array"
+            },
+            {
+              "id": "11324c03-8a22-4d5e-8025-1fb5ebeeb9eb",
+              "name": "external_reference",
+              "value": "={{ Math.floor(Math.random() * (99999 - 10000 + 1)) + 10000 }}",
+              "type": "string"
+            },
+            {
+              "id": "fa18b7d9-378a-4f5c-9feb-7dfc9a08ae98",
+              "name": "acess_token",
+              "value": "TEST-664118809147154-073120-94575f094d603092acd96308d56686dc-95977468",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -624,
+        -80
+      ],
+      "id": "ef4140a9-def9-4909-9b58-937f5331aaea",
+      "name": "Info Pagamento"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Info Pagamento').item.json.nome_paciente }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    },
+                    "id": "1"
+                  },
+                  {
+                    "leftValue": "={{ $('Info Pagamento').item.json.valor_consulta }}",
+                    "rightValue": 0,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gt"
+                    },
+                    "id": "2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Dados Válidos"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -400,
+        -80
+      ],
+      "id": "89bdddf7-e859-4fbf-91d6-a9e4dd194d42",
+      "name": "Validar Dados",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mercadopago.com/checkout/preferences",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Info Pagamento').item.json.acess_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"items\": [\n    {\n      \"id\": \"{{ $json.external_reference }}\",\n      \"title\": \"{{ $('Info Pagamento').item.json.data_consulta }}\",\n      \"unit_price\": {{ $('Info Pagamento').item.json.valor_consulta }},\n      \"quantity\": 1\n    }\n  ]\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -176,
+        -176
+      ],
+      "id": "9bbc7965-77b6-4295-8e6a-ff4f2181830a",
+      "name": "Criar Preferência MP",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gpCARqXkoPpDkUuF",
+          "name": "Header Auth account 2"
+        },
+        "httpBearerAuth": {
+          "id": "nT7HsBbvtfGE9GdO",
+          "name": "Bearer Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "preference_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "init_point",
+              "value": "={{ $json.init_point }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "sandbox_init_point",
+              "value": "={{ $json.sandbox_init_point }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "payment_url",
+              "value": "={{ $json.init_point || $json.sandbox_init_point }}",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "qr_code",
+              "value": "={{ $json.init_point || $json.sandbox_init_point }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        48,
+        -176
+      ],
+      "id": "7aed1d75-c039-4633-81c0-d1206fece52a",
+      "name": "Extrair URLs"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Info Pagamento').item.json.url_chatwoot }}/api/v1/accounts/{{ $('Info Pagamento').item.json.id_conta }}/conversations/{{ $('Info Pagamento').item.json.id_conversa }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "=🏥 **Pagamento da Consulta - Métodos Disponíveis**\n\n📋 **Detalhes:**\n• Médico: {{ $('Info Pagamento').item.json.medico_nome }}\n• Data: {{ $('Info Pagamento').item.json.data_consulta }}\n• Valor: R$ {{ $('Info Pagamento').item.json.valor_consulta }},00\n\n💳 **Métodos de Pagamento Disponíveis:**\n• 💳 Cartão de Crédito (até 12x)\n• 💰 Cartão de Débito\n• 🏦 PIX (Aprovação Imediata)\n• 📄 Boleto Bancário\n\n🔗 **Link para Escolher o Método:**\n{{ $('Extrair URLs').item.json.payment_url }}\n\n⏰ Este link expira em 7 dias.\n📱 Você pode pagar pelo celular, tablet ou computador.\n\n✅ Após o pagamento, você receberá a confirmação automaticamente."
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        384,
+        -176
+      ],
+      "id": "946ad315-1bae-4764-9e16-8e7f150aa749",
+      "name": "Enviar Link com Métodos",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Info Pagamento').item.json.url_chatwoot }}/api/v1/accounts/{{ $('Info Pagamento').item.json.id_conta }}/conversations/{{ $('Info Pagamento').item.json.id_conversa }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "=❌ **Erro ao Processar Pagamento**\n\n😔 Ocorreu um problema ao gerar seu link de pagamento.\n\n🔄 **Próximos passos:**\n• Tente novamente em alguns minutos\n• Verifique se todos os dados estão corretos\n• Entre em contato conosco se o problema persistir\n\n📞 **Suporte**: (11) 99999-9999"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -176,
+        32
+      ],
+      "id": "225ba315-f879-4b7b-9879-73c75c6570c5",
+      "name": "Erro - Dados Inválidos",
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pagamento-webhook",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        448
+      ],
+      "id": "196a3d9b-0270-41fa-864d-cff476d4f1d6",
+      "name": "Webhook MP",
+      "webhookId": "3f5fd46e-4431-42ff-a31a-5e5836a8c286"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "action",
+              "value": "={{ $json.body.action }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "payment_id",
+              "value": "={{ $json.body.data.id }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "type",
+              "value": "={{ $json.body.type }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -688,
+        448
+      ],
+      "id": "86657fcd-83c2-4ec4-8ed9-19e2daa73a6e",
+      "name": "Info Webhook"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Info Webhook').item.json.action }}",
+                    "rightValue": "payment.updated",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Pagamento Atualizado"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -464,
+        448
+      ],
+      "id": "03c3b90d-2387-47c0-ac06-65c86d542022",
+      "name": "Filtro Webhook"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.mercadopago.com/v1/payments/{{ $('Info Webhook').item.json.payment_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -240,
+        448
+      ],
+      "id": "eb127aa2-3486-4b09-abf7-c035ca08f97b",
+      "name": "Buscar Pagamento",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gpCARqXkoPpDkUuF",
+          "name": "Header Auth account 2"
+        },
+        "httpBearerAuth": {
+          "id": "nT7HsBbvtfGE9GdO",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "payment_status",
+              "value": "={{ $json.status }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "external_reference",
+              "value": "={{ $json.external_reference }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "payment_method",
+              "value": "={{ $json.payment_method_id }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "transaction_amount",
+              "value": "={{ $json.transaction_amount }}",
+              "type": "number"
+            },
+            {
+              "id": "5",
+              "name": "payment_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "6",
+              "name": "date_approved",
+              "value": "={{ $json.date_approved }}",
+              "type": "string"
+            },
+            {
+              "id": "7",
+              "name": "status_detail",
+              "value": "={{ $json.status_detail }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -16,
+        448
+      ],
+      "id": "ce8b0868-e276-4ff1-9042-b73679733b02",
+      "name": "Info Status"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "pagamentos_consulta",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $('Info Status').item.json.payment_status }}",
+            "payment_id": "={{ $('Info Status').item.json.payment_id }}",
+            "payment_method": "={{ $('Info Status').item.json.payment_method }}",
+            "date_approved": "={{ $('Info Status').item.json.date_approved }}",
+            "updated_at": "={{ $now }}",
+            "id": 0,
+            "valor_consulta": 0
+          },
+          "matchingColumns": [
+            "external_reference"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "preference_id",
+              "displayName": "preference_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nome_paciente",
+              "displayName": "nome_paciente",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email_paciente",
+              "displayName": "email_paciente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "telefone_paciente",
+              "displayName": "telefone_paciente",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "valor_consulta",
+              "displayName": "valor_consulta",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "medico_nome",
+              "displayName": "medico_nome",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "data_consulta",
+              "displayName": "data_consulta",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "payment_url",
+              "displayName": "payment_url",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "id_conversa",
+              "displayName": "id_conversa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "external_reference",
+              "displayName": "external_reference",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "payment_id",
+              "displayName": "payment_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payment_method",
+              "displayName": "payment_method",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date_approved",
+              "displayName": "date_approved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        208,
+        448
+      ],
+      "id": "b0ac3ece-bf1c-4587-a800-b50287486735",
+      "name": "Atualizar BD",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Info Status').item.json.payment_status }}",
+                    "rightValue": "approved",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Aprovado"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Info Status').item.json.payment_status }}",
+                    "rightValue": "rejected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rejeitado"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Info Status').item.json.payment_status }}",
+                    "rightValue": "pending",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "3"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Pendente"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        432,
+        432
+      ],
+      "id": "fd7513d2-2c5d-441b-9aee-b1ee3b16c463",
+      "name": "Status Pagamento"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "pagamentos_consulta",
+          "mode": "list"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "external_reference",
+              "value": "={{ $('Info Status').item.json.external_reference }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        640,
+        448
+      ],
+      "id": "a4befb6a-bf8f-47a0-9099-d78cdcad9608",
+      "name": "Buscar Consulta",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url_chatwoot }}/api/v1/accounts/{{ $json.id_conta }}/conversations/{{ $json.id_conversa }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "=✅ **Pagamento Aprovado!**\n\n🎉 Seu pagamento foi processado com sucesso!\n\n📋 **Detalhes da Transação:**\n• 💰 Valor: R$ {{ $('Info Status').item.json.transaction_amount }}\n• 💳 Método: {{ $('Info Status').item.json.payment_method }}\n• 📅 Data: {{ $('Info Status').item.json.date_approved ? $('Info Status').item.json.date_approved.slice(0,10) : 'N/A' }}\n• 🆔 ID: {{ $('Info Status').item.json.payment_id }}\n\n📧 **Próximos passos:**\n• Você receberá um e-mail com o comprovante\n• O recibo fiscal será enviado em até 24h\n• Em caso de dúvidas, entre em contato conosco\n\n✨ **Obrigado por escolher a Clínica Singulare!**\n🏥 Estamos aqui para cuidar da sua saúde."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        864,
+        240
+      ],
+      "id": "b6077d07-5930-44ee-bce9-076f9c56b25b",
+      "name": "Mensagem Aprovado",
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url_chatwoot }}/api/v1/accounts/{{ $json.id_conta }}/conversations/{{ $json.id_conversa }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "=❌ **Pagamento Rejeitado**\n\n😔 Infelizmente seu pagamento não foi aprovado.\n\n📋 **Detalhes:**\n• 💰 Valor: R$ {{ $('Info Status').item.json.transaction_amount }}\n• 💳 Método: {{ $('Info Status').item.json.payment_method }}\n• ⚠️ Motivo: {{ $('Info Status').item.json.status_detail }}\n\n💡 **Soluções possíveis:**\n• 🔄 Verifique os dados do cartão\n• 💳 Tente outro método de pagamento\n• 🏦 Verifique saldo/limite disponível\n• 📞 Entre em contato com seu banco\n\n🔄 **Tentar novamente:**\nVocê pode solicitar um novo link de pagamento entrando em contato conosco.\n\n📞 **Suporte**: (11) 99999-9999"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        864,
+        448
+      ],
+      "id": "dfa4a426-1a1a-4554-8e3c-ab29f29e3b57",
+      "name": "Mensagem Rejeitado",
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url_chatwoot }}/api/v1/accounts/{{ $json.id_conta }}/conversations/{{ $json.id_conversa }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "=⏳ **Pagamento Pendente**\n\n🕐 Seu pagamento está sendo processado...\n\n📋 **Detalhes:**\n• 💰 Valor: R$ {{ $('Info Status').item.json.transaction_amount }}\n• 💳 Método: {{ $('Info Status').item.json.payment_method }}\n• 🆔 ID: {{ $('Info Status').item.json.payment_id }}\n\n⏰ **Tempo de processamento:**\n• 🚀 PIX: até 2 horas\n• 📄 Boleto: até 3 dias úteis\n• 💳 Cartão: até 24 horas\n• 🏦 Transferência: até 2 dias úteis\n\n📧 **Acompanhamento:**\nVocê receberá uma nova notificação assim que o pagamento for confirmado.\n\n❓ **Dúvidas?** Entre em contato conosco!"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        864,
+        640
+      ],
+      "id": "8ce2ebc4-874d-424d-a821-97204b449ff6",
+      "name": "Mensagem Pendente",
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Trigger Pagamento": {
+      "main": [
+        [
+          {
+            "node": "Info Pagamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Info Pagamento": {
+      "main": [
+        [
+          {
+            "node": "Validar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Dados": {
+      "main": [
+        [
+          {
+            "node": "Criar Preferência MP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Erro - Dados Inválidos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Preferência MP": {
+      "main": [
+        [
+          {
+            "node": "Extrair URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair URLs": {
+      "main": [
+        [
+          {
+            "node": "Enviar Link com Métodos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook MP": {
+      "main": [
+        [
+          {
+            "node": "Info Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Info Webhook": {
+      "main": [
+        [
+          {
+            "node": "Filtro Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtro Webhook": {
+      "main": [
+        [
+          {
+            "node": "Buscar Pagamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Pagamento": {
+      "main": [
+        [
+          {
+            "node": "Info Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Info Status": {
+      "main": [
+        [
+          {
+            "node": "Atualizar BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar BD": {
+      "main": [
+        [
+          {
+            "node": "Status Pagamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Pagamento": {
+      "main": [
+        [
+          {
+            "node": "Buscar Consulta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Consulta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Consulta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Consulta": {
+      "main": [
+        [
+          {
+            "node": "Mensagem Aprovado",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mensagem Rejeitado",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mensagem Pendente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "activeVersionId": null,
+  "versionCounter": 2,
+  "triggerCount": 2,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "lFts4claYokTfgvy",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2025-08-05T23:31:49.251Z",
+      "createdAt": "2025-08-05T23:31:49.251Z",
+      "id": "0w4b4RIvu27uxSS1",
+      "name": "Mercado Pago"
+    },
+    {
+      "updatedAt": "2025-08-05T23:31:49.244Z",
+      "createdAt": "2025-08-05T23:31:49.244Z",
+      "id": "N1ozDsZKZc54QGHc",
+      "name": "Pagamentos"
+    },
+    {
+      "updatedAt": "2025-08-05T23:31:49.234Z",
+      "createdAt": "2025-08-05T23:31:49.234Z",
+      "id": "oxAbrN0sMUIV60sO",
+      "name": "Clínica"
+    }
+  ],
+  "activeVersion": null
+}

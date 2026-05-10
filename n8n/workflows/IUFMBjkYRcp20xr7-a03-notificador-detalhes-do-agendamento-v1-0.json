@@ -1,0 +1,359 @@
+{
+  "id": "IUFMBjkYRcp20xr7",
+  "name": "A03 — Notificador · Detalhes do Agendamento · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 5. Enviar agendamento",
+        "height": 80,
+        "width": 540,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -140,
+        -20
+      ],
+      "id": "30f0bf48-2aa6-49fc-b352-c5768245db04",
+      "name": "Sticky Note30"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "mensagem"
+            },
+            {
+              "name": "id_conta"
+            },
+            {
+              "name": "id_conversa"
+            },
+            {
+              "name": "url_chatwoot"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        620
+      ],
+      "id": "e013eaa1-997e-406d-bd72-dc54ea9b7c30",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "val-id-conversa-cond",
+              "leftValue": "={{ $json.id_conversa }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        620
+      ],
+      "id": "val-id-conversa-01",
+      "name": "Validar id_conversa"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url_chatwoot }}/api/v1/accounts/{{ $json.id_conta }}/conversations/{{ $json.id_conversa }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "={{ $json.mensagem }}"
+            },
+            {
+              "name": "private",
+              "value": "={{ false }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        540
+      ],
+      "id": "446d296b-c1f4-466a-bba9-7be1a8ef0597",
+      "name": "Enviar mensagem",
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Validar id_conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar id_conversa": {
+      "main": [
+        [
+          {
+            "node": "Enviar mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "activeVersionId": "6a48144b-93e4-47cc-a411-9730b40a8367",
+  "versionCounter": 37,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "IUFMBjkYRcp20xr7",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-04T22:02:28.942Z",
+    "createdAt": "2026-05-04T21:18:47.436Z",
+    "versionId": "6a48144b-93e4-47cc-a411-9730b40a8367",
+    "workflowId": "IUFMBjkYRcp20xr7",
+    "nodes": [
+      {
+        "parameters": {
+          "content": "## 5. Enviar agendamento",
+          "height": 80,
+          "width": 540,
+          "color": 5
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -140,
+          -20
+        ],
+        "id": "30f0bf48-2aa6-49fc-b352-c5768245db04",
+        "name": "Sticky Note30"
+      },
+      {
+        "parameters": {
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "mensagem"
+              },
+              {
+                "name": "id_conta"
+              },
+              {
+                "name": "id_conversa"
+              },
+              {
+                "name": "url_chatwoot"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          220,
+          620
+        ],
+        "id": "e013eaa1-997e-406d-bd72-dc54ea9b7c30",
+        "name": "When Executed by Another Workflow"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "val-id-conversa-cond",
+                "leftValue": "={{ $json.id_conversa }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          440,
+          620
+        ],
+        "id": "val-id-conversa-01",
+        "name": "Validar id_conversa"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.url_chatwoot }}/api/v1/accounts/{{ $json.id_conta }}/conversations/{{ $json.id_conversa }}/messages",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "content",
+                "value": "={{ $json.mensagem }}"
+              },
+              {
+                "name": "private",
+                "value": "={{ false }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          660,
+          540
+        ],
+        "id": "446d296b-c1f4-466a-bba9-7be1a8ef0597",
+        "name": "Enviar mensagem",
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "Validar id_conversa",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validar id_conversa": {
+        "main": [
+          [
+            {
+              "node": "Enviar mensagem",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          []
+        ]
+      }
+    },
+    "authors": "import",
+    "name": "Version 6a48144b",
+    "description": "",
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-04T22:02:28.935Z",
+        "id": 13,
+        "workflowId": "IUFMBjkYRcp20xr7",
+        "versionId": "6a48144b-93e4-47cc-a411-9730b40a8367",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:20.675Z",
+        "id": 204,
+        "workflowId": "IUFMBjkYRcp20xr7",
+        "versionId": "6a48144b-93e4-47cc-a411-9730b40a8367",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-08T23:36:20.689Z",
+        "id": 205,
+        "workflowId": "IUFMBjkYRcp20xr7",
+        "versionId": "6a48144b-93e4-47cc-a411-9730b40a8367",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

@@ -1,0 +1,762 @@
+{
+  "id": "0LdgQcogHwx6KVSb",
+  "name": "0.1 Evolution Connection Listener v4.5",
+  "description": "Listener Evolution path estatico evolution/v44. Identifica tenant via body.instance. Atualiza tenants.evolution_status, envia welcome WA, notifica Telegram. Idempotente via welcomed_at.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "1684d4cc-9034-4586-95e3-d1a3d9455996",
+      "name": "Evolution Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        192
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evolution-events-v44",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "18e6f205-284d-4c19-a027-2016aed7885b"
+    },
+    {
+      "id": "6707dcc2-161b-4745-8b6a-c582738279f5",
+      "name": "Parse Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        192
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const inp=$input.first().json||{};const body=inp.body||{};const data=body.data||{};return[{event:body.event||'',instance:body.instance||'',state:data.state||'',is_connected:body.event==='connection.update'&&data.state==='open',raw:body}];"
+      }
+    },
+    {
+      "id": "cdf6c351-500c-4f52-8fb3-2185e32ef9e9",
+      "name": "Connected?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        192
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.is_connected }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "70c4927b-2110-48a7-b9cb-69f4d5b35af7",
+      "name": "Lookup Tenant",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        672,
+        96
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT tenant_id, doctor_name, clinic_name, phone, welcomed_at FROM public.tenants WHERE evolution_instance_name = '{{ $json.instance }}' OR tenant_id = '{{ $json.instance }}' LIMIT 1",
+        "options": {}
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "eef1b403-eaae-459b-9633-f09626512eab",
+      "name": "Not Welcomed Yet?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        96
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has_tenant",
+              "leftValue": "={{ $json.tenant_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "no_welcome",
+              "leftValue": "={{ $json.welcomed_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "a8342985-ada1-4a9e-add8-d2043ea4917d",
+      "name": "Mark Connected + Welcomed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE public.tenants SET evolution_status='connected', welcomed_at=NOW(), updated_at=NOW() WHERE tenant_id='{{ $json.tenant_id }}'",
+        "options": {}
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "62da131c-ea19-467a-9ae4-da3be1632e66",
+      "name": "Send Welcome WhatsApp",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        0
+      ],
+      "parameters": {
+        "resource": "messages-api",
+        "operation": "send-text",
+        "instanceName": "={{ $('Lookup Tenant').item.json.tenant_id }}",
+        "remoteJid": "={{ ($('Lookup Tenant').item.json.phone || '').replace(/\\D/g,'') }}@s.whatsapp.net",
+        "messageText": "=Olá, Dr(a). {{ $('Lookup Tenant').item.json.doctor_name }}! 🎉\\n\\nA Singulare aqui. Sua secretária IA acabou de conectar com sucesso ao WhatsApp da {{ $('Lookup Tenant').item.json.clinic_name }}.\\n\\nA partir de agora ela atende seus pacientes 24/7: cota consulta, marca agendamento, manda lembrete.\\n\\nAcesse o painel: https://app.singulare.org/painel\\n\\nBoas consultas! 🩺"
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "id": "19b39223-9058-4aa2-85a9-b75badafe852",
+      "name": "Notify Admin",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1568,
+        0
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "5749317361",
+        "text": "=✅ WhatsApp CONECTADO\\n\\n🏥 {{ $('Lookup Tenant').item.json.clinic_name }}\\n👨‍⚕️ {{ $('Lookup Tenant').item.json.doctor_name }}\\n🆔 {{ $('Lookup Tenant').item.json.tenant_id }}\\n📱 {{ $('Lookup Tenant').item.json.phone }}\\n\\n⚡ IA atendendo agora.\\n💬 Welcome msg enviada.",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "webhookId": "3be4a51a-4bad-48ee-bf3e-75f18fc8ce2d",
+      "credentials": {
+        "telegramApi": {
+          "id": "sDb6ROA0185exLKN",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "id": "47711d90-9112-497d-b91e-f755b46bca73",
+      "name": "Already Welcomed (skip)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        192
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip",
+              "name": "skipped_reason",
+              "value": "already_welcomed",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1c3a1518-2e85-4599-9142-6fb68cc4c1aa",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        288
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ok",
+              "name": "received",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "ts",
+              "name": "at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Evolution Event Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Event": {
+      "main": [
+        [
+          {
+            "node": "Connected?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Connected?": {
+      "main": [
+        [
+          {
+            "node": "Lookup Tenant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Tenant": {
+      "main": [
+        [
+          {
+            "node": "Not Welcomed Yet?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Not Welcomed Yet?": {
+      "main": [
+        [
+          {
+            "node": "Mark Connected + Welcomed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Already Welcomed (skip)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Connected + Welcomed": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Welcome WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Notify Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "pinData": null,
+  "activeVersionId": "6fe66080-9554-49dc-a784-431c6f5947cd",
+  "versionCounter": 7,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "0LdgQcogHwx6KVSb",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-04T21:45:54.409Z",
+    "createdAt": "2026-05-04T21:18:47.436Z",
+    "versionId": "6fe66080-9554-49dc-a784-431c6f5947cd",
+    "workflowId": "0LdgQcogHwx6KVSb",
+    "nodes": [
+      {
+        "id": "1684d4cc-9034-4586-95e3-d1a3d9455996",
+        "name": "Evolution Event Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          192
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "evolution-events-v44",
+          "responseMode": "lastNode",
+          "options": {}
+        },
+        "webhookId": "18e6f205-284d-4c19-a027-2016aed7885b"
+      },
+      {
+        "id": "6707dcc2-161b-4745-8b6a-c582738279f5",
+        "name": "Parse Event",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          224,
+          192
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const inp=$input.first().json||{};const body=inp.body||{};const data=body.data||{};return[{event:body.event||'',instance:body.instance||'',state:data.state||'',is_connected:body.event==='connection.update'&&data.state==='open',raw:body}];"
+        }
+      },
+      {
+        "id": "cdf6c351-500c-4f52-8fb3-2185e32ef9e9",
+        "name": "Connected?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          448,
+          192
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "c1",
+                "leftValue": "={{ $json.is_connected }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "70c4927b-2110-48a7-b9cb-69f4d5b35af7",
+        "name": "Lookup Tenant",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          672,
+          96
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=SELECT tenant_id, doctor_name, clinic_name, phone, welcomed_at FROM public.tenants WHERE evolution_instance_name = '{{ $json.instance }}' OR tenant_id = '{{ $json.instance }}' LIMIT 1",
+          "options": {}
+        },
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput",
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "eef1b403-eaae-459b-9633-f09626512eab",
+        "name": "Not Welcomed Yet?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          896,
+          96
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "has_tenant",
+                "leftValue": "={{ $json.tenant_id }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                }
+              },
+              {
+                "id": "no_welcome",
+                "leftValue": "={{ $json.welcomed_at }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "empty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "a8342985-ada1-4a9e-add8-d2043ea4917d",
+        "name": "Mark Connected + Welcomed",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          1120,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=UPDATE public.tenants SET evolution_status='connected', welcomed_at=NOW(), updated_at=NOW() WHERE tenant_id='{{ $json.tenant_id }}'",
+          "options": {}
+        },
+        "onError": "continueRegularOutput",
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "62da131c-ea19-467a-9ae4-da3be1632e66",
+        "name": "Send Welcome WhatsApp",
+        "type": "n8n-nodes-evolution-api.evolutionApi",
+        "typeVersion": 1,
+        "position": [
+          1344,
+          0
+        ],
+        "parameters": {
+          "resource": "messages-api",
+          "operation": "send-text",
+          "instanceName": "={{ $('Lookup Tenant').item.json.tenant_id }}",
+          "remoteJid": "={{ ($('Lookup Tenant').item.json.phone || '').replace(/\\D/g,'') }}@s.whatsapp.net",
+          "messageText": "=Olá, Dr(a). {{ $('Lookup Tenant').item.json.doctor_name }}! 🎉\\n\\nA Singulare aqui. Sua secretária IA acabou de conectar com sucesso ao WhatsApp da {{ $('Lookup Tenant').item.json.clinic_name }}.\\n\\nA partir de agora ela atende seus pacientes 24/7: cota consulta, marca agendamento, manda lembrete.\\n\\nAcesse o painel: https://app.singulare.org/painel\\n\\nBoas consultas! 🩺"
+        },
+        "onError": "continueRegularOutput",
+        "credentials": {
+          "evolutionApi": {
+            "id": "yFAQwH6wPqroKla0",
+            "name": "Evolution account"
+          }
+        }
+      },
+      {
+        "id": "19b39223-9058-4aa2-85a9-b75badafe852",
+        "name": "Notify Admin",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1568,
+          0
+        ],
+        "parameters": {
+          "resource": "message",
+          "operation": "sendMessage",
+          "chatId": "5749317361",
+          "text": "=✅ WhatsApp CONECTADO\\n\\n🏥 {{ $('Lookup Tenant').item.json.clinic_name }}\\n👨‍⚕️ {{ $('Lookup Tenant').item.json.doctor_name }}\\n🆔 {{ $('Lookup Tenant').item.json.tenant_id }}\\n📱 {{ $('Lookup Tenant').item.json.phone }}\\n\\n⚡ IA atendendo agora.\\n💬 Welcome msg enviada.",
+          "additionalFields": {
+            "parse_mode": "HTML"
+          }
+        },
+        "onError": "continueRegularOutput",
+        "webhookId": "3be4a51a-4bad-48ee-bf3e-75f18fc8ce2d",
+        "credentials": {
+          "telegramApi": {
+            "id": "sDb6ROA0185exLKN",
+            "name": "Telegram account"
+          }
+        }
+      },
+      {
+        "id": "47711d90-9112-497d-b91e-f755b46bca73",
+        "name": "Already Welcomed (skip)",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1120,
+          192
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "skip",
+                "name": "skipped_reason",
+                "value": "already_welcomed",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "1c3a1518-2e85-4599-9142-6fb68cc4c1aa",
+        "name": "Respond OK",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          672,
+          288
+        ],
+        "parameters": {
+          "mode": "manual",
+          "assignments": {
+            "assignments": [
+              {
+                "id": "ok",
+                "name": "received",
+                "value": true,
+                "type": "boolean"
+              },
+              {
+                "id": "ts",
+                "name": "at",
+                "value": "={{ $now.toISO() }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "Evolution Event Webhook": {
+        "main": [
+          [
+            {
+              "node": "Parse Event",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse Event": {
+        "main": [
+          [
+            {
+              "node": "Connected?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Connected?": {
+        "main": [
+          [
+            {
+              "node": "Lookup Tenant",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond OK",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Lookup Tenant": {
+        "main": [
+          [
+            {
+              "node": "Not Welcomed Yet?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Not Welcomed Yet?": {
+        "main": [
+          [
+            {
+              "node": "Mark Connected + Welcomed",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Already Welcomed (skip)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Mark Connected + Welcomed": {
+        "main": [
+          [
+            {
+              "node": "Send Welcome WhatsApp",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Welcome WhatsApp": {
+        "main": [
+          [
+            {
+              "node": "Notify Admin",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "import",
+    "name": "Version 6fe66080",
+    "description": "",
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-04T21:45:54.404Z",
+        "id": 6,
+        "workflowId": "0LdgQcogHwx6KVSb",
+        "versionId": "6fe66080-9554-49dc-a784-431c6f5947cd",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}
