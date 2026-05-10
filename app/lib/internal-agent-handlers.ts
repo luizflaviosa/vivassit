@@ -852,6 +852,137 @@ const pacienteCriar: WriteHandler = {
   },
 };
 
+// ── consulta_marcar ─────────────────────────────────────────────
+// Cria nova consulta em doctor_bookings. Source-of-truth: NÃO sincroniza
+// pro Google Calendar nesta versão (calendar_event_id fica null). Próxima
+// sync feita por job separado se houver.
+const consultaMarcar: WriteHandler = {
+  async propose(params, ctx) {
+    const slotStartStr = String(params.slot_start ?? '');
+    if (!slotStartStr) return { ok: false, summary: 'slot_start obrigatório.' };
+    const slotStart = new Date(slotStartStr.includes('Z') || /[+-]\d\d:\d\d$/.test(slotStartStr)
+      ? slotStartStr : `${slotStartStr}-03:00`);
+    if (isNaN(+slotStart)) return { ok: false, summary: 'slot_start inválido.' };
+    const duration = Math.max(15, Math.min(240, Number(params.duration_minutes ?? 60)));
+    const slotEnd = new Date(+slotStart + duration * 60_000);
+
+    const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
+    if (!scope.doctor_id) return { ok: false, summary: 'Sem médico no escopo. Admin/owner deve passar doctor_id ou usar medicos_listar primeiro.' };
+
+    const admin = supabaseAdmin();
+
+    // Resolver paciente
+    let patientId = params.patient_id ? String(params.patient_id) : null;
+    let patientName = params.patient_name ? String(params.patient_name) : '';
+    let patientPhone = params.patient_phone ? String(params.patient_phone) : '';
+    if (!patientId) {
+      let pq = admin.from('patients').select('id, name, phone').eq('tenant_id', ctx.tenant_id);
+      if (patientName) pq = pq.ilike('name', `%${patientName}%`);
+      if (patientPhone) pq = pq.eq('phone', patientPhone);
+      const { data: matches } = await pq.limit(5);
+      if (!matches || matches.length === 0) {
+        return {
+          ok: false,
+          summary: `Paciente "${patientName || patientPhone}" não encontrado. Use paciente_criar antes.`,
+          data: { missing_patient: { name: patientName, phone: patientPhone } },
+        };
+      }
+      if (matches.length > 1) {
+        return {
+          ok: false,
+          summary: `${matches.length} pacientes batem com "${patientName}". Especifique o ID ou telefone.`,
+          data: { ambiguous: matches },
+        };
+      }
+      patientId = matches[0].id;
+      patientName = matches[0].name;
+      patientPhone = matches[0].phone ?? '';
+    } else {
+      const { data: pat } = await admin.from('patients').select('name, phone').eq('id', patientId).maybeSingle();
+      patientName = pat?.name ?? patientName;
+      patientPhone = pat?.phone ?? patientPhone;
+    }
+
+    // Conflitos — overlap real (start < slotEnd AND end > slotStart)
+    const { data: conflictBookings } = await admin
+      .from('doctor_bookings')
+      .select('id, patient_name, slot_start, slot_end')
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('doctor_id', scope.doctor_id)
+      .neq('status', 'cancelled')
+      .lt('slot_start', slotEnd.toISOString())
+      .gt('slot_end', slotStart.toISOString());
+    const { data: conflictBlocks } = await admin
+      .from('doctor_schedule_blocks')
+      .select('id, reason, start_at, end_at')
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('doctor_id', scope.doctor_id)
+      .lt('start_at', slotEnd.toISOString())
+      .gt('end_at', slotStart.toISOString());
+    if ((conflictBookings?.length ?? 0) > 0 || (conflictBlocks?.length ?? 0) > 0) {
+      return {
+        ok: false,
+        summary: 'Conflito: slot ocupado por consulta ou bloqueio existente.',
+        data: { conflict: { bookings: conflictBookings ?? [], blocks: conflictBlocks ?? [] } },
+      };
+    }
+
+    const slotFmt = fmtDate(slotStart.toISOString());
+    return {
+      ok: true,
+      summary: `Marcar consulta de ${patientName} em ${slotFmt}?`,
+      card: {
+        summary: `Marcar consulta`,
+        detail: `Paciente: ${patientName}${patientPhone ? ` (${patientPhone})` : ''}\nQuando: ${slotFmt}\nDuração: ${duration} min${params.notes ? `\nNotas: ${String(params.notes)}` : ''}`,
+        confirm_label: 'Confirmar agendamento',
+        cancel_label: 'Voltar',
+        action: {
+          tool: 'consulta_marcar',
+          params: {
+            patient_id: patientId,
+            slot_start: slotStart.toISOString(),
+            duration_minutes: duration,
+            doctor_id: scope.doctor_id,
+            notes: params.notes ?? null,
+          },
+        },
+      },
+      data: { patient: { id: patientId, name: patientName, phone: patientPhone }, slot_start: slotStart.toISOString(), slot_end: slotEnd.toISOString() },
+    };
+  },
+
+  async execute(params, ctx) {
+    const slotStart = new Date(String(params.slot_start));
+    const duration = Number(params.duration_minutes ?? 60);
+    const slotEnd = new Date(+slotStart + duration * 60_000);
+    const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
+    if (!scope.doctor_id) return { ok: false, summary: 'Sem doctor_id no escopo.' };
+
+    const admin = supabaseAdmin();
+
+    // Re-validar paciente
+    const { data: patient } = await admin
+      .from('patients').select('id, name, phone').eq('id', String(params.patient_id))
+      .eq('tenant_id', ctx.tenant_id).maybeSingle();
+    if (!patient) return { ok: false, summary: 'Paciente não encontrado no execute.' };
+
+    const { data, error } = await admin.from('doctor_bookings').insert({
+      tenant_id: ctx.tenant_id,
+      doctor_id: scope.doctor_id,
+      patient_id: patient.id,
+      patient_name: patient.name,
+      patient_phone: patient.phone,
+      slot_start: slotStart.toISOString(),
+      slot_end: slotEnd.toISOString(),
+      duration_minutes: duration,
+      status: 'booked',
+      notes: params.notes ? String(params.notes) : null,
+    }).select('id, slot_start').maybeSingle();
+    if (error) return { ok: false, summary: 'Falha ao criar consulta', error: error.message };
+    return { ok: true, summary: `Consulta criada (id ${data?.id}).`, data: { booking: data } };
+  },
+};
+
 // ── cobranca_avulsa ────────────────────────────────────────────
 // Sprint 2 stub: propose mostra preview, execute delega pra /api/painel/cobrancas
 // (que já tem integração Asaas validada).
@@ -1045,6 +1176,7 @@ export const HANDLERS: Record<string, Handler> = {
 
 export const WRITE_HANDLERS: Record<string, WriteHandler> = {
   consulta_reagendar: consultaReagendar,
+  consulta_marcar: consultaMarcar,
   consulta_cancelar: consultaCancelar,
   paciente_criar: pacienteCriar,
   cobranca_avulsa: cobrancaAvulsa,
