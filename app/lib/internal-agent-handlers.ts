@@ -1202,8 +1202,16 @@ const workingHoursAtualizar: WriteHandler = {
     const hours = String(params.hours ?? '');
     const VALID_DAYS = ['seg','ter','qua','qui','sex','sab','dom'];
     if (!VALID_DAYS.includes(day)) return { ok: false, summary: `day inválido (esperado: ${VALID_DAYS.join('|')}).` };
-    if (hours !== 'fechado' && !/^\d{1,2}:\d{2}-\d{1,2}:\d{2}$/.test(hours)) {
-      return { ok: false, summary: 'hours deve ser "HH:MM-HH:MM" ou "fechado".' };
+    if (hours !== 'fechado') {
+      const m = /^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/.exec(hours);
+      if (!m) return { ok: false, summary: 'hours deve ser "HH:MM-HH:MM" ou "fechado".' };
+      const sh = Number(m[1]), sm = Number(m[2]), eh = Number(m[3]), em = Number(m[4]);
+      if (sh > 23 || eh > 23 || sm > 59 || em > 59) {
+        return { ok: false, summary: 'hours invalido: HH deve ser 0-23 e MM deve ser 0-59.' };
+      }
+      if (sh * 60 + sm >= eh * 60 + em) {
+        return { ok: false, summary: 'hours invalido: hora final deve ser maior que inicial.' };
+      }
     }
 
     const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
