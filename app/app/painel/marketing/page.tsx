@@ -158,9 +158,6 @@ const fadeUp = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function pct(score: number, max: number) { return Math.round((score / max) * 100); }
-function barColor(p: number) {
-  return p >= 70 ? '#22c55e' : p >= 40 ? '#f59e0b' : '#ef4444';
-}
 
 function googleSummary(p: PilarGoogle): string {
   const rev = p.reviews ?? 0;
@@ -203,6 +200,44 @@ function operationalSummary(p: PilarOperational): string {
   return parts.length > 0 ? parts.join(' · ') : 'Dados operacionais sendo coletados com base nos atendimentos';
 }
 
+// ─── Conceito por atributo de reputação ───────────────────────────────────────
+const PILLAR_CONCEPTS = {
+  google:      { name: 'Descoberta',    subtitle: 'ser encontrado por quem ainda não conhece a clínica' },
+  doctoralia:  { name: 'Credibilidade', subtitle: 'ser escolhida entre alternativas em pesquisa profunda' },
+  social:      { name: 'Vínculo',       subtitle: 'estar presente entre uma consulta e outra' },
+  seo:         { name: 'Autoridade',    subtitle: 'ter voz própria, sem depender de plataformas terceiras' },
+  operational: { name: 'Lealdade',      subtitle: 'transformar atendimento em retorno e indicação' },
+} as const;
+
+function stageOf(p: number): { label: string; color: string; bg: string } {
+  if (p <= 25) return { label: 'Inicial',           color: '#ef4444', bg: '#fef2f2' };
+  if (p <= 50) return { label: 'Em desenvolvimento', color: '#f59e0b', bg: '#fffbeb' };
+  if (p <= 75) return { label: 'Consolidada',        color: '#22c55e', bg: '#f0fdf4' };
+  return       { label: 'Referência',                color: ACCENT,    bg: ACCENT_SOFT };
+}
+
+function buildNarrative(s: ScoreData): string {
+  const items = [
+    { key: 'google',      p: pct(s.pilares.google.score, 30) },
+    { key: 'doctoralia',  p: pct(s.pilares.doctoralia.score, 15) },
+    { key: 'social',      p: pct(s.pilares.social.score, 20) },
+    { key: 'seo',         p: pct(s.pilares.seo.score, 20) },
+    { key: 'operational', p: pct(s.pilares.operational.score, 15) },
+  ] as const;
+  const sorted = [...items].sort((a, b) => b.p - a.p);
+  const top = sorted[0];
+  const bottom = sorted[sorted.length - 1];
+  const topName = PILLAR_CONCEPTS[top.key].name.toLowerCase();
+  const bottomName = PILLAR_CONCEPTS[bottom.key].name.toLowerCase();
+  if (top.p < 25) {
+    return `Os cinco atributos ainda estão em estágio inicial. O ponto mais maduro é a ${topName}; o menor, a ${bottomName} — começar pela alavanca de menor custo costuma ser o caminho.`;
+  }
+  if (top.p >= 70 && bottom.p < 30) {
+    return `A ${topName} já é um capital consolidado, mas a ${bottomName} ainda não acompanha. Converter um no motor do outro é a maior alavanca disponível.`;
+  }
+  return `A ${topName} é o atributo mais maduro. A ${bottomName} é a que mais tem espaço para crescer — e seu avanço move o score com mais força.`;
+}
+
 // ─── ScoreRing ─────────────────────────────────────────────────────────────────
 function ScoreRing({ score }: { score: number }) {
   const size = 152;
@@ -210,9 +245,10 @@ function ScoreRing({ score }: { score: number }) {
   const r = (size - sw) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (score / 100) * circ;
-  const color = score <= 25 ? '#ef4444' : score <= 50 ? '#f59e0b' : score <= 75 ? '#22c55e' : ACCENT;
-  const label = score <= 25 ? 'Crítico' : score <= 50 ? 'Desenvolvendo' : score <= 75 ? 'Bom' : 'Excelente';
-  const labelBg = score <= 25 ? '#fef2f2' : score <= 50 ? '#fffbeb' : score <= 75 ? '#f0fdf4' : ACCENT_SOFT;
+  const stage = stageOf(score);
+  const color = stage.color;
+  const label = stage.label;
+  const labelBg = stage.bg;
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -236,30 +272,100 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
-// ─── PilarRow ─────────────────────────────────────────────────────────────────
-function PilarRow({ name, score, max, summary }: {
-  name: string; score: number; max: number; summary: string;
+// ─── AtributoRow ──────────────────────────────────────────────────────────────
+function AtributoRow({
+  index, name, subtitle, score, max, summary,
+}: {
+  index: number; name: string; subtitle: string;
+  score: number; max: number; summary: string;
 }) {
   const p = pct(score, max);
-  const color = barColor(p);
+  const stage = stageOf(p);
+  const ordinal = String(index).padStart(2, '0');
+
   return (
-    <div className="py-3 border-t border-black/[0.05] first:border-t-0">
-      <div className="flex items-center justify-between gap-3 mb-1.5">
-        <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
-          <span className="text-[13px] font-medium text-zinc-800">{name}</span>
-        </div>
-        <span className="text-[12px] tabular-nums font-semibold" style={{ color }}>
-          {score}<span className="text-zinc-300 font-normal">/{max}</span>
+    <div className="group grid grid-cols-[36px_1fr] sm:grid-cols-[44px_minmax(0,1.4fr)_minmax(0,1fr)_120px] gap-x-4 sm:gap-x-6 gap-y-2 px-5 sm:px-6 py-5 border-t border-black/[0.05] first:border-t-0 transition-colors hover:bg-zinc-50/50">
+
+      {/* Numeração editorial */}
+      <div className="row-span-2 sm:row-span-1 flex items-start sm:items-center pt-0.5 sm:pt-0">
+        <span className="text-[18px] sm:text-[20px] font-light tabular-nums text-zinc-300 tracking-tight">
+          {ordinal}
         </span>
       </div>
-      <div className="h-px bg-zinc-100 rounded-full overflow-hidden mb-1.5">
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${p}%`, background: color, transition: 'width 1.3s cubic-bezier(0.16,1,0.3,1)' }}
-        />
+
+      {/* Conceito + subtítulo conceitual */}
+      <div className="min-w-0">
+        <h3 className="text-[15px] sm:text-[16px] font-semibold text-zinc-900 tracking-[-0.012em] mb-0.5">
+          {name}
+        </h3>
+        <p className="text-[12px] text-zinc-500 leading-[1.45]">
+          {subtitle}
+        </p>
       </div>
-      <p className="text-[11px] text-zinc-400 leading-relaxed">{summary}</p>
+
+      {/* Maturidade · barra + pontos + summary técnico */}
+      <div className="hidden sm:flex flex-col gap-1.5 justify-center min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-zinc-400">
+            Maturidade
+          </span>
+          <span className="text-[12px] tabular-nums font-semibold" style={{ color: stage.color }}>
+            {score}<span className="text-zinc-300 font-normal">/{max}</span>
+          </span>
+        </div>
+        <div className="h-[3px] bg-zinc-100 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${p}%`,
+              background: stage.color,
+              transition: 'width 1.3s cubic-bezier(0.16,1,0.3,1)',
+            }}
+          />
+        </div>
+        <p
+          className="text-[11px] text-zinc-400 leading-relaxed truncate"
+          title={summary}
+        >
+          {summary}
+        </p>
+      </div>
+
+      {/* Estágio (chip) */}
+      <div className="hidden sm:flex items-center justify-end">
+        <span
+          className="text-[10px] font-semibold uppercase tracking-[0.12em] px-2.5 py-1 rounded-full whitespace-nowrap"
+          style={{ background: stage.bg, color: stage.color }}
+        >
+          {stage.label}
+        </span>
+      </div>
+
+      {/* Mobile · barra compacta + estágio */}
+      <div className="sm:hidden col-start-2 flex flex-col gap-1.5">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-[3px] bg-zinc-100 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${p}%`,
+                background: stage.color,
+                transition: 'width 1.3s cubic-bezier(0.16,1,0.3,1)',
+              }}
+            />
+          </div>
+          <span className="text-[11px] tabular-nums font-semibold flex-shrink-0" style={{ color: stage.color }}>
+            {score}/{max}
+          </span>
+          <span
+            className="text-[9px] font-semibold uppercase tracking-[0.1em] px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0"
+            style={{ background: stage.bg, color: stage.color }}
+          >
+            {stage.label}
+          </span>
+        </div>
+        <p className="text-[11px] text-zinc-400 leading-relaxed">{summary}</p>
+      </div>
     </div>
   );
 }
@@ -1341,22 +1447,54 @@ function MarketingInner() {
 
       {!loading && scoreData && (
         <>
-          {/* Bloco 1 — Score de Visibilidade */}
-          <motion.div variants={fadeUp} className="rounded-2xl border border-black/[0.07] bg-white overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}>
-            <div className="px-5 pt-4 pb-3 border-b border-black/[0.05]">
-              <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-zinc-400">Score de Visibilidade</p>
+          {/* Bloco 1 — Reputação digital */}
+          <motion.div
+            variants={fadeUp}
+            className="rounded-2xl overflow-hidden"
+            style={{
+              background: 'linear-gradient(180deg, #f5f3ff 0%, #ffffff 58%)',
+              border: '1px solid rgba(110, 86, 207, 0.16)',
+              boxShadow: '0 1px 8px rgba(110, 86, 207, 0.05)',
+            }}
+          >
+            {/* Topo · eyebrow + anel + diagnóstico narrativo */}
+            <div className="px-5 sm:px-7 pt-6 pb-7">
+              <p className="text-[10px] uppercase tracking-[0.14em] font-semibold mb-5" style={{ color: ACCENT_DEEP }}>
+                Reputação digital · relatório semanal
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-[176px_1fr] gap-6 sm:gap-8 items-center">
+                <div className="flex items-center justify-center sm:justify-start">
+                  <ScoreRing score={scoreData.total_score} />
+                </div>
+                <div>
+                  <p className="text-[15px] sm:text-[17px] leading-[1.5] tracking-[-0.012em] text-zinc-700">
+                    {buildNarrative(scoreData)}
+                  </p>
+                  {scoreData.score_change !== undefined && scoreData.score_change !== 0 && (
+                    <p className="text-[12px] text-zinc-400 mt-3 tabular-nums">
+                      {scoreData.score_change > 0 ? '+' : ''}{scoreData.score_change} pontos vs. semana anterior
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr]">
-              <div className="flex items-center justify-center p-8 sm:border-r border-b sm:border-b-0 border-black/[0.05]">
-                <ScoreRing score={scoreData.total_score} />
+
+            {/* Lista de atributos · cinco conceitos de reputação */}
+            <div className="bg-white border-t border-black/[0.06]">
+              <div className="px-5 sm:px-6 pt-4 pb-1 flex items-baseline justify-between">
+                <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-zinc-400">
+                  Atributos de reputação
+                </p>
+                <p className="text-[10px] uppercase tracking-[0.12em] font-medium text-zinc-300 hidden sm:block">
+                  cinco capitais que compõem o score
+                </p>
               </div>
-              <div className="p-5 sm:p-6">
-                <PilarRow name="Google" score={p!.google.score} max={30} summary={googleSummary(p!.google)} />
-                <PilarRow name="Doctoralia" score={p!.doctoralia.score} max={15} summary={doctoraliaSummary(p!.doctoralia)} />
-                <PilarRow name="Redes Sociais" score={p!.social.score} max={20} summary={socialSummary(p!.social)} />
-                <PilarRow name="SEO & Site" score={p!.seo.score} max={20} summary={seoSummary(p!.seo)} />
-                <PilarRow name="Operacional" score={p!.operational.score} max={15} summary={operationalSummary(p!.operational)} />
-              </div>
+              <AtributoRow index={1} name={PILLAR_CONCEPTS.google.name}      subtitle={PILLAR_CONCEPTS.google.subtitle}      score={p!.google.score}      max={30} summary={googleSummary(p!.google)} />
+              <AtributoRow index={2} name={PILLAR_CONCEPTS.doctoralia.name}  subtitle={PILLAR_CONCEPTS.doctoralia.subtitle}  score={p!.doctoralia.score}  max={15} summary={doctoraliaSummary(p!.doctoralia)} />
+              <AtributoRow index={3} name={PILLAR_CONCEPTS.social.name}      subtitle={PILLAR_CONCEPTS.social.subtitle}      score={p!.social.score}      max={20} summary={socialSummary(p!.social)} />
+              <AtributoRow index={4} name={PILLAR_CONCEPTS.seo.name}         subtitle={PILLAR_CONCEPTS.seo.subtitle}         score={p!.seo.score}         max={20} summary={seoSummary(p!.seo)} />
+              <AtributoRow index={5} name={PILLAR_CONCEPTS.operational.name} subtitle={PILLAR_CONCEPTS.operational.subtitle} score={p!.operational.score} max={15} summary={operationalSummary(p!.operational)} />
             </div>
           </motion.div>
 
