@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "Project-level settings for Singulare. Committed ao git. Hooks + permissions safe-by-default. Local overrides ficam em settings.local.json (gitignored).",
+  "permissions": {
+    "allow": [
+      "Read(./**)",
+      "Bash(git status)",
+      "Bash(git status --short)",
+      "Bash(git diff)",
+      "Bash(git diff --stat)",
+      "Bash(git log -*)",
+      "Bash(git log --oneline*)",
+      "Bash(git branch --show-current)",
+      "Bash(git rev-parse HEAD)",
+      "Bash(ls)",
+      "Bash(ls -la*)",
+      "Bash(node scripts/automation/*)",
+      "Bash(./scripts/automation/*)",
+      "Bash(npm run lint*)",
+      "Bash(npm run typecheck*)",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__list_migrations",
+      "mcp__supabase__get_advisors",
+      "mcp__n8n-mcp__n8n_list_workflows",
+      "mcp__n8n-mcp__n8n_get_workflow",
+      "mcp__n8n-mcp__n8n_health_check",
+      "mcp__claude_ai_Vercel__list_deployments",
+      "mcp__claude_ai_Vercel__get_deployment",
+      "mcp__claude_ai_Vercel__get_deployment_build_logs"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Singulare Autonomy Pack v1 — slash: /deploy /migrate /sync-n8n /onboard-tenant /drift · agents: singulare-db singulare-n8n singulare-deploy · scripts: scripts/automation/'",
+            "timeout": 3000
+          }
+        ]
+      }
+    ]
+  }
+}

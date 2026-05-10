@@ -36,3 +36,11 @@ yarn-error.log*
 .idea/
 .n8n-backups/
 master-secretaria-*.json
+
+# claude code — local-only state (settings.json/agents/commands ficam versionados)
+.claude/settings.local.json
+.claude/settings.local.json.backup-*
+.claude/settings.local.json.proposed
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+.claude/.DS_Store
