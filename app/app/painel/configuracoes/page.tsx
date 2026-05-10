@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import {
   Sparkles, Save, Loader2, Building2, Bot, ChevronDown, ChevronUp,
   Phone, MapPin, Receipt, MessageCircle, Music, Globe, Instagram,
-  Search,
+  Search, CreditCard,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import BackToChecklist from '../components/back-to-checklist';
@@ -539,9 +539,185 @@ function ConfigInner() {
         </button>
       </div>
 
+      {/* Assinatura */}
+      <SubscriptionInfoCard />
+
       {/* Zona perigosa */}
       <SubscriptionDangerZone />
     </div>
+  );
+}
+
+interface SubscriptionInfo {
+  plan_type: 'professional' | 'enterprise' | 'sob_medida' | string;
+  amount: number | null;
+  payment_status: string | null;
+  asaas_subscription_id: string | null;
+  payment_method: string | null;
+  trial_ends_at: string | null;
+  created_at: string | null;
+  asaas: {
+    status: string;
+    next_due_date: string;
+    cycle: string;
+  } | null;
+}
+
+const PLAN_LABEL: Record<string, string> = {
+  professional: 'Profissional',
+  enterprise: 'Clínica',
+  sob_medida: 'Na medida',
+};
+
+function formatBRL(v: number | null): string {
+  if (v == null) return '—';
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function formatDateBR(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch { return '—'; }
+}
+
+function statusBadge(status: string | null | undefined): { label: string; bg: string; fg: string } {
+  const s = (status ?? '').toLowerCase();
+  if (s === 'active' || s === 'paid' || s === 'received' || s === 'confirmed') {
+    return { label: 'Ativa', bg: 'bg-emerald-50', fg: 'text-emerald-700' };
+  }
+  if (s.includes('trial')) return { label: 'Em teste', bg: 'bg-violet-50', fg: 'text-violet-700' };
+  if (s === 'pending' || s === 'awaiting_risk_analysis') return { label: 'Aguardando pagamento', bg: 'bg-amber-50', fg: 'text-amber-700' };
+  if (s === 'overdue' || s === 'expired') return { label: 'Em atraso', bg: 'bg-rose-50', fg: 'text-rose-700' };
+  if (s === 'cancelled' || s === 'canceled' || s === 'inactive') return { label: 'Cancelada', bg: 'bg-zinc-100', fg: 'text-zinc-600' };
+  return { label: status ?? '—', bg: 'bg-zinc-100', fg: 'text-zinc-600' };
+}
+
+function SubscriptionInfoCard() {
+  const [loading, setLoading] = useState(true);
+  const [sub, setSub] = useState<SubscriptionInfo | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/painel/subscription');
+        const json = await res.json();
+        if (json.success) setSub(json.subscription ?? null);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-black/[0.07] bg-white p-5 sm:p-6 mt-8 flex items-center gap-2 text-[13px] text-zinc-500">
+        <Loader2 className="w-4 h-4 animate-spin" /> Carregando assinatura…
+      </div>
+    );
+  }
+
+  if (!sub) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="rounded-2xl border border-black/[0.07] bg-white p-5 sm:p-6 mt-8"
+      >
+        <div className="flex items-center gap-2.5 mb-2">
+          <div className="h-8 w-8 rounded-md flex items-center justify-center bg-zinc-100 text-zinc-600">
+            <CreditCard className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-[15px] font-semibold text-zinc-900">Sua assinatura</h2>
+            <p className="text-[12px] text-zinc-500">Plano e cobrança</p>
+          </div>
+        </div>
+        <p className="text-[13px] text-zinc-600 mt-3">
+          Sem assinatura ativa. Escolha um plano em{' '}
+          <a href="/onboarding" className="text-violet-700 hover:underline font-medium">/onboarding</a>{' '}
+          ou veja opções em{' '}
+          <a href="/#planos" className="text-violet-700 hover:underline font-medium">singulare.org/#planos</a>.
+        </p>
+      </motion.div>
+    );
+  }
+
+  const planLabel = PLAN_LABEL[sub.plan_type] ?? sub.plan_type;
+  const liveStatus = sub.asaas?.status ?? sub.payment_status;
+  const badge = statusBadge(liveStatus);
+  const nextDue = sub.asaas?.next_due_date ?? null;
+  const trialActive = sub.trial_ends_at && new Date(sub.trial_ends_at) > new Date();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="rounded-2xl border border-black/[0.07] bg-white p-5 sm:p-6 mt-8"
+    >
+      <div className="flex items-center gap-2.5 mb-4">
+        <div
+          className="h-8 w-8 rounded-md flex items-center justify-center"
+          style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}
+        >
+          <CreditCard className="w-4 h-4" />
+        </div>
+        <div>
+          <h2 className="text-[15px] font-semibold text-zinc-900">Sua assinatura</h2>
+          <p className="text-[12px] text-zinc-500">Plano e cobrança</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-1">Plano</div>
+          <div className="text-[15px] font-semibold text-zinc-900">{planLabel}</div>
+          {sub.amount != null && (
+            <div className="text-[12px] text-zinc-500 mt-0.5">{formatBRL(sub.amount)} / mês</div>
+          )}
+        </div>
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-1">Status</div>
+          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium ${badge.bg} ${badge.fg}`}>
+            {badge.label}
+          </span>
+        </div>
+        {trialActive && (
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-1">Teste grátis até</div>
+            <div className="text-[13px] text-zinc-900">{formatDateBR(sub.trial_ends_at)}</div>
+          </div>
+        )}
+        {nextDue && (
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-1">Próxima cobrança</div>
+            <div className="text-[13px] text-zinc-900">{formatDateBR(nextDue)}</div>
+          </div>
+        )}
+        {sub.payment_method && (
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-1">Forma de pagamento</div>
+            <div className="text-[13px] text-zinc-900 capitalize">{sub.payment_method.toLowerCase()}</div>
+          </div>
+        )}
+        {sub.asaas?.cycle && (
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500 mb-1">Ciclo</div>
+            <div className="text-[13px] text-zinc-900 capitalize">{sub.asaas.cycle.toLowerCase()}</div>
+          </div>
+        )}
+      </div>
+
+      <p className="text-[11px] text-zinc-400 mt-5 leading-relaxed">
+        Quer mudar de plano? Compare em{' '}
+        <a href="/#planos" className="text-violet-700 hover:underline">singulare.org/#planos</a>
+        {' '}— fale com a gente que a gente migra sem perder histórico.
+      </p>
+    </motion.div>
   );
 }
 

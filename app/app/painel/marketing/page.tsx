@@ -240,8 +240,8 @@ function buildNarrative(s: ScoreData): string {
 
 // ─── ScoreRing ─────────────────────────────────────────────────────────────────
 function ScoreRing({ score }: { score: number }) {
-  const size = 152;
-  const sw = 8;
+  const size = 128;
+  const sw = 7;
   const r = (size - sw) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (score / 100) * circ;
@@ -251,7 +251,7 @@ function ScoreRing({ score }: { score: number }) {
   const labelBg = stage.bg;
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col items-center gap-2">
       <div className="relative">
         <svg width={size} height={size} className="-rotate-90">
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#f4f4f5" strokeWidth={sw} />
@@ -263,11 +263,11 @@ function ScoreRing({ score }: { score: number }) {
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[48px] font-semibold tracking-[-0.04em] leading-none" style={{ color }}>{score}</span>
-          <span className="text-[11px] text-zinc-400 mt-1">/ 100</span>
+          <span className="text-[40px] font-semibold tracking-[-0.04em] leading-none" style={{ color }}>{score}</span>
+          <span className="text-[10.5px] text-zinc-400 mt-0.5">/ 100</span>
         </div>
       </div>
-      <span className="text-[11px] font-semibold px-3 py-1 rounded-full" style={{ background: labelBg, color }}>{label}</span>
+      <span className="text-[10.5px] font-semibold px-2.5 py-0.5 rounded-full" style={{ background: labelBg, color }}>{label}</span>
     </div>
   );
 }
@@ -1458,12 +1458,12 @@ function MarketingInner() {
             }}
           >
             {/* Topo · eyebrow + anel + diagnóstico narrativo */}
-            <div className="px-5 sm:px-7 pt-6 pb-7">
-              <p className="text-[10px] uppercase tracking-[0.14em] font-semibold mb-5" style={{ color: ACCENT_DEEP }}>
-                Reputação digital · relatório semanal
+            <div className="px-5 sm:px-7 pt-4 pb-5">
+              <p className="text-[10px] uppercase tracking-[0.14em] font-semibold mb-3" style={{ color: ACCENT_DEEP }}>
+                Reputação digital
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-[176px_1fr] gap-6 sm:gap-8 items-center">
+              <div className="grid grid-cols-1 sm:grid-cols-[148px_1fr] gap-3 sm:gap-6 items-center">
                 <div className="flex items-center justify-center sm:justify-start">
                   <ScoreRing score={scoreData.total_score} />
                 </div>
