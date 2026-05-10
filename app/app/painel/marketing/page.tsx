@@ -59,6 +59,8 @@ interface RegionDemand {
   is_mock: boolean;
   is_cached?: boolean;
   location: string;
+  location_level?: 'city' | 'state' | 'country';
+  location_disclaimer?: string | null;
   specialty: string;
   total_monthly_volume: number;
   avg_cpc: number | null;
@@ -83,6 +85,67 @@ interface RegionDemand {
     delta_market_pct: number | null;
     delta_name_pct: number | null;
     history_points: Array<{ collected_at: string; total_monthly_volume: number; total_name_volume: number }>;
+  };
+}
+
+interface Competitors {
+  is_mock: boolean;
+  is_cached?: boolean;
+  search_query: string;
+  location_label: string;
+  competitors: Array<{
+    place_id: string;
+    name: string;
+    rating: number | null;
+    reviews: number;
+    address: string;
+    distance_km: number | null;
+    is_self: boolean;
+  }>;
+  market_stats: {
+    total_competitors: number;
+    avg_rating: number | null;
+    avg_reviews: number | null;
+    median_reviews: number | null;
+    top_rating: number | null;
+    top_reviews: number | null;
+    self_position_by_reviews: number | null;
+    self_percentile_by_reviews: number | null;
+  };
+  collected_at: string;
+  trend?: {
+    previous_avg_reviews: number | null;
+    previous_self_percentile: number | null;
+    delta_self_percentile: number | null;
+    history_points: Array<{ collected_at: string; avg_reviews: number | null; self_percentile: number | null }>;
+  };
+}
+
+interface GbpInsights {
+  is_mock: boolean;
+  is_cached?: boolean;
+  location_name: string;
+  period_start: string;
+  period_end: string;
+  totals: {
+    impressions_search: number;
+    impressions_maps: number;
+    impressions_total: number;
+    direction_requests: number;
+    call_clicks: number;
+    website_clicks: number;
+    bookings: number;
+    conversations: number;
+  };
+  daily: Array<{ date: string; impressions: number; calls: number; directions: number; website: number }>;
+  collected_at: string;
+  trend?: {
+    previous_impressions_total: number | null;
+    previous_call_clicks: number | null;
+    previous_collected_at: string | null;
+    delta_impressions_pct: number | null;
+    delta_calls_pct: number | null;
+    history_points: Array<{ collected_at: string; impressions_total: number; call_clicks: number }>;
   };
 }
 
@@ -361,6 +424,8 @@ function RegionDemandCard({ d, refreshing, onRefresh }: { d: RegionDemand; refre
   const captureRate = 0.02;
   const onTable = Math.round(d.total_monthly_volume * (1 - captureRate));
   const cpcText = d.avg_cpc != null ? `R$ ${d.avg_cpc.toFixed(2).replace('.', ',')}` : '—';
+  const cleanLocation = d.location.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const locationHead = cleanLocation.split(',')[0];
 
   return (
     <motion.div variants={fadeUp} className="space-y-3">
@@ -374,7 +439,7 @@ function RegionDemandCard({ d, refreshing, onRefresh }: { d: RegionDemand; refre
         <div>
           <p className="text-[10px] font-bold tracking-[0.12em] uppercase mb-2 flex items-center gap-2" style={{ color: '#b45309' }}>
             <MapPin className="inline w-3 h-3 -mt-0.5" />
-            <span>Oportunidade · {d.location}</span>
+            <span>Oportunidade · {cleanLocation}</span>
             {refreshing && (
               <span className="inline-flex items-center gap-1 text-amber-700/70 normal-case tracking-normal text-[10px] font-medium">
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />
@@ -383,6 +448,9 @@ function RegionDemandCard({ d, refreshing, onRefresh }: { d: RegionDemand; refre
             )}
             {!refreshing && d.is_mock && (
               <span className="text-[9px] font-medium normal-case tracking-normal text-amber-700/60">(estimativa preliminar)</span>
+            )}
+            {!refreshing && !d.is_mock && d.location_disclaimer && (
+              <span className="text-[9px] font-medium normal-case tracking-normal text-amber-700/60">({d.location_disclaimer})</span>
             )}
             {!refreshing && !d.is_mock && (
               <button
@@ -396,7 +464,7 @@ function RegionDemandCard({ d, refreshing, onRefresh }: { d: RegionDemand; refre
             )}
           </p>
           <p className="text-[17px] sm:text-[18px] font-medium leading-[1.35] tracking-[-0.015em] text-zinc-900">
-            Pacientes buscam <em className="not-italic font-semibold" style={{ color: '#b45309' }}>&ldquo;{d.specialty} {d.location.split(',')[0]}&rdquo;</em>{' '}
+            Pacientes buscam <em className="not-italic font-semibold" style={{ color: '#b45309' }}>&ldquo;{d.specialty}{d.location_level === 'country' ? '' : ` ${locationHead}`}&rdquo;</em>{' '}
             <span className="tabular-nums">{d.total_monthly_volume.toLocaleString('pt-BR')}</span> vezes por mês.
             Sua clínica capta menos de {Math.round(captureRate * 100)}% disso hoje.
           </p>
@@ -678,6 +746,148 @@ function ActivationOpportunitiesCard({ alerts }: { alerts: ActivationAlert[] }) 
           );
         })}
       </div>
+    </motion.div>
+  );
+}
+
+// ─── Competitors ──────────────────────────────────────────────────────────────
+function CompetitorsCard({ d, refreshing, onRefresh }: { d: Competitors; refreshing: boolean; onRefresh: () => void }) {
+  const stats = d.market_stats;
+  const hasSelf = d.competitors.some(c => c.is_self);
+  const top5 = d.competitors.slice(0, 5);
+  const peerLine = stats.avg_reviews != null && stats.median_reviews != null
+    ? `Mediana ${stats.median_reviews} reviews · média ${stats.avg_reviews}`
+    : 'Sem dados de competidores ainda';
+
+  return (
+    <motion.div variants={fadeUp} className="rounded-2xl border border-black/[0.07] bg-white overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}>
+      <div className="px-5 pt-4 pb-3 border-b border-black/[0.05] flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-zinc-400">Competidores · {d.location_label}</p>
+          <p className="text-[12px] text-zinc-500 mt-0.5">{peerLine}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {refreshing ? (
+            <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              atualizando
+            </span>
+          ) : (
+            <button type="button" onClick={onRefresh} className="text-[10px] text-zinc-400 hover:text-zinc-700 transition-colors">
+              atualizar
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-3 divide-x divide-black/[0.04]">
+        <div className="p-4">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-1">Total no raio</p>
+          <p className="text-[20px] tabular-nums font-semibold">{stats.total_competitors}</p>
+        </div>
+        <div className="p-4">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-1">Top reviews</p>
+          <p className="text-[20px] tabular-nums font-semibold">{stats.top_reviews ?? '—'}</p>
+        </div>
+        <div className="p-4">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-1">Sua posição</p>
+          <p className="text-[20px] tabular-nums font-semibold" style={{ color: ACCENT }}>
+            {hasSelf && stats.self_position_by_reviews ? `#${stats.self_position_by_reviews}` : '—'}
+          </p>
+          {stats.self_percentile_by_reviews != null && (
+            <p className="text-[10px] text-zinc-500">percentil {stats.self_percentile_by_reviews}</p>
+          )}
+        </div>
+      </div>
+      {top5.length > 0 && (
+        <div className="px-5 py-3 border-t border-black/[0.05]">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-2">Top 5 por reviews</p>
+          <div className="space-y-1.5">
+            {top5.map((c, i) => (
+              <div key={c.place_id} className="flex items-center justify-between gap-2 text-[12px]">
+                <span className="flex items-center gap-2 truncate">
+                  <span className="text-zinc-400 tabular-nums w-4">{i + 1}.</span>
+                  <span className={`truncate ${c.is_self ? 'font-semibold text-[#5746AF]' : 'text-zinc-700'}`}>
+                    {c.name} {c.is_self && <span className="ml-1 text-[10px] uppercase">você</span>}
+                  </span>
+                </span>
+                <span className="flex items-center gap-2 tabular-nums text-[11px] text-zinc-500 flex-shrink-0">
+                  {c.rating != null && <span>★ {c.rating.toFixed(1)}</span>}
+                  <span>{c.reviews}</span>
+                  {c.distance_km != null && <span>{c.distance_km.toFixed(1)}km</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ─── GBP Insights ─────────────────────────────────────────────────────────────
+function GbpInsightsCard({ d, refreshing, onRefresh }: { d: GbpInsights; refreshing: boolean; onRefresh: () => void }) {
+  const t = d.totals;
+  const trend = d.trend;
+  const formatNum = (n: number) => n.toLocaleString('pt-BR');
+  const period = `${d.period_start} → ${d.period_end}`;
+  const stats: Array<{ label: string; value: number; delta: number | null; accent?: string }> = [
+    { label: 'Buscas no Google', value: t.impressions_search, delta: null },
+    { label: 'Visualizações no Maps', value: t.impressions_maps, delta: null },
+    { label: 'Cliques pra ligar', value: t.call_clicks, delta: trend?.delta_calls_pct ?? null, accent: ACCENT },
+    { label: 'Pediu rota', value: t.direction_requests, delta: null },
+    { label: 'Cliques no site', value: t.website_clicks, delta: null },
+    { label: 'Mensagens', value: t.conversations, delta: null },
+  ];
+
+  return (
+    <motion.div variants={fadeUp} className="rounded-2xl border border-black/[0.07] bg-white overflow-hidden" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.05)' }}>
+      <div className="px-5 pt-4 pb-3 border-b border-black/[0.05] flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-zinc-400">Performance no Google · Meu Negócio</p>
+          <p className="text-[12px] text-zinc-500 mt-0.5">
+            {d.location_name} · {period} {d.is_mock && <span className="text-amber-700/70">(estimativa — conecte sua conta)</span>}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {refreshing ? (
+            <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              atualizando
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="text-[10px] text-zinc-400 hover:text-zinc-700 transition-colors"
+            >
+              atualizar
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 divide-x divide-y divide-black/[0.04]">
+        {stats.map((s, i) => (
+          <div key={i} className="p-4">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-1">{s.label}</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[20px] tabular-nums font-semibold" style={{ color: s.accent || '#18181b' }}>{formatNum(s.value)}</span>
+              {s.delta != null && <DeltaBadge pct={s.delta} color={s.accent || ACCENT} />}
+            </div>
+          </div>
+        ))}
+      </div>
+      {trend?.history_points && trend.history_points.length > 1 && (
+        <div className="px-5 py-3 border-t border-black/[0.05]">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400 mb-2">Histórico mensal · {trend.history_points.length} coletas</p>
+          <div className="flex items-end gap-1 h-12">
+            {trend.history_points.map((p, i) => {
+              const max = Math.max(...trend.history_points.map(x => x.impressions_total)) || 1;
+              const h = (p.impressions_total / max) * 100;
+              return <div key={i} className="flex-1 rounded-sm" style={{ height: `${h}%`, background: ACCENT_SOFT, borderTop: `2px solid ${ACCENT}` }} title={`${p.collected_at}: ${formatNum(p.impressions_total)}`} />;
+            })}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -970,18 +1180,24 @@ function MarketingInner() {
   const [regionRefreshing, setRegionRefreshing] = useState(false);
   const [marketTrends, setMarketTrends] = useState<MarketTrends | null>(null);
   const [trendsRefreshing, setTrendsRefreshing] = useState(false);
+  const [gbpInsights, setGbpInsights] = useState<GbpInsights | null>(null);
+  const [gbpRefreshing, setGbpRefreshing] = useState(false);
+  const [competitors, setCompetitors] = useState<Competitors | null>(null);
+  const [competitorsRefreshing, setCompetitorsRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewDone, setReviewDone] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [sRes, pRes, rRes, dRes, tRes] = await Promise.all([
+      const [sRes, pRes, rRes, dRes, tRes, gRes, cRes] = await Promise.all([
         fetch('/api/painel/marketing/score'),
         fetch('/api/painel/marketing/posts?status=pending_approval&limit=6'),
         fetch('/api/painel/marketing/reviews'),
         fetch('/api/painel/marketing/region-demand'),
         fetch('/api/painel/marketing/market-trends'),
+        fetch('/api/painel/marketing/gbp-insights'),
+        fetch('/api/painel/marketing/competitors'),
       ]);
       if (sRes.ok) { const d = await sRes.json(); setScoreData(d.current); setRecs(d.recommendations || []); }
       if (pRes.ok) { const d = await pRes.json(); setPosts(d.posts || []); }
@@ -1011,6 +1227,34 @@ function MarketingInner() {
               .then(j => { if (j?.payload) setMarketTrends(j.payload); })
               .catch(() => {})
               .finally(() => setTrendsRefreshing(false));
+          }
+        }
+      }
+      if (gRes.ok) {
+        const g = await gRes.json();
+        if (g?.location_name) {
+          setGbpInsights(g);
+          if (!g.is_cached && !g.is_mock) {
+            setGbpRefreshing(true);
+            fetch('/api/painel/marketing/gbp-insights-refresh', { method: 'POST' })
+              .then(r => r.ok ? r.json() : null)
+              .then(j => { if (j?.payload) setGbpInsights(j.payload); })
+              .catch(() => {})
+              .finally(() => setGbpRefreshing(false));
+          }
+        }
+      }
+      if (cRes.ok) {
+        const c = await cRes.json();
+        if (c?.search_query) {
+          setCompetitors(c);
+          if (!c.is_cached) {
+            setCompetitorsRefreshing(true);
+            fetch('/api/painel/marketing/competitors-refresh', { method: 'POST' })
+              .then(r => r.ok ? r.json() : null)
+              .then(j => { if (j?.payload) setCompetitors(j.payload); })
+              .catch(() => {})
+              .finally(() => setCompetitorsRefreshing(false));
           }
         }
       }
@@ -1044,6 +1288,32 @@ function MarketingInner() {
       }
     } finally {
       setTrendsRefreshing(false);
+    }
+  }, []);
+
+  const refreshGbpInsights = useCallback(async () => {
+    setGbpRefreshing(true);
+    try {
+      const r = await fetch('/api/painel/marketing/gbp-insights-refresh', { method: 'POST' });
+      if (r.ok) {
+        const j = await r.json();
+        if (j?.payload) setGbpInsights(j.payload);
+      }
+    } finally {
+      setGbpRefreshing(false);
+    }
+  }, []);
+
+  const refreshCompetitors = useCallback(async () => {
+    setCompetitorsRefreshing(true);
+    try {
+      const r = await fetch('/api/painel/marketing/competitors-refresh', { method: 'POST' });
+      if (r.ok) {
+        const j = await r.json();
+        if (j?.payload) setCompetitors(j.payload);
+      }
+    } finally {
+      setCompetitorsRefreshing(false);
     }
   }, []);
 
@@ -1156,6 +1426,16 @@ function MarketingInner() {
           {/* Bloco 3 — Oportunidade na região */}
           {regionDemand && (
             <RegionDemandCard d={regionDemand} refreshing={regionRefreshing} onRefresh={refreshRegionDemand} />
+          )}
+
+          {/* Bloco 3a — Performance no Google Meu Negócio */}
+          {gbpInsights && (
+            <GbpInsightsCard d={gbpInsights} refreshing={gbpRefreshing} onRefresh={refreshGbpInsights} />
+          )}
+
+          {/* Bloco 3a2 — Competidores próximos */}
+          {competitors && (
+            <CompetitorsCard d={competitors} refreshing={competitorsRefreshing} onRefresh={refreshCompetitors} />
           )}
 
           {/* Bloco 3b — Inteligência de Mercado (Trends) */}

@@ -34,6 +34,7 @@ export interface RegionDemandPayload {
   is_cached: boolean;
   location: string;
   location_level?: 'city' | 'state' | 'country';
+  location_disclaimer?: string | null;
   specialty: string;
   total_monthly_volume: number;
   avg_cpc: number | null;
@@ -427,8 +428,14 @@ export async function refreshRegionDemandForTenant(supabase: SB, tenantId: strin
   const locationLabel = chosenLevel === 'city'
     ? `${city}, ${stateName}, Brazil`
     : chosenLevel === 'state'
-    ? `${expandedState}, Brazil (estado — cidade sem dados no Google Ads)`
-    : 'Brasil (estimativa nacional — região sem dados no Google Ads)';
+    ? `${expandedState}, Brazil`
+    : 'Brasil';
+
+  const locationDisclaimer = chosenLevel === 'state'
+    ? 'estado — cidade sem dados no Google Ads'
+    : chosenLevel === 'country'
+    ? 'estimativa nacional — região sem dados no Google Ads'
+    : null;
 
   const payload: RegionDemandPayload & { _debug?: unknown } = {
     success: true,
@@ -436,6 +443,7 @@ export async function refreshRegionDemandForTenant(supabase: SB, tenantId: strin
     is_cached: false,
     location: locationLabel,
     location_level: chosenLevel,
+    location_disclaimer: locationDisclaimer,
     specialty,
     total_monthly_volume: totalMarket,
     avg_cpc: avgCpc,
