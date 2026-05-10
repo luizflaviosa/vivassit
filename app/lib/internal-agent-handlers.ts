@@ -876,6 +876,12 @@ const consultaMarcar: WriteHandler = {
     let patientName = params.patient_name ? String(params.patient_name) : '';
     let patientPhone = params.patient_phone ? String(params.patient_phone) : '';
     if (!patientId) {
+      if (!patientName && !patientPhone) {
+        return {
+          ok: false,
+          summary: 'Sem paciente identificado. Passe patient_id, patient_name ou patient_phone.',
+        };
+      }
       let pq = admin.from('patients').select('id, name, phone').eq('tenant_id', ctx.tenant_id);
       if (patientName) pq = pq.ilike('name', `%${patientName}%`);
       if (patientPhone) pq = pq.eq('phone', patientPhone);
