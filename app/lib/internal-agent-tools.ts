@@ -243,6 +243,18 @@ export const TOOL_CATALOG: ToolDef[] = [
       documento_id: { type: 'string', required: true, description: 'UUID do documento' },
     },
   },
+  {
+    name: 'bloquear_horario',
+    description: 'Bloqueia uma janela na agenda do médico (almoço, ausência, dentista). Em propose mostra preview e lista bookings que caem dentro (apenas aviso, não recusa).',
+    mode: 'write',
+    min_role: 'doctor',
+    params: {
+      start: { type: 'string', required: true, description: 'ISO YYYY-MM-DDTHH:mm (assume -03:00 se sem TZ)' },
+      end:   { type: 'string', required: true, description: 'ISO YYYY-MM-DDTHH:mm' },
+      reason: { type: 'string', description: 'Motivo livre (ex: "almoço", "consulta médica")' },
+      doctor_id: { type: 'string', description: 'UUID do médico (admin/owner; doctor é o próprio)' },
+    },
+  },
 ];
 
 export function getToolDef(name: string): ToolDef | null {
@@ -264,6 +276,7 @@ const PARAM_ALIASES: Record<string, Record<string, string>> = {
   consulta_cancelar: { motivo: 'reason' },
   paciente_criar:    { nome: 'name', telefone: 'phone', data_nascimento: 'birthdate', nascimento: 'birthdate' },
   cobranca_avulsa:   { valor_reais: 'valor', metodo_pagamento: 'metodo' },
+  bloquear_horario:  { inicio: 'start', fim: 'end', motivo: 'reason' },
 };
 
 export function normalizeParams(

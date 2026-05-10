@@ -1111,6 +1111,84 @@ const documentoAssinar: WriteHandler = {
   },
 };
 
+// ── bloquear_horario ───────────────────────────────────────────
+// Insere linha em doctor_schedule_blocks. Em propose lista bookings que
+// caem dentro da janela (apenas aviso — bloqueio não cancela nada).
+const bloquearHorario: WriteHandler = {
+  async propose(params, ctx) {
+    const startStr = String(params.start ?? '');
+    const endStr = String(params.end ?? '');
+    const norm = (s: string) => /[Z+]/.test(s) || /-\d\d:\d\d$/.test(s) ? s : `${s}-03:00`;
+    const start = new Date(norm(startStr));
+    const end = new Date(norm(endStr));
+    if (isNaN(+start) || isNaN(+end)) return { ok: false, summary: 'start/end inválidos.' };
+    if (end <= start) return { ok: false, summary: 'end deve ser maior que start.' };
+
+    const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
+    if (!scope.doctor_id) return { ok: false, summary: 'Sem médico no escopo.' };
+
+    const admin = supabaseAdmin();
+
+    // Bookings que caem dentro (overlap real)
+    const { data: hits } = await admin
+      .from('doctor_bookings')
+      .select('id, patient_name, slot_start, slot_end, status')
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('doctor_id', scope.doctor_id)
+      .neq('status', 'cancelled')
+      .lt('slot_start', end.toISOString())
+      .gt('slot_end', start.toISOString());
+
+    const startFmt = fmtDate(start.toISOString());
+    const endFmt = fmtDate(end.toISOString());
+    const reason = params.reason ? String(params.reason) : 'Indisponível';
+    const conflictNote = hits && hits.length > 0
+      ? `\n\nATENCAO: ${hits.length} consulta(s) caem dentro:\n` + hits.map((h) => `- ${h.patient_name} em ${fmtDate(h.slot_start)}`).join('\n')
+      : '';
+
+    return {
+      ok: true,
+      summary: `Bloquear ${startFmt} → ${endFmt}?`,
+      card: {
+        summary: `Bloquear horário`,
+        detail: `De: ${startFmt}\nAté: ${endFmt}\nMotivo: ${reason}${conflictNote}`,
+        confirm_label: 'Bloquear',
+        cancel_label: 'Voltar',
+        action: {
+          tool: 'bloquear_horario',
+          params: {
+            start: start.toISOString(),
+            end: end.toISOString(),
+            reason,
+            doctor_id: scope.doctor_id,
+          },
+        },
+      },
+      data: { conflicts: hits ?? [] },
+    };
+  },
+
+  async execute(params, ctx) {
+    const start = new Date(String(params.start));
+    const end = new Date(String(params.end));
+    const scope = await resolveDoctorScope(ctx, params.doctor_id as string | undefined);
+    if (!scope.doctor_id) return { ok: false, summary: 'Sem médico no escopo.' };
+
+    const admin = supabaseAdmin();
+    const { data, error } = await admin.from('doctor_schedule_blocks').insert({
+      tenant_id: ctx.tenant_id,
+      doctor_id: scope.doctor_id,
+      start_at: start.toISOString(),
+      end_at: end.toISOString(),
+      reason: params.reason ? String(params.reason) : null,
+      source: 'agente',
+      created_by: ctx.user_id,
+    }).select('id').maybeSingle();
+    if (error) return { ok: false, summary: 'Falha ao bloquear', error: error.message };
+    return { ok: true, summary: `Bloqueio criado (id ${data?.id}).`, data: { block: data } };
+  },
+};
+
 // ──────────────────────────────────────────────────────────────────────
 // medicos_listar — sempre respeita scope: doctor vê só ele mesmo,
 // admin/owner/staff vê todos os médicos do tenant.
@@ -1188,6 +1266,7 @@ export const WRITE_HANDLERS: Record<string, WriteHandler> = {
   cobranca_avulsa: cobrancaAvulsa,
   documento_gerar: documentoGerar,
   documento_assinar: documentoAssinar,
+  bloquear_horario: bloquearHorario,
 };
 
 export function getHandler(name: string): Handler | null {
