@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2, UserPlus, Phone, Mail, Calendar,
-  X, MessageCircle, Wallet, Activity, ChevronRight, HeartPulse,
+  X, MessageCircle, Wallet, Activity, ChevronRight, HeartPulse, Link2, Copy, Check,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import { PatientRowSkeleton } from '@/lib/painel-skeleton';
@@ -68,6 +68,7 @@ interface Patient {
   doctor_preference: string | null;
   notes: string | null;
   tags: string[] | null;
+  health_collection_token?: string | null;
 }
 
 function fmtDate(iso: string | null): string {
@@ -117,6 +118,41 @@ function PacientesInner() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<PatientDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [linkAction, setLinkAction] = useState<'idle' | 'generating' | 'copied'>('idle');
+
+  const handleGenerateOrCopyLink = async () => {
+    if (!detail) return;
+    const existing = detail.patient.health_collection_token;
+    let url: string;
+    if (existing) {
+      url = `${window.location.origin}/saude/${existing}`;
+    } else {
+      setLinkAction('generating');
+      try {
+        const res = await fetch(`/api/painel/pacientes/${detail.patient.id}/collection-token`, { method: 'POST' });
+        const j = await res.json();
+        if (!j.success) {
+          alert(`Erro: ${j.error}`);
+          setLinkAction('idle');
+          return;
+        }
+        url = j.url;
+        setDetail({ ...detail, patient: { ...detail.patient, health_collection_token: j.token } });
+      } catch (e) {
+        alert(`Erro de rede: ${e}`);
+        setLinkAction('idle');
+        return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkAction('copied');
+      setTimeout(() => setLinkAction('idle'), 2500);
+    } catch {
+      prompt('Copie o link manualmente:', url);
+      setLinkAction('idle');
+    }
+  };
 
   useEffect(() => {
     if (selectedId === null) { setDetail(null); return; }
@@ -401,6 +437,32 @@ function PacientesInner() {
                           {detail.summary.total_observations} leituras
                         </span>
                       )}
+                    </div>
+
+                    {/* Link de coleta pra paciente */}
+                    <div className="mb-3">
+                      <button
+                        type="button"
+                        onClick={handleGenerateOrCopyLink}
+                        disabled={linkAction === 'generating'}
+                        className="w-full h-10 rounded-lg border border-black/[0.08] hover:bg-zinc-50 text-[12px] font-medium text-zinc-700 inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60"
+                      >
+                        {linkAction === 'generating' ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : linkAction === 'copied' ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : detail.patient.health_collection_token ? (
+                          <Copy className="w-3.5 h-3.5 text-zinc-400" />
+                        ) : (
+                          <Link2 className="w-3.5 h-3.5 text-zinc-400" />
+                        )}
+                        {linkAction === 'generating' ? 'Gerando link...' :
+                         linkAction === 'copied' ? 'Link copiado!' :
+                         detail.patient.health_collection_token ? 'Copiar link de coleta' : 'Gerar link de coleta'}
+                      </button>
+                      <p className="text-[10px] text-zinc-400 mt-1 px-1">
+                        Envie pro paciente via WhatsApp pra registrar pressao, peso, FC, glicemia e mais.
+                      </p>
                     </div>
                     {detail.summary.total_observations === 0 ? (
                       <p className="text-[13px] text-zinc-500 italic">Sem dados de telemonitoramento ainda.</p>
