@@ -24,6 +24,7 @@ const PARAM_MAP: Record<string, { loinc: string; unit: string; display: string; 
   passos: { loinc: '55423-8', unit: 'count', display: 'Number of steps', category: 'activity' },
   distancia: { loinc: '41950-7', unit: 'm', display: 'Distance walked/running', category: 'activity' },
   calorias: { loinc: '41981-2', unit: 'kcal', display: 'Active calories burned', category: 'activity' },
+  calorias_ativas: { loinc: '41981-2', unit: 'kcal', display: 'Active calories burned', category: 'activity' },
   calorias_repouso: { loinc: '41980-4', unit: 'kcal', display: 'Resting energy expenditure (basal)', category: 'activity' },
   exercicio_min: { loinc: '75923-3', unit: 'min', display: 'Apple exercise time', category: 'activity' },
   move_min: { loinc: '41947-3', unit: 'min', display: 'Apple move time (active minutes)', category: 'activity' },
