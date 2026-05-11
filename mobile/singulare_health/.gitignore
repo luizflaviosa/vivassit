@@ -1,4 +1,4 @@
-# Flutter generated
+# Dart / Flutter
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -6,34 +6,35 @@
 .pub-cache/
 .pub/
 build/
+.fvm/
 
 # IDE
 .idea/
 .vscode/
 *.iml
+*.ipr
+*.iws
 
-# Generated
-*.g.dart
-*.freezed.dart
-*.lock
+# OS
+.DS_Store
+
+# iOS
 ios/Flutter/Generated.xcconfig
-ios/Flutter/ephemeral/
+ios/Flutter/flutter_export_environment.sh
 ios/Pods/
 ios/.symlinks/
-ios/Podfile.lock
+ios/Runner.xcworkspace/xcuserdata/
+ios/Runner.xcodeproj/xcuserdata/
+ios/Runner.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Android
 android/.gradle/
-android/captures/
-android/gradlew
-android/gradlew.bat
-android/gradle-wrapper.properties
 android/local.properties
 android/key.properties
-android/app/debug
-android/app/profile
-android/app/release
+android/app/release/
 
-# Secrets
+# Secrets - jamais commitar
+*.jks
+*.keystore
 .env
 .env.local
-*.keystore
-*.jks

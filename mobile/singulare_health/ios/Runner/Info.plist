@@ -5,7 +5,7 @@
   <key>CFBundleDevelopmentRegion</key>
   <string>pt_BR</string>
   <key>CFBundleDisplayName</key>
-  <string>Singulare Saude</string>
+  <string>Singulare Health</string>
   <key>CFBundleExecutable</key>
   <string>$(EXECUTABLE_NAME)</string>
   <key>CFBundleIdentifier</key>
@@ -31,24 +31,20 @@
   <key>UISupportedInterfaceOrientations</key>
   <array>
     <string>UIInterfaceOrientationPortrait</string>
-    <string>UIInterfaceOrientationLandscapeLeft</string>
-    <string>UIInterfaceOrientationLandscapeRight</string>
   </array>
   <key>UISupportedInterfaceOrientations~ipad</key>
   <array>
     <string>UIInterfaceOrientationPortrait</string>
     <string>UIInterfaceOrientationPortraitUpsideDown</string>
-    <string>UIInterfaceOrientationLandscapeLeft</string>
-    <string>UIInterfaceOrientationLandscapeRight</string>
   </array>
 
-  <!-- HealthKit (LGPD + spec docs/health-data-spec.md) -->
+  <!-- HealthKit (LGPD + RPM cardiologico) -->
   <key>NSHealthShareUsageDescription</key>
-  <string>O Singulare Saude le seus dados de saude do Apple Health (frequencia cardiaca, variabilidade, passos, distancia, sono, pressao, glicemia, peso) para que sua clinica acompanhe sua evolucao clinica.</string>
+  <string>O Singulare utiliza seus dados de saude para monitoramento cardiologico preventivo e acompanhamento medico entre consultas.</string>
   <key>NSHealthUpdateUsageDescription</key>
-  <string>O Singulare nao escreve dados no Apple Health no momento. Esta permissao e requerida pela integracao.</string>
+  <string>Utilizado para sincronizar metricas de recuperacao e sinais vitais com sua equipe de saude.</string>
 
-  <!-- Background -->
+  <!-- Background delivery + processing (BGTaskScheduler ROOK) -->
   <key>UIBackgroundModes</key>
   <array>
     <string>fetch</string>
@@ -56,28 +52,8 @@
   </array>
   <key>BGTaskSchedulerPermittedIdentifiers</key>
   <array>
-    <string>be.tramckrijte.workmanager.singulare-cardio-sync</string>
-  </array>
-
-  <!-- Deep linking pra abrir o app via singulare.org/saude/<uuid> -->
-  <key>CFBundleURLTypes</key>
-  <array>
-    <dict>
-      <key>CFBundleTypeRole</key>
-      <string>Editor</string>
-      <key>CFBundleURLName</key>
-      <string>org.singulare.singulare_health</string>
-      <key>CFBundleURLSchemes</key>
-      <array>
-        <string>singulare</string>
-      </array>
-    </dict>
-  </array>
-
-  <!-- Universal Links pra singulare.org -->
-  <key>com.apple.developer.associated-domains</key>
-  <array>
-    <string>applinks:singulare.org</string>
+    <string>io.tryrook.background.summaries</string>
+    <string>io.tryrook.background.events</string>
   </array>
 
   <!-- Privacy manifest references LGPD policy -->

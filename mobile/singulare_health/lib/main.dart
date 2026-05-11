@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:workmanager/workmanager.dart';
-import 'screens/welcome_screen.dart';
+
+import 'config.dart';
 import 'screens/home_screen.dart';
-import 'services/background_sync.dart';
-import 'services/token_service.dart';
+import 'screens/welcome_screen.dart';
+import 'services/onboarding_state.dart';
+import 'services/rook_service.dart';
+import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Workmanager().initialize(
-    backgroundCallbackDispatcher,
-    isInDebugMode: false,
-  );
+
+  // Inicializa o ROOK antes do runApp pra que o SDK ja esteja pronto
+  // quando o usuario tocar "Ativar Monitoramento Medico".
+  await RookService.instance.initialize();
+  await RookService.instance.bindUser(RookConfig.defaultUserId);
+
   runApp(const SingulareHealthApp());
 }
 
@@ -20,17 +24,17 @@ class SingulareHealthApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Singulare Saude',
+      title: 'Singulare Health',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6E56CF)),
-        useMaterial3: true,
-      ),
+      theme: singulareTheme(),
       home: const _Bootstrap(),
     );
   }
 }
 
+/// Decide a tela inicial:
+///   - Sem consent gravado: WelcomeScreen
+///   - Consent ja registrado: HomeScreen
 class _Bootstrap extends StatefulWidget {
   const _Bootstrap();
 
@@ -39,30 +43,64 @@ class _Bootstrap extends StatefulWidget {
 }
 
 class _BootstrapState extends State<_Bootstrap> {
-  bool _checking = true;
-  String? _token;
+  Future<bool>? _consentFuture;
 
   @override
   void initState() {
     super.initState();
-    _check();
-  }
-
-  Future<void> _check() async {
-    final t = await TokenService.read();
-    if (!mounted) return;
-    setState(() {
-      _token = t;
-      _checking = false;
-    });
+    _consentFuture = OnboardingState.hasConsented();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_checking) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    if (_token == null) return const WelcomeScreen();
-    return const HomeScreen();
+    return FutureBuilder<bool>(
+      future: _consentFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: _Splash()),
+          );
+        }
+        final consented = snapshot.data ?? false;
+        return AnimatedSwitcher(
+          duration: SingulareTokens.medium,
+          switchInCurve: SingulareTokens.easeOut,
+          child: consented ? const HomeScreen() : const WelcomeScreen(),
+        );
+      },
+    );
+  }
+}
+
+class _Splash extends StatelessWidget {
+  const _Splash();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: SingulareTokens.accent,
+            borderRadius: BorderRadius.circular(SingulareTokens.radiusMd),
+            boxShadow: SingulareTokens.elevationAccent,
+          ),
+          alignment: Alignment.center,
+          child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 22),
+        ),
+        const SizedBox(height: SingulareTokens.space24),
+        const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(SingulareTokens.accent),
+          ),
+        ),
+      ],
+    );
   }
 }

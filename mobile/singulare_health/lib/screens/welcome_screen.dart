@@ -1,146 +1,196 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
-import 'package:app_links/app_links.dart';
-import '../config.dart';
-import '../services/token_service.dart';
+
+import '../theme.dart';
+import '../widgets/primary_button.dart';
 import 'consent_screen.dart';
 
-const _accent = Color(0xFF6E56CF);
-const _accentDeep = Color(0xFF5746AF);
-
-class WelcomeScreen extends StatefulWidget {
+/// Tela inicial — apresenta o que o app faz em 3 movimentos rapidos.
+///
+/// Hierarquia visual (F-pattern):
+///   1. Logo/Brand mark (top)
+///   2. Headline + sub
+///   3. Lista de beneficios com icones (color-coded)
+///   4. CTA principal na thumb zone
+class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
-
-  @override
-  State<WelcomeScreen> createState() => _WelcomeScreenState();
-}
-
-class _WelcomeScreenState extends State<WelcomeScreen> {
-  final _linkCtrl = TextEditingController();
-  bool _validating = false;
-  String? _error;
-  final _appLinks = AppLinks();
-
-  @override
-  void initState() {
-    super.initState();
-    _listenIncomingLinks();
-    _checkInitial();
-  }
-
-  Future<void> _checkInitial() async {
-    final initial = await _appLinks.getInitialAppLink();
-    if (initial != null) _tryToken(initial.toString());
-  }
-
-  void _listenIncomingLinks() {
-    _appLinks.uriLinkStream.listen((uri) {
-      _tryToken(uri.toString());
-    });
-  }
-
-  Future<void> _pasteFromClipboard() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final text = data?.text ?? '';
-    if (text.isNotEmpty) {
-      _linkCtrl.text = text;
-      _tryToken(text);
-    }
-  }
-
-  Future<void> _tryToken(String input) async {
-    final token = TokenService.extractFromUrl(input) ?? input.trim();
-    if (!RegExp(r'^[0-9a-f-]{36}$').hasMatch(token)) {
-      setState(() => _error = 'Link invalido. Verifique e tente de novo.');
-      return;
-    }
-    setState(() {
-      _validating = true;
-      _error = null;
-    });
-    try {
-      final res = await http.get(Uri.parse('${AppConfig.apiBaseUrl}/api/saude/$token'));
-      if (res.statusCode != 200) {
-        setState(() => _error = 'Link nao encontrado ou expirado.');
-        return;
-      }
-      final j = jsonDecode(res.body) as Map<String, dynamic>;
-      if (j['success'] != true) {
-        setState(() => _error = 'Link invalido.');
-        return;
-      }
-      await TokenService.save(token);
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ConsentScreen()),
-      );
-    } catch (e) {
-      setState(() => _error = 'Erro de conexao. Tente novamente.');
-    } finally {
-      if (mounted) setState(() => _validating = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: const EdgeInsets.fromLTRB(
+            SingulareTokens.space24,
+            SingulareTokens.space24,
+            SingulareTokens.space24,
+            SingulareTokens.space32,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.favorite, size: 56, color: _accent),
-              const SizedBox(height: 20),
-              const Text(
-                'Singulare Saude',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, letterSpacing: -0.5),
+              const _BrandMark(),
+              const SizedBox(height: SingulareTokens.space48),
+              Text('Acompanhamento cardiologico continuo.',
+                  style: SingulareTokens.display),
+              const SizedBox(height: SingulareTokens.space16),
+              Text(
+                'O Singulare le seus dados do Apple Health e envia para sua equipe medica entre consultas. Voce nao precisa fazer nada — a sincronizacao acontece sozinha.',
+                style: SingulareTokens.body,
+              ),
+              const SizedBox(height: SingulareTokens.space48),
+              const _FeatureRow(
+                icon: Icons.favorite_border_rounded,
+                tone: _FeatureTone.accent,
+                title: 'Coracao em foco',
+                subtitle:
+                    'Frequencia cardiaca, HRV, oxigenacao e atividade — coletados de forma passiva.',
+              ),
+              const SizedBox(height: SingulareTokens.space20),
+              const _FeatureRow(
+                icon: Icons.lock_outline_rounded,
+                tone: _FeatureTone.neutral,
+                title: 'Voce controla',
+                subtitle:
+                    'Conformidade com a LGPD. Voce pode revogar o acesso a qualquer momento.',
+              ),
+              const SizedBox(height: SingulareTokens.space20),
+              const _FeatureRow(
+                icon: Icons.cloud_sync_outlined,
+                tone: _FeatureTone.success,
+                title: 'Sem abrir o app',
+                subtitle:
+                    'Sincronizacao em segundo plano. Sua clinica recebe os dados automaticamente.',
+              ),
+              const Spacer(),
+              PrimaryButton(
+                label: 'Comecar',
+                icon: Icons.arrow_forward_rounded,
+                onTap: () {
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      pageBuilder: (_, __, ___) => const ConsentScreen(),
+                      transitionsBuilder: _slideUp,
+                      transitionDuration: SingulareTokens.medium,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: SingulareTokens.space12),
+              Text(
+                'Ao continuar, voce concorda com a Politica de Privacidade Singulare.',
                 textAlign: TextAlign.center,
+                style: SingulareTokens.caption,
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Cole o link que sua clinica te enviou no WhatsApp.',
-                style: TextStyle(color: Colors.black54),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              TextField(
-                controller: _linkCtrl,
-                keyboardType: TextInputType.url,
-                autocorrect: false,
-                decoration: const InputDecoration(
-                  labelText: 'Link da clinica',
-                  hintText: 'singulare.org/saude/...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _validating ? null : () => _tryToken(_linkCtrl.text),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _accent,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: _validating
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Continuar', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: _validating ? null : _pasteFromClipboard,
-                child: const Text('Colar da area de transferencia', style: TextStyle(color: _accentDeep)),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 16),
-                Text(_error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
-              ],
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+Widget _slideUp(BuildContext _, Animation<double> animation, Animation<double> __, Widget child) {
+  return FadeTransition(
+    opacity: animation,
+    child: SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.04),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: animation, curve: SingulareTokens.easeOut)),
+      child: child,
+    ),
+  );
+}
+
+class _BrandMark extends StatelessWidget {
+  const _BrandMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: SingulareTokens.accent,
+            borderRadius: BorderRadius.circular(SingulareTokens.radiusSm),
+            boxShadow: SingulareTokens.elevationAccent,
+          ),
+          alignment: Alignment.center,
+          child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
+        ),
+        const SizedBox(width: SingulareTokens.space12),
+        Text('Singulare Health', style: SingulareTokens.heading),
+      ],
+    );
+  }
+}
+
+enum _FeatureTone { neutral, accent, success }
+
+class _FeatureRow extends StatelessWidget {
+  final IconData icon;
+  final _FeatureTone tone;
+  final String title;
+  final String subtitle;
+
+  const _FeatureRow({
+    required this.icon,
+    required this.tone,
+    required this.title,
+    required this.subtitle,
+  });
+
+  Color get _color {
+    switch (tone) {
+      case _FeatureTone.neutral:
+        return SingulareTokens.textPrimary;
+      case _FeatureTone.accent:
+        return SingulareTokens.accent;
+      case _FeatureTone.success:
+        return SingulareTokens.success;
+    }
+  }
+
+  Color get _bg {
+    switch (tone) {
+      case _FeatureTone.neutral:
+        return SingulareTokens.surfaceSunken;
+      case _FeatureTone.accent:
+        return SingulareTokens.accentSoft;
+      case _FeatureTone.success:
+        return SingulareTokens.successSoft;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: _bg,
+            borderRadius: BorderRadius.circular(SingulareTokens.radiusSm),
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, size: 18, color: _color),
+        ),
+        const SizedBox(width: SingulareTokens.space16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: SingulareTokens.bodyStrong),
+              const SizedBox(height: SingulareTokens.space4),
+              Text(subtitle, style: SingulareTokens.caption),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

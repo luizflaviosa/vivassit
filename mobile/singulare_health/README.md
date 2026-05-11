@@ -1,120 +1,175 @@
-# Singulare Saude (mobile)
+# Singulare Health
 
-App Flutter de telemonitoramento cardiologico passivo. Le HR/HRV/passos/sono/PA/peso/glicemia via Apple Health (iOS) ou Health Connect (Android) e sincroniza com o backend Singulare a cada 6h.
+App Flutter proxy que extrai dados do Apple Health (HealthKit) e transmite ao backend do Singulare via ROOK SDK. Existe porque o app oficial da ROOK nao esta listado na App Store Brasil. Foco clinico: RPM cardiologico (heart rate, HRV, SpO2, atividade, sono).
 
-## Estrutura entregue
+## Stack
 
-Os arquivos `lib/`, `test/`, `pubspec.yaml`, `ios/Runner/Info.plist`, `android/app/src/main/AndroidManifest.xml` estao prontos. Falta o **boilerplate gerado pelo `flutter create`** (Xcode pbxproj, Gradle wrapper, AppDelegate.swift, MainActivity.kt etc).
+- Flutter `>=3.38.0` / Dart `^3.5.0`
+- `rook_sdk_apple_health` (engloba core + transmission)
+- iOS 14+ (HealthKit + BGTaskScheduler)
 
-## Setup
+## Estrutura
 
-### 1. Instalar Flutter SDK (uma vez na sua maquina)
-
-```bash
-brew install --cask flutter
-flutter doctor
+```
+mobile/singulare_health/
+├── pubspec.yaml
+├── analysis_options.yaml
+├── lib/
+│   ├── config.dart                  # credenciais ROOK (sandbox + dart-define)
+│   ├── theme.dart                   # design tokens Singulare (cores, tipografia, spacing)
+│   ├── main.dart                    # bootstrap: init SDK + bind user + roteamento
+│   ├── services/
+│   │   ├── rook_service.dart        # ciclo de vida ROOK (init, permissoes, sync, bg)
+│   │   └── onboarding_state.dart    # persiste consent LGPD (shared_preferences)
+│   ├── widgets/
+│   │   ├── primary_button.dart      # botao primario (dark/accent/ghost)
+│   │   └── status_card.dart         # card de status com icone tinted + pulse animado
+│   └── screens/
+│       ├── welcome_screen.dart      # intro com 3 beneficios + CTA Comecar
+│       ├── consent_screen.dart      # consent LGPD passo a passo + checkbox
+│       └── home_screen.dart         # botao "Ativar Monitoramento" + status + metricas
+└── ios/Runner/Info.plist            # HealthKit + UIBackgroundModes + BGTask IDs
 ```
 
-Aceita os termos da licenca Android quando pedir:
+## Fluxo de usuario
 
-```bash
-flutter doctor --android-licenses
+```
+Welcome   →   Consent   →   Home (idle)   →   Home (active)
+  intro      LGPD passo       botao              status verde
+  beneficios   a passo        principal          + sinais transmitidos
+                              + permissoes
+                              + sync inicial
 ```
 
-### 2. Completar o scaffolding com `flutter create`
+Estado persistido em `shared_preferences` (`OnboardingState.hasConsented()`). Reabrir o app apos consent vai direto pra Home. "Revogar consentimento" (menu na Home) limpa o estado e volta pra Welcome.
 
-A partir da raiz do repo:
+## Setup local
 
 ```bash
 cd mobile/singulare_health
-flutter create . \
-  --org org.singulare \
-  --project-name singulare_health \
-  --platforms ios,android \
-  --description "Singulare Saude - telemonitoramento cardiologico passivo"
-```
 
-Esse comando **NAO sobrescreve** os arquivos que ja existem aqui (pubspec.yaml, lib/, test/, Info.plist, AndroidManifest.xml). Ele preenche o que falta: Xcode project, Gradle, AppDelegate, MainActivity, icones default, splash, etc.
+# 1. Gerar plataforma nativa (apenas iOS, Android opcional)
+flutter create --platforms=ios --org=org.singulare .
 
-### 3. Resolver dependencias
-
-```bash
+# 2. Instalar dependencias
 flutter pub get
+
+# 3. Pods iOS
+cd ios && pod install && cd ..
 ```
 
-### 4. iOS — habilitar HealthKit capability
+> O comando `flutter create` nao sobrescreve `lib/`, `pubspec.yaml` nem `ios/Runner/Info.plist` se eles ja existirem. Confira com `git status` antes de commitar.
+
+## Credenciais (sandbox)
+
+Estao em `lib/config.dart` como defaults via `String.fromEnvironment`. Para o sandbox de teste atual:
+
+| Chave | Valor |
+|---|---|
+| Client UUID | `b1717749-896e-4dd3-8191-150f6bc166f8` |
+| Secret Key | `0gCITss03CnDhIyIO5rz5iFeX1uJw8J6CeN7` |
+| Environment | `RookEnvironment.sandbox` |
+| User ID teste | `singulare-pat-57` |
+
+Em producao, sobrescrever no momento do build:
 
 ```bash
-open ios/Runner.xcworkspace
+flutter run --release \
+  --dart-define=ROOK_CLIENT_UUID=$ROOK_CLIENT_UUID \
+  --dart-define=ROOK_SECRET=$ROOK_SECRET \
+  --dart-define=ROOK_USER_ID=$ROOK_USER_ID
 ```
 
-No Xcode:
-1. Selecionar `Runner` target → `Signing & Capabilities`
-2. Clicar `+ Capability`
-3. Adicionar `HealthKit`
-4. Marcar checkbox "Background Delivery" (gera o entitlement automaticamente)
-5. Repetir: `+ Capability` → `Background Modes` → marcar `Background fetch` e `Background processing`
-6. Verificar que o Team de signing esta correto
+As secrets reais ficam fora do git (Vercel/GitHub Secrets). Nunca commitar Secret Key real.
 
-### 5. Android — minSdk e build
+## Configuracao Xcode (obrigatoria)
 
-Editar `android/app/build.gradle` (gerado pelo `flutter create`) e garantir:
+1. Abrir `ios/Runner.xcworkspace` no Xcode.
+2. Selecionar o target `Runner` → aba `Signing & Capabilities`.
+3. Clicar `+ Capability` e adicionar:
+   - **HealthKit** → marcar `Clinical Health Records` se for usar, e principalmente `Background Delivery` para entrega passiva.
+   - **Background Modes** → marcar `Background fetch` e `Background processing`.
+4. Verificar que o `Info.plist` (ja incluido neste repo) contem:
+   - `NSHealthShareUsageDescription` e `NSHealthUpdateUsageDescription`
+   - `UIBackgroundModes` com `fetch` e `processing`
+   - `BGTaskSchedulerPermittedIdentifiers` com `io.tryrook.background.summaries` e `io.tryrook.background.events`
+5. Definir `Bundle Identifier`: ex `org.singulare.bridge`.
+6. Em `Build Settings` → `iOS Deployment Target`: `14.0` ou superior.
+7. Conectar conta Apple Developer (`Team`) com perfil que tenha HealthKit habilitado no App ID.
 
-```gradle
-android {
-    defaultConfig {
-        minSdkVersion 28
-        targetSdkVersion 34
-    }
-}
-```
+## Tipos de dados HealthKit solicitados
 
-Health Connect requer minSdk 28+.
+O ROOK SDK abstrai os HKObjectTypes. Em uma unica sheet o app pede leitura para:
 
-### 6. Rodar localmente
+**Cardiologicos**
+- Heart Rate (min/max/medio/repouso)
+- Heart Rate Variability (SDNN e RMSSD)
+
+**Fisiologicos**
+- Oxygen Saturation
+- VO2 Max
+- Respiratory Rate
+
+**Atividade e sono**
+- Steps, Active Energy / Calories
+- Distance Walking + Running
+- Sleep Analysis (duracao + estagios)
+
+## Rodando no iPhone fisico (sandbox)
+
+1. Conectar iPhone fisico (iOS 14+) via cabo.
+2. No iPhone: `Ajustes` → `Apple Account` → `Confiar neste Mac`.
+3. No terminal:
+   ```bash
+   flutter devices            # confirma que o iPhone aparece
+   flutter run --release      # release evita timeouts do BGTaskScheduler em debug
+   ```
+4. No app: tocar **"Ativar Monitoramento Medico"**.
+5. iOS abrira a sheet do HealthKit → marcar `Permitir Todas as Categorias`.
+6. Apos o consentimento, o app chama `syncAllData()` (resumos + eventos de ontem) e habilita o background sync.
+
+## Verificando o webhook ROOK
+
+Cada chamada de `syncAllData()` loga no console:
+
+- Sucesso: `Data transmitted successfully: <bucket>`
+- Falha: `Error enqueuing data: <bucket> -> <erro>`
+
+Ler com:
 
 ```bash
-flutter run
+flutter logs                      # console do device
+# ou
+xcrun simctl spawn booted log stream --predicate 'subsystem == "singulare_health"'
 ```
 
-Vai abrir simulator iOS ou emulator/device Android.
+No dashboard ROOK (sandbox): `Logs` → filtrar por `User ID = singulare-pat-57` → conferir resumos diarios e eventos cardiacos chegando.
 
-## Fluxo do usuario
+## Background sync
 
-1. **Welcome screen**: paciente cola o link recebido da clinica (`https://singulare.org/saude/<uuid>`), ou abre direto pelo link (deep link configurado).
-2. App valida o token contra `GET /api/saude/<uuid>` — se ok, salva no Keychain/EncryptedSharedPreferences.
-3. **Consent screen**: paciente concorda em compartilhar saude do Apple Health / Health Connect.
-4. App registra periodic task no WorkManager (a cada 6h).
-5. **Home**: paciente ve "Monitoramento ativo", ultimo sync, botao "Sincronizar agora".
-6. Em background: `health` package le novos dados desde `last_sync_at` (por LOINC), chama `POST /api/saude/<uuid>/ingest` com batch ate 500 obs.
+`enableBackgroundSync()` agenda dois jobs BGTaskScheduler:
 
-## Codigo
+- `io.tryrook.background.summaries` — resumos diarios (1x/dia)
+- `io.tryrook.background.events` — eventos cardiacos granulares (~a cada 6h)
 
-- [lib/main.dart](lib/main.dart) — entry point + bootstrap (decide Welcome vs Home)
-- [lib/config.dart](lib/config.dart) — constantes (API URL, batch size, intervalo sync, retry)
-- [lib/models/observation.dart](lib/models/observation.dart) — `Observation`, `Loinc` codes, conversoes SI
-- [lib/services/token_service.dart](lib/services/token_service.dart) — armazena/le token, extrai UUID de URL
-- [lib/services/install_id.dart](lib/services/install_id.dart) — UUID anonimo + device info (sem IMEI)
-- [lib/services/sync_cache.dart](lib/services/sync_cache.dart) — sqflite `last_sync_at` por LOINC
-- [lib/services/health_data_engine.dart](lib/services/health_data_engine.dart) — Apple Health / Health Connect via `health` package
-- [lib/services/ingest_client.dart](lib/services/ingest_client.dart) — batches 500 + retry exponencial
-- [lib/services/background_sync.dart](lib/services/background_sync.dart) — `workmanager` periodico 6h
-- [lib/screens/welcome_screen.dart](lib/screens/welcome_screen.dart) — cola/recebe link, valida token
-- [lib/screens/consent_screen.dart](lib/screens/consent_screen.dart) — pede permissoes
-- [lib/screens/home_screen.dart](lib/screens/home_screen.dart) — status + sync manual
+iOS decide quando rodar baseado em uso, bateria e conectividade. Para testar manualmente, em Xcode com o app pausado num breakpoint:
 
-## Backend referenciado
+```
+e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"io.tryrook.background.summaries"]
+```
 
-- API base: `https://singulare.org` (`AppConfig.apiBaseUrl`)
-- `GET /api/saude/<token>` — valida token + retorna primeiro nome (registra consent na 1a vez)
-- `POST /api/saude/<token>/ingest` — recebe batch de ate 500 observacoes, classifica outlier por LOINC, insere em `health_observations`
-- Schema: `supabase/migrations/20260510212828_health_observations.sql` + `..._patients_health_collection_token.sql`
-- Spec completa: [docs/health-data-spec.md](../../docs/health-data-spec.md)
+## Proximas integracoes (fora deste app)
 
-## Roadmap
+- Rota `app/api/saude/rook-webhook` no `app/app/` recebe os eventos via webhook ROOK → grava em `saude_eventos` (Supabase).
+- Painel medico (`app/app/dashboard/saude/...`) consome os dados.
+- Onboarding gera um `ROOK_USER_ID` por paciente, vinculado em `tenant_members.rook_user_id`.
 
-- [ ] Plugin nativo iOS pra `HKObserverQuery` + `enableBackgroundDelivery(.immediate)` em FC/HRV/SpO2 (substituindo polling do `health` package)
-- [ ] Plugin nativo Android pra Health Connect Changes API com token persistido
-- [ ] Tela de historico de medicoes recentes (mock-up dos dados que ja foram enviados)
-- [ ] Notificacoes push quando clinica revoga o token (regenera link)
-- [ ] OTA updates via Code Push (nao trivial em Flutter)
+## Troubleshooting
+
+| Sintoma | Causa provavel | Acao |
+|---|---|---|
+| Sheet de permissoes nao aparece | HealthKit capability nao foi adicionada no Xcode | Adicionar em `Signing & Capabilities` |
+| `Error enqueuing data: 401` | Client UUID ou Secret invalidos | Conferir `--dart-define` ou `config.dart` |
+| `Error enqueuing data: 404` | User ID nao registrado no ROOK | Verificar se `bindUser()` rodou e ROOK criou o usuario |
+| Background sync nao dispara | Build em debug + iOS poupa bateria | Rodar em `--release` e usar o device por algumas horas |
+| Logs nativos nao aparecem | `enableNativeLogs` desligado | `--dart-define=ROOK_NATIVE_LOGS=true` (default em sandbox) |
