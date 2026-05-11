@@ -186,8 +186,13 @@ function PacientesInner() {
         setTimeout(() => setRookAction('idle'), 4000);
       } else {
         setRookAction('error');
-        alert(`Erro: ${j.error}${j.whatsapp_error ? '\nDetalhe: ' + j.whatsapp_error : ''}`);
-        setTimeout(() => setRookAction('idle'), 4000);
+        const parts: string[] = [];
+        if (j.error) parts.push(j.error);
+        if (j.rook_error) parts.push(`Rook: ${j.rook_error}`);
+        if (j.chatwoot_error) parts.push(`Chatwoot: ${j.chatwoot_error}`);
+        if (j.chatwoot_sent && !j.rook_ok) parts.push('WhatsApp enviou, mas Rook binding falhou.');
+        alert(parts.length > 0 ? parts.join('\n') : 'Erro desconhecido. Veja DevTools Network.');
+        setTimeout(() => setRookAction('idle'), 6000);
       }
     } catch (e) {
       setRookAction('error');
