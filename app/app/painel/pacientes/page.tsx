@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2, UserPlus, Phone, Mail, Calendar,
-  X, MessageCircle, Wallet, Activity, ChevronRight, HeartPulse, Link2, Copy, Check, Smartphone,
+  X, MessageCircle, Wallet, Activity, ChevronRight, HeartPulse, Link2, Copy, Check, Smartphone, Send,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import { PatientRowSkeleton } from '@/lib/painel-skeleton';
@@ -120,6 +120,7 @@ function PacientesInner() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [linkAction, setLinkAction] = useState<'idle' | 'generating' | 'copied'>('idle');
   const [shortcutAction, setShortcutAction] = useState<'idle' | 'generating' | 'copied'>('idle');
+  const [rookAction, setRookAction] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
   const ensureToken = async (): Promise<string | null> => {
     if (!detail) return null;
@@ -171,6 +172,28 @@ function PacientesInner() {
     }
     const url = `${window.location.origin}/saude/atalho/${token}`;
     await copyToClipboard(url, (s) => setShortcutAction(s));
+  };
+
+  const handleSendRookInvite = async () => {
+    if (!detail) return;
+    if (!confirm('Enviar convite via WhatsApp pra ' + (detail.patient.name ?? 'paciente') + ' conectar Apple Saúde via Rook?')) return;
+    setRookAction('sending');
+    try {
+      const res = await fetch(`/api/painel/pacientes/${detail.patient.id}/rook-invite`, { method: 'POST' });
+      const j = await res.json();
+      if (j.success) {
+        setRookAction('sent');
+        setTimeout(() => setRookAction('idle'), 4000);
+      } else {
+        setRookAction('error');
+        alert(`Erro: ${j.error}${j.whatsapp_error ? '\nDetalhe: ' + j.whatsapp_error : ''}`);
+        setTimeout(() => setRookAction('idle'), 4000);
+      }
+    } catch (e) {
+      setRookAction('error');
+      alert(`Erro de rede: ${e}`);
+      setTimeout(() => setRookAction('idle'), 4000);
+    }
   };
 
   useEffect(() => {
@@ -458,7 +481,26 @@ function PacientesInner() {
                       )}
                     </div>
 
-                    {/* Links de coleta pra paciente */}
+                    {/* Convite Rook via WhatsApp - fluxo principal */}
+                    <button
+                      type="button"
+                      onClick={handleSendRookInvite}
+                      disabled={rookAction === 'sending'}
+                      className="w-full h-10 mb-2 rounded-lg text-[12px] font-semibold text-white inline-flex items-center justify-center gap-1.5 transition-opacity disabled:opacity-60"
+                      style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}
+                    >
+                      {rookAction === 'sending' ? (
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Enviando WhatsApp...</>
+                      ) : rookAction === 'sent' ? (
+                        <><Check className="w-3.5 h-3.5" /> Convite enviado</>
+                      ) : rookAction === 'error' ? (
+                        <><X className="w-3.5 h-3.5" /> Erro · tentar novamente</>
+                      ) : (
+                        <><Send className="w-3.5 h-3.5" /> Enviar convite WhatsApp · Apple Saúde</>
+                      )}
+                    </button>
+
+                    {/* Links de coleta pra paciente (fallback manual) */}
                     <div className="mb-3 grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -497,9 +539,10 @@ function PacientesInner() {
                          'Atalho iOS'}
                       </button>
                     </div>
-                    <p className="text-[10px] text-zinc-400 mb-3 px-1">
-                      <span className="font-medium text-zinc-500">Link manual:</span> paciente digita no celular (qualquer iPhone ou Android). {' '}
-                      <span className="font-medium text-zinc-500">Atalho iOS:</span> tutorial pra configurar coleta automatica do Apple Saude (so iPhone).
+                    <p className="text-[10px] text-zinc-400 mb-3 px-1 leading-relaxed">
+                      <span className="font-medium text-violet-700">WhatsApp:</span> envia link de 1 clique pra paciente instalar Rook Extraction App (Apple Saúde sincroniza automaticamente). {' '}
+                      <span className="font-medium text-zinc-500">Link manual:</span> form web pra digitar vitais. {' '}
+                      <span className="font-medium text-zinc-500">Atalho iOS:</span> tutorial pra criar Apple Shortcut.
                     </p>
                     {detail.summary.total_observations === 0 ? (
                       <p className="text-[13px] text-zinc-500 italic">Sem dados de telemonitoramento ainda.</p>
