@@ -23,5 +23,7 @@ export async function GET() {
     evolution_base_url_set: typeof process.env.EVOLUTION_BASE_URL === 'string' && process.env.EVOLUTION_BASE_URL.length > 0,
     evolution_api_key_set: typeof process.env.EVOLUTION_API_KEY === 'string' && process.env.EVOLUTION_API_KEY.length > 0,
     evolution_base_url_prefix: process.env.EVOLUTION_BASE_URL?.slice(0, 30) ?? null,
+    chatwoot_api_key_set: typeof process.env.CHATWOOT_API_KEY === 'string' && process.env.CHATWOOT_API_KEY.length > 0,
+    chatwoot_api_key_length: process.env.CHATWOOT_API_KEY?.length ?? 0,
   });
 }

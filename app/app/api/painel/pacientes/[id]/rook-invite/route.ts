@@ -5,8 +5,17 @@ import { supabaseAdmin } from '@/lib/supabase';
 const INVITE_ROLES: MemberRole[] = ['owner', 'admin', 'doctor', 'staff'];
 
 // Convida paciente a conectar Apple Saude/Health Connect via Rook Extraction App.
-// Fluxo: registra user no Rook (best-effort) -> gera connection URL ->
-// envia WhatsApp via Evolution com o link curto.
+// Fluxo:
+// 1. Registra user no Rook (best-effort, sandbox)
+// 2. Gera connection URL: connections.rook-connect.review/client_uuid/<>/user_id/<>
+// 3. Envia WhatsApp via Chatwoot API:
+//    a) busca/cria contato pelo phone
+//    b) cria conversation no inbox configurado
+//    c) POST message
+// 4. Marca patients.rook_user_id + rook_invited_at
+//
+// Chatwoot -> Evolution -> WhatsApp (transparente).
+
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const auth = await requireTenant();
   if (!auth.ok) return auth.response;
@@ -45,9 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const apiBaseUrl = process.env.ROOK_API_URL ?? 'https://api.tryrook.io/api/v1';
   const connectionsBase = process.env.ROOK_CONNECTIONS_BASE_URL ?? 'https://connections.rook-connect.review';
 
-  // Best-effort: registra user no Rook. Se falhar (sandbox/DNS/URL errada),
-  // segue com a geracao da URL — Rook cria implicitamente quando paciente
-  // hit a connection page.
+  // Best-effort: registra user no Rook.
   let rookRegistered = false;
   let rookError: string | null = null;
   try {
@@ -68,46 +75,107 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const connectionUrl = `${connectionsBase}/client_uuid/${clientUuid}/user_id/${rookUserId}`;
 
-  // Envia WhatsApp via Evolution API (mesmo pattern de docs/[id]/send)
-  const evoUrl = process.env.EVOLUTION_BASE_URL;
-  const evoKey = process.env.EVOLUTION_API_KEY;
+  // Carrega config Chatwoot do tenant
   const { data: tenant } = await supa
     .from('tenants')
-    .select('evolution_instance_name, clinic_name')
+    .select('clinic_name, chatwoot_url, chatwoot_account_id, chatwoot_inbox_id')
     .eq('tenant_id', auth.ctx.tenant.tenant_id)
     .maybeSingle();
-  const instance = tenant?.evolution_instance_name;
 
-  if (!evoUrl || !evoKey || !instance) {
+  const chatwootKey = process.env.CHATWOOT_API_KEY;
+  const chatwootUrl = tenant?.chatwoot_url?.replace(/\/$/, '');
+  const accountId = tenant?.chatwoot_account_id;
+  const inboxId = tenant?.chatwoot_inbox_id;
+
+  if (!chatwootKey || !chatwootUrl || !accountId || !inboxId) {
     return NextResponse.json({
       success: false,
-      error: 'evolution_not_configured',
+      error: 'chatwoot_not_configured',
+      missing: {
+        api_key: !chatwootKey,
+        chatwoot_url: !chatwootUrl,
+        account_id: !accountId,
+        inbox_id: !inboxId,
+      },
       connection_url: connectionUrl,
-      rook_registered: rookRegistered,
-      rook_error: rookError,
     }, { status: 500 });
   }
 
   const firstName = (patient.name ?? 'paciente').split(' ')[0];
   const clinicName = tenant?.clinic_name ?? 'Singulare';
-  const text = `Olá, ${firstName}.\n\nA ${clinicName} liberou acesso ao monitoramento contínuo dos seus dados de saúde (frequência cardíaca, sono, atividade). Isso permite ao seu médico acompanhar a evolução do tratamento com dados reais.\n\nClique no link, instale o app Rook Extraction e autorize o acesso ao app Saúde:\n\n${connectionUrl}\n\nO setup leva 2 minutos. Qualquer dúvida, responda esta mensagem.`;
+  const messageText = `Olá, ${firstName}.\n\nA ${clinicName} liberou acesso ao monitoramento contínuo dos seus dados de saúde (frequência cardíaca, sono, atividade). Isso permite ao seu médico acompanhar a evolução do tratamento com dados reais.\n\nClique no link, instale o app Rook Extraction e autorize o acesso ao app Saúde:\n\n${connectionUrl}\n\nO setup leva 2 minutos. Qualquer dúvida, responda esta mensagem.`;
 
-  let whatsappSent = false;
-  let whatsappError: string | null = null;
+  // Normaliza phone (Chatwoot espera E.164 com +)
+  const phone = patient.phone.startsWith('+') ? patient.phone : `+${patient.phone}`;
+  const chatwootHeaders = {
+    'api_access_token': chatwootKey,
+    'Content-Type': 'application/json',
+  };
+
+  let chatwootSent = false;
+  let chatwootError: string | null = null;
+  let conversationId: number | null = null;
+  let contactId: number | null = null;
+
   try {
-    const r = await fetch(`${evoUrl}/message/sendText/${instance}`, {
-      method: 'POST',
-      headers: { 'apikey': evoKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ number: patient.phone, text }),
+    // 1. Search contact by phone
+    const searchRes = await fetch(`${chatwootUrl}/api/v1/accounts/${accountId}/contacts/search?q=${encodeURIComponent(phone)}&include=contact_inboxes`, {
+      headers: chatwootHeaders,
       signal: AbortSignal.timeout(10000),
     });
-    whatsappSent = r.ok;
-    if (!r.ok) whatsappError = `HTTP ${r.status}: ${await r.text().catch(() => '')}`;
+    if (searchRes.ok) {
+      const sj = await searchRes.json() as { payload?: Array<{ id: number; phone_number?: string | null }> };
+      const match = sj.payload?.find((c) => c.phone_number === phone);
+      if (match) contactId = match.id;
+    }
+
+    // 2. Create contact if not found
+    if (!contactId) {
+      const createRes = await fetch(`${chatwootUrl}/api/v1/accounts/${accountId}/contacts`, {
+        method: 'POST',
+        headers: chatwootHeaders,
+        body: JSON.stringify({
+          inbox_id: inboxId,
+          name: patient.name ?? firstName,
+          phone_number: phone,
+          identifier: `singulare_pat_${patient.id}`,
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!createRes.ok) {
+        const txt = await createRes.text().catch(() => '');
+        throw new Error(`contact_create_failed: HTTP ${createRes.status} ${txt.slice(0, 200)}`);
+      }
+      const cj = await createRes.json() as { payload?: { contact?: { id?: number } } };
+      contactId = cj.payload?.contact?.id ?? null;
+      if (!contactId) throw new Error('contact_create_no_id');
+    }
+
+    // 3. Create new conversation (Chatwoot dedup nao funciona via API simples;
+    //    cria nova - paciente recebe na thread, secretaria humana ve normal)
+    const convRes = await fetch(`${chatwootUrl}/api/v1/accounts/${accountId}/conversations`, {
+      method: 'POST',
+      headers: chatwootHeaders,
+      body: JSON.stringify({
+        source_id: phone,
+        inbox_id: inboxId,
+        contact_id: contactId,
+        message: { content: messageText },
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!convRes.ok) {
+      const txt = await convRes.text().catch(() => '');
+      throw new Error(`conversation_create_failed: HTTP ${convRes.status} ${txt.slice(0, 200)}`);
+    }
+    const cv = await convRes.json() as { id?: number };
+    conversationId = cv.id ?? null;
+    chatwootSent = true;
   } catch (e) {
-    whatsappError = e instanceof Error ? e.message : String(e);
+    chatwootError = e instanceof Error ? e.message : String(e);
   }
 
-  // Atualiza o paciente: rook_user_id (se nao tinha) + rook_invited_at
+  // Atualiza paciente (mesmo se falhou - marca tentativa)
   await supa
     .from('patients')
     .update({
@@ -117,12 +185,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .eq('id', patientId);
 
   return NextResponse.json({
-    success: whatsappSent,
+    success: chatwootSent,
     rook_user_id: rookUserId,
     connection_url: connectionUrl,
     rook_registered: rookRegistered,
     rook_error: rookError,
-    whatsapp_sent: whatsappSent,
-    whatsapp_error: whatsappError,
+    chatwoot_sent: chatwootSent,
+    chatwoot_error: chatwootError,
+    chatwoot_contact_id: contactId,
+    chatwoot_conversation_id: conversationId,
   });
 }
