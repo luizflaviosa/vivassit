@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Component, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar as CalendarIcon,
@@ -26,6 +26,10 @@ import {
   type CalendarProps,
   type EventProps,
 } from 'react-big-calendar';
+// @ts-expect-error — sub-path sem typings, mas o runtime existe
+import Week from 'react-big-calendar/lib/Week';
+// @ts-expect-error — idem
+import TimeGrid from 'react-big-calendar/lib/TimeGrid';
 import withDragAndDrop, {
   type EventInteractionArgs,
 } from 'react-big-calendar/lib/addons/dragAndDrop';
@@ -93,6 +97,40 @@ const localizer = dateFnsLocalizer({
 const DnDCalendar = withDragAndDrop<RBCEvent>(
   Calendar as unknown as React.ComponentType<CalendarProps<RBCEvent, object>>,
 );
+
+// Custom Week view: igual a Week padrão do react-big-calendar, mas filtra
+// domingo (getDay === 0). Profissionais de saúde no Brasil quase sempre não
+// atendem aos domingos — esconder a coluna deixa o grid mais util.
+function rangeMonToSat(date: Date, options: { localizer: any }): Date[] {
+  return Week.range(date, options).filter((d: Date) => d.getDay() !== 0);
+}
+
+class WeekNoSunday extends Component<any> {
+  static range = rangeMonToSat;
+  static navigate = Week.navigate;
+  static title = (date: Date, { localizer }: { localizer: any }) => {
+    const r = rangeMonToSat(date, { localizer });
+    return localizer.format({ start: r[0], end: r[r.length - 1] }, 'dayRangeHeaderFormat');
+  };
+  render() {
+    const props: any = this.props;
+    const localizer = props.localizer;
+    const range = rangeMonToSat(props.date, props);
+    const { date: _d, ...rest } = props;
+    return (
+      <TimeGrid
+        {...rest}
+        range={range}
+        eventOffset={15}
+        localizer={localizer}
+        min={props.min ?? localizer.startOf(new Date(), 'day')}
+        max={props.max ?? localizer.endOf(new Date(), 'day')}
+        scrollToTime={props.scrollToTime ?? localizer.startOf(new Date(), 'day')}
+        enableAutoScroll={props.enableAutoScroll ?? true}
+      />
+    );
+  }
+}
 
 const messages = {
   date: 'Data',
@@ -756,7 +794,7 @@ function AgendaInner() {
             onView={(v) => setView(v)}
             date={date}
             onNavigate={(d) => setDate(d)}
-            views={['month', 'week', 'day']}
+            views={{ month: true, week: WeekNoSunday as any, day: true }}
             defaultView="week"
             min={new Date(1970, 0, 1, 7, 0, 0)}
             max={new Date(1970, 0, 1, 20, 0, 0)}

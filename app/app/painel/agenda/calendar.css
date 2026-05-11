@@ -71,6 +71,16 @@
   background: #FFFFFF;
 }
 
+/* ---- Esconder domingo (1ª coluna) na month view e nos slots do all-day
+   da week view. Profissionais de saúde no Brasil não atendem domingo;
+   a week view custom (WeekNoSunday) já filtra Sunday dos eventos, mas
+   a row de all-day e a month view ainda renderizam 7 colunas. ---- */
+.singulare-calendar .rbc-month-view .rbc-month-header .rbc-header:first-child,
+.singulare-calendar .rbc-month-view .rbc-month-row .rbc-row-bg > .rbc-day-bg:first-child,
+.singulare-calendar .rbc-month-view .rbc-month-row .rbc-row-content .rbc-row > .rbc-date-cell:first-child {
+  display: none;
+}
+
 /* ---- Month view ---- */
 .singulare-calendar .rbc-month-header {
   background: #FAFAFA;
