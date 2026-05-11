@@ -3,8 +3,7 @@ import { requireTenant, type MemberRole } from '@/lib/auth-tenant';
 
 const DEBUG_ROLES: MemberRole[] = ['owner', 'admin'];
 
-// Probing v3: pattern user_id/{uid}/data_source/{name}/authorizer existe (422).
-// Testa nomes alternativos do Apple Health + endpoints de criacao de user.
+// Testa POST /api/v1/extraction_app/binding/ (endpoint oficial doc).
 export async function GET() {
   const auth = await requireTenant();
   if (!auth.ok) return auth.response;
@@ -19,45 +18,60 @@ export async function GET() {
   const uid = 'singulare-pat-57';
   const basicAuth = `Basic ${Buffer.from(`${clientUuid}:${apiKey}`).toString('base64')}`;
 
-  type Try = { method: string; url: string; status: number; preview: string; ms: number };
+  type Try = { method: string; url: string; payload: string; status: number; preview: string; ms: number };
   const tries: Try[] = [];
 
-  const candidates: Array<{ method: 'GET' | 'POST' | 'PUT'; path: string; body?: string }> = [
-    // === Criação de user (várias formas) ===
-    { method: 'POST', path: `/api/v1/user_id/${uid}/time_zone`, body: JSON.stringify({ time_zone: 'America/Sao_Paulo', offset: '-03:00' }) },
-    { method: 'PUT', path: `/api/v1/user_id/${uid}/time_zone`, body: JSON.stringify({ time_zone: 'America/Sao_Paulo', offset: '-03:00' }) },
-    { method: 'POST', path: `/api/v1/user_id/${uid}/user_information`, body: JSON.stringify({ user_id: uid, time_zone: 'America/Sao_Paulo' }) },
-    { method: 'POST', path: '/api/v1/users', body: JSON.stringify({ user_id: uid, time_zone: 'America/Sao_Paulo' }) },
-
-    // === Nomes alternativos pro Apple Health ===
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/AppleHealth/authorizer` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/apple_health/authorizer` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/Apple/authorizer` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/ios/authorizer` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/iOS/authorizer` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/HealthKit/authorizer` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/health_kit/authorizer` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/Garmin/authorizer` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/Fitbit/authorizer` },
-
-    // === Listar data_sources permitidos ===
-    { method: 'GET', path: `/api/v1/data_sources` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_sources` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_sources/authorized` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_sources/enabled` },
-
-    // === Variantes do extraction app sob user_id/ ===
-    { method: 'GET', path: `/api/v1/user_id/${uid}/extraction_app` },
-    { method: 'POST', path: `/api/v1/user_id/${uid}/extraction_app`, body: '{}' },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/extraction-app/link` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/extraction-app` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/binding` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/app` },
+  // Payloads candidatos pra POST /extraction_app/binding/
+  const candidates: Array<{ method: 'GET' | 'POST'; path: string; body?: object }> = [
+    // V1: payload conforme doc
+    {
+      method: 'POST',
+      path: '/api/v1/extraction_app/binding/',
+      body: {
+        user_id: uid,
+        metadata: {
+          client_name: 'Singulare',
+          support_url: 'https://singulare.org/privacidade/saude',
+          complete_log_out: false,
+        },
+        salt: uid,
+      },
+    },
+    // V2: sem trailing slash
+    {
+      method: 'POST',
+      path: '/api/v1/extraction_app/binding',
+      body: { user_id: uid, metadata: { client_name: 'Singulare' }, salt: uid },
+    },
+    // V3: minimalista
+    {
+      method: 'POST',
+      path: '/api/v1/extraction_app/binding/',
+      body: { user_id: uid },
+    },
+    // V4: com client_uuid no body
+    {
+      method: 'POST',
+      path: '/api/v1/extraction_app/binding/',
+      body: { client_uuid: clientUuid, user_id: uid },
+    },
+    // V5: GET pra ver se aceita query
+    {
+      method: 'GET',
+      path: `/api/v1/extraction_app/binding/?user_id=${uid}`,
+    },
+    // V6: variação singular sem prefixo
+    {
+      method: 'POST',
+      path: '/extraction_app/binding/',
+      body: { user_id: uid, metadata: { client_name: 'Singulare' }, salt: uid },
+    },
   ];
 
   for (const c of candidates) {
     const start = Date.now();
     const url = `${base}${c.path}`;
+    const bodyStr = c.body ? JSON.stringify(c.body) : '';
     try {
       const r = await fetch(url, {
         method: c.method,
@@ -65,21 +79,23 @@ export async function GET() {
           'Authorization': basicAuth,
           'Content-Type': 'application/json',
         },
-        body: c.method !== 'GET' ? (c.body ?? '{}') : undefined,
-        signal: AbortSignal.timeout(8000),
+        body: c.method === 'POST' ? bodyStr : undefined,
+        signal: AbortSignal.timeout(10000),
       });
       const txt = await r.text();
       tries.push({
         method: c.method,
         url: c.path,
+        payload: bodyStr.slice(0, 200),
         status: r.status,
-        preview: txt.slice(0, 300),
+        preview: txt.slice(0, 400),
         ms: Date.now() - start,
       });
     } catch (e) {
       tries.push({
         method: c.method,
         url: c.path,
+        payload: bodyStr.slice(0, 200),
         status: 0,
         preview: e instanceof Error ? e.message : String(e),
         ms: Date.now() - start,
@@ -87,13 +103,6 @@ export async function GET() {
     }
   }
 
-  // Filtra so resultados interessantes (nao-404) no topo
-  const interesting = tries.filter((t) => t.status !== 404);
-  return NextResponse.json({
-    ok: true,
-    base,
-    user_id: uid,
-    interesting,
-    all_tries: tries,
-  });
+  const interesting = tries.filter((t) => t.status !== 404 && t.status !== 0);
+  return NextResponse.json({ ok: true, base, interesting, all_tries: tries });
 }
