@@ -85,8 +85,10 @@ async function handle(req: NextRequest, params: { token: string }) {
   for (const [key, meta] of Object.entries(PARAM_MAP)) {
     const raw = url.searchParams.get(key);
     if (!raw) continue;
-    const value = Number(String(raw).replace(',', '.'));
+    let value = Number(String(raw).replace(',', '.'));
     if (!isFinite(value) || value <= 0) continue;
+    // Sono: iOS Shortcuts envia em segundos (Duração); converte pra minutos.
+    if (meta.loinc === '93832-4' && value > 1000) value = Math.round(value / 60);
     const quality = classify(meta.loinc, value);
     rows.push({
       patient_id: patient.id,
