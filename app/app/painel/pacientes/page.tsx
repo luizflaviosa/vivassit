@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2, UserPlus, Phone, Mail, Calendar,
-  X, MessageCircle, Wallet, Activity, ChevronRight, HeartPulse, Link2, Copy, Check,
+  X, MessageCircle, Wallet, Activity, ChevronRight, HeartPulse, Link2, Copy, Check, Smartphone,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import { PatientRowSkeleton } from '@/lib/painel-skeleton';
@@ -119,39 +119,58 @@ function PacientesInner() {
   const [detail, setDetail] = useState<PatientDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [linkAction, setLinkAction] = useState<'idle' | 'generating' | 'copied'>('idle');
+  const [shortcutAction, setShortcutAction] = useState<'idle' | 'generating' | 'copied'>('idle');
 
-  const handleGenerateOrCopyLink = async () => {
-    if (!detail) return;
+  const ensureToken = async (): Promise<string | null> => {
+    if (!detail) return null;
     const existing = detail.patient.health_collection_token;
-    let url: string;
-    if (existing) {
-      url = `${window.location.origin}/saude/${existing}`;
-    } else {
-      setLinkAction('generating');
-      try {
-        const res = await fetch(`/api/painel/pacientes/${detail.patient.id}/collection-token`, { method: 'POST' });
-        const j = await res.json();
-        if (!j.success) {
-          alert(`Erro: ${j.error}`);
-          setLinkAction('idle');
-          return;
-        }
-        url = j.url;
-        setDetail({ ...detail, patient: { ...detail.patient, health_collection_token: j.token } });
-      } catch (e) {
-        alert(`Erro de rede: ${e}`);
-        setLinkAction('idle');
-        return;
+    if (existing) return existing;
+    try {
+      const res = await fetch(`/api/painel/pacientes/${detail.patient.id}/collection-token`, { method: 'POST' });
+      const j = await res.json();
+      if (!j.success) {
+        alert(`Erro: ${j.error}`);
+        return null;
       }
+      setDetail({ ...detail, patient: { ...detail.patient, health_collection_token: j.token } });
+      return j.token as string;
+    } catch (e) {
+      alert(`Erro de rede: ${e}`);
+      return null;
     }
+  };
+
+  const copyToClipboard = async (url: string, onSet: (s: 'idle' | 'copied') => void) => {
     try {
       await navigator.clipboard.writeText(url);
-      setLinkAction('copied');
-      setTimeout(() => setLinkAction('idle'), 2500);
+      onSet('copied');
+      setTimeout(() => onSet('idle'), 2500);
     } catch {
       prompt('Copie o link manualmente:', url);
-      setLinkAction('idle');
+      onSet('idle');
     }
+  };
+
+  const handleGenerateOrCopyLink = async () => {
+    setLinkAction('generating');
+    const token = await ensureToken();
+    if (!token) {
+      setLinkAction('idle');
+      return;
+    }
+    const url = `${window.location.origin}/saude/${token}`;
+    await copyToClipboard(url, (s) => setLinkAction(s));
+  };
+
+  const handleCopyShortcutLink = async () => {
+    setShortcutAction('generating');
+    const token = await ensureToken();
+    if (!token) {
+      setShortcutAction('idle');
+      return;
+    }
+    const url = `${window.location.origin}/saude/atalho/${token}`;
+    await copyToClipboard(url, (s) => setShortcutAction(s));
   };
 
   useEffect(() => {
@@ -439,13 +458,13 @@ function PacientesInner() {
                       )}
                     </div>
 
-                    {/* Link de coleta pra paciente */}
-                    <div className="mb-3">
+                    {/* Links de coleta pra paciente */}
+                    <div className="mb-3 grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={handleGenerateOrCopyLink}
                         disabled={linkAction === 'generating'}
-                        className="w-full h-10 rounded-lg border border-black/[0.08] hover:bg-zinc-50 text-[12px] font-medium text-zinc-700 inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60"
+                        className="h-10 rounded-lg border border-black/[0.08] hover:bg-zinc-50 text-[12px] font-medium text-zinc-700 inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60"
                       >
                         {linkAction === 'generating' ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -456,14 +475,32 @@ function PacientesInner() {
                         ) : (
                           <Link2 className="w-3.5 h-3.5 text-zinc-400" />
                         )}
-                        {linkAction === 'generating' ? 'Gerando link...' :
-                         linkAction === 'copied' ? 'Link copiado!' :
-                         detail.patient.health_collection_token ? 'Copiar link de coleta' : 'Gerar link de coleta'}
+                        {linkAction === 'generating' ? 'Gerando...' :
+                         linkAction === 'copied' ? 'Copiado!' :
+                         'Link manual'}
                       </button>
-                      <p className="text-[10px] text-zinc-400 mt-1 px-1">
-                        Envie pro paciente via WhatsApp pra registrar pressao, peso, FC, glicemia e mais.
-                      </p>
+                      <button
+                        type="button"
+                        onClick={handleCopyShortcutLink}
+                        disabled={shortcutAction === 'generating'}
+                        className="h-10 rounded-lg border border-black/[0.08] hover:bg-zinc-50 text-[12px] font-medium text-zinc-700 inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60"
+                      >
+                        {shortcutAction === 'generating' ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : shortcutAction === 'copied' ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <Smartphone className="w-3.5 h-3.5 text-zinc-400" />
+                        )}
+                        {shortcutAction === 'generating' ? 'Gerando...' :
+                         shortcutAction === 'copied' ? 'Copiado!' :
+                         'Atalho iOS'}
+                      </button>
                     </div>
+                    <p className="text-[10px] text-zinc-400 mb-3 px-1">
+                      <span className="font-medium text-zinc-500">Link manual:</span> paciente digita no celular (qualquer iPhone ou Android). {' '}
+                      <span className="font-medium text-zinc-500">Atalho iOS:</span> tutorial pra configurar coleta automatica do Apple Saude (so iPhone).
+                    </p>
                     {detail.summary.total_observations === 0 ? (
                       <p className="text-[13px] text-zinc-500 italic">Sem dados de telemonitoramento ainda.</p>
                     ) : (
