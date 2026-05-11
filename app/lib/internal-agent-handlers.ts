@@ -976,6 +976,38 @@ const consultaMarcar: WriteHandler = {
       .eq('tenant_id', ctx.tenant_id).maybeSingle();
     if (!patient) return { ok: false, summary: 'Paciente não encontrado no execute.' };
 
+    // Re-validar conflito de slot (outro booking pode ter entrado entre propose e execute).
+    // O EXCLUDE constraint em doctor_bookings tambem pega isso, mas re-check da mensagem util.
+    const { data: latebookings } = await admin
+      .from('doctor_bookings')
+      .select('id, patient_name, slot_start')
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('doctor_id', scope.doctor_id)
+      .neq('status', 'cancelled')
+      .lt('slot_start', slotEnd.toISOString())
+      .gt('slot_end', slotStart.toISOString());
+    if (latebookings && latebookings.length > 0) {
+      return {
+        ok: false,
+        summary: 'Conflito: outra consulta ocupou o slot entre a proposta e a confirmacao.',
+        data: { conflict: { bookings: latebookings } },
+      };
+    }
+    const { data: lateblocks } = await admin
+      .from('doctor_schedule_blocks')
+      .select('id, reason, start_at')
+      .eq('tenant_id', ctx.tenant_id)
+      .eq('doctor_id', scope.doctor_id)
+      .lt('start_at', slotEnd.toISOString())
+      .gt('end_at', slotStart.toISOString());
+    if (lateblocks && lateblocks.length > 0) {
+      return {
+        ok: false,
+        summary: 'Conflito: um bloqueio foi criado no slot entre a proposta e a confirmacao.',
+        data: { conflict: { blocks: lateblocks } },
+      };
+    }
+
     const { data, error } = await admin.from('doctor_bookings').insert({
       tenant_id: ctx.tenant_id,
       doctor_id: scope.doctor_id,
@@ -988,7 +1020,14 @@ const consultaMarcar: WriteHandler = {
       status: 'booked',
       notes: params.notes ? String(params.notes) : null,
     }).select('id, slot_start').maybeSingle();
-    if (error) return { ok: false, summary: 'Falha ao criar consulta', error: error.message };
+    if (error) {
+      // Erro 23P01 do Postgres = exclusion_violation (constraint doctor_bookings_no_overlap).
+      // Pode acontecer em race extremo (insert concorrente apos o re-check acima).
+      if (error.code === '23P01') {
+        return { ok: false, summary: 'Conflito de slot detectado pelo banco (insert concorrente). Tente outro horario.' };
+      }
+      return { ok: false, summary: 'Falha ao criar consulta', error: error.message };
+    }
     return { ok: true, summary: `Consulta criada (id ${data?.id}).`, data: { booking: data } };
   },
 };

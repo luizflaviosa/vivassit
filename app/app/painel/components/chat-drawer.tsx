@@ -853,15 +853,18 @@ function ActionCardView({
         <div className="px-4 py-3 border-t" style={{ borderColor: '#0000000A' }}>
           {requiresPhrase && (
             <div className="mb-3">
-              <label className="text-xs text-zinc-400 block mb-1">
-                Pra confirmar, digite: <code className="font-mono">{card.confirmation_phrase}</code>
+              <label className="text-[11px] text-zinc-500 block mb-1.5">
+                Pra confirmar, digite: <code className="font-mono text-zinc-700 bg-zinc-100 px-1 py-0.5 rounded">{card.confirmation_phrase}</code>
               </label>
               <input
                 type="text"
                 value={phraseTyped}
                 onChange={(e) => setPhraseTyped(e.target.value)}
-                className="w-full rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm font-mono text-zinc-100"
+                className="w-full rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-[13px] font-mono text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-200 transition-colors"
                 placeholder="Digite a frase exata"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
               />
             </div>
           )}
