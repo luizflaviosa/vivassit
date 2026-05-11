@@ -3,8 +3,8 @@ import { requireTenant, type MemberRole } from '@/lib/auth-tenant';
 
 const DEBUG_ROLES: MemberRole[] = ['owner', 'admin'];
 
-// Testa o POST /user_extraction_app do Rook sem efeitos colaterais.
-// Retorna body cru + status pra debug do binding.
+// Probing massivo de rotas Rook pra achar o endpoint correto de binding.
+// Sandbox em api.rook-connect.review responde 404 limpo em rotas inexistentes.
 export async function GET() {
   const auth = await requireTenant();
   if (!auth.ok) return auth.response;
@@ -14,56 +14,69 @@ export async function GET() {
 
   const clientUuid = process.env.ROOK_CLIENT_UUID ?? '';
   const apiKey = process.env.ROOK_API_KEY ?? '';
-  const apiBaseUrl = process.env.ROOK_API_URL ?? 'https://api.rook-connect.review/api/v1';
-  const testUserId = 'singulare-pat-57';
-  const payload = { client_uuid: clientUuid, user_id: testUserId };
+  const base = process.env.ROOK_API_URL?.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '')
+    ?? 'https://api.rook-connect.review';
+  const uid = 'singulare-pat-57';
+  const payload = JSON.stringify({ client_uuid: clientUuid, user_id: uid });
   const basicAuth = `Basic ${Buffer.from(`${clientUuid}:${apiKey}`).toString('base64')}`;
 
-  const tries: Array<{ auth: string; url: string; status: number; body: unknown; ms: number }> = [];
+  type Try = { method: string; url: string; status: number; preview: string; ms: number };
+  const tries: Try[] = [];
 
-  // Tentativa 1: POST /user_extraction_app com Basic auth
-  for (const attempt of [
-    { auth: 'Basic', header: basicAuth, url: `${apiBaseUrl}/user_extraction_app` },
-    { auth: 'Api-Key', header: `Api-Key ${apiKey}`, url: `${apiBaseUrl}/user_extraction_app` },
-    { auth: 'Basic', header: basicAuth, url: `${apiBaseUrl}/users` },
-  ]) {
+  const candidates: Array<{ method: 'GET' | 'POST'; path: string; body?: string }> = [
+    // Pattern 1: /api/v1/user_extraction_app POST
+    { method: 'POST', path: '/api/v1/user_extraction_app', body: payload },
+    // Pattern 2: /v1/user_extraction_app (sem /api)
+    { method: 'POST', path: '/v1/user_extraction_app', body: payload },
+    // Pattern 3: /api/v2/user_extraction_app
+    { method: 'POST', path: '/api/v2/user_extraction_app', body: payload },
+    // Pattern 4: estilo recommended doc — /user_id/{uid}/...
+    { method: 'GET', path: `/api/v1/user_id/${uid}/extraction_app_binding` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/extraction_app/binding` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/extraction_app` },
+    { method: 'POST', path: `/api/v1/user_id/${uid}/extraction_app`, body: payload },
+    // Pattern 5: estilo deprecated — client_uuid + user_id no path
+    { method: 'GET', path: `/api/v1/client_uuid/${clientUuid}/user_id/${uid}/extraction_app_binding` },
+    { method: 'POST', path: `/api/v1/client_uuid/${clientUuid}/user_id/${uid}/extraction_app`, body: '{}' },
+    // Pattern 6: data sources authorizer (recommended new)
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/Apple%20Health/authorizer` },
+    // Pattern 7: root / + base
+    { method: 'GET', path: '/' },
+    { method: 'GET', path: '/api/v1' },
+    { method: 'GET', path: '/api/v2' },
+  ];
+
+  for (const c of candidates) {
     const start = Date.now();
+    const url = `${base}${c.path}`;
     try {
-      const r = await fetch(attempt.url, {
-        method: 'POST',
+      const r = await fetch(url, {
+        method: c.method,
         headers: {
-          'Authorization': attempt.header,
+          'Authorization': basicAuth,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10000),
+        body: c.method === 'POST' ? (c.body ?? '{}') : undefined,
+        signal: AbortSignal.timeout(8000),
       });
       const txt = await r.text();
-      let body: unknown = txt;
-      try { body = JSON.parse(txt); } catch { /* keep as text */ }
       tries.push({
-        auth: attempt.auth,
-        url: attempt.url,
+        method: c.method,
+        url: c.path,
         status: r.status,
-        body,
+        preview: txt.slice(0, 250),
         ms: Date.now() - start,
       });
     } catch (e) {
       tries.push({
-        auth: attempt.auth,
-        url: attempt.url,
+        method: c.method,
+        url: c.path,
         status: 0,
-        body: e instanceof Error ? e.message : String(e),
+        preview: e instanceof Error ? e.message : String(e),
         ms: Date.now() - start,
       });
     }
   }
 
-  return NextResponse.json({
-    ok: true,
-    api_base_url: apiBaseUrl,
-    test_user_id: testUserId,
-    client_uuid_prefix: clientUuid.slice(0, 8),
-    tries,
-  });
+  return NextResponse.json({ ok: true, base, user_id: uid, tries });
 }
