@@ -40,8 +40,8 @@ export async function GET(_req: Request, { params }: RouteContext) {
   const doctorIds = (doctorRows ?? []).map((d) => d.id);
   const doctorNameById = new Map((doctorRows ?? []).map((d) => [d.id, d.doctor_name]));
 
-  // Payments + mensagens (filtradas por phone do paciente)
-  const [{ data: payments }, { data: messages }] = await Promise.all([
+  // Payments + mensagens (filtradas por phone do paciente) + vitals do telemonitoramento
+  const [{ data: payments }, { data: messages }, { data: vitals }] = await Promise.all([
     supabase
       .from('tenant_payments')
       .select('id, consultation_value, status, payment_method, approved_at, created_at, doctor_name, payment_url')
@@ -56,6 +56,13 @@ export async function GET(_req: Request, { params }: RouteContext) {
       .ilike('session_id', `%${patient.phone}%`)
       .order('created_at', { ascending: false })
       .limit(5),
+    supabase
+      .from('health_observations')
+      .select('id, loinc_code, display_name, value_numeric, unit, effective_time, data_quality_tag, category')
+      .eq('tenant_id', tenantId)
+      .eq('patient_id', patientId)
+      .order('effective_time', { ascending: false })
+      .limit(50),
   ]);
 
   // Appointments via doctor_id (sem FK pra patient_id direta, retorna do tenant)
@@ -79,16 +86,32 @@ export async function GET(_req: Request, { params }: RouteContext) {
     .filter((p) => ['paid', 'received', 'approved', 'confirmed'].includes((p.status ?? '').toLowerCase()))
     .reduce((a, p) => a + (Number(p.consultation_value) || 0), 0);
 
+  // Resumo dos vitals: ultima leitura limpa por LOINC.
+  const cleanVitals = (vitals ?? []).filter((v) => v.data_quality_tag === 'clean');
+  const latestByCode = new Map<string, typeof cleanVitals[number]>();
+  for (const v of cleanVitals) {
+    if (!latestByCode.has(v.loinc_code)) latestByCode.set(v.loinc_code, v);
+  }
+  const vitalsLatest = {
+    heart_rate: latestByCode.get('8867-4') ?? null,
+    hrv_sdnn: latestByCode.get('80404-7') ?? null,
+    steps: latestByCode.get('55423-8') ?? null,
+    spo2: latestByCode.get('59408-5') ?? null,
+  };
+
   return NextResponse.json({
     success: true,
     patient,
     appointments,
     payments: payments ?? [],
     messages_recent: messages ?? [],
+    health_observations: vitals ?? [],
+    vitals_latest: vitalsLatest,
     summary: {
       total_appointments: appointments.length,
       total_spent: totalSpent,
       total_payments: (payments ?? []).length,
+      total_observations: (vitals ?? []).length,
     },
   });
 }

@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2, UserPlus, Phone, Mail, Calendar,
-  X, MessageCircle, Wallet, Activity, ChevronRight,
+  X, MessageCircle, Wallet, Activity, ChevronRight, HeartPulse,
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import { PatientRowSkeleton } from '@/lib/painel-skeleton';
@@ -28,11 +28,29 @@ interface PaymentLite {
   created_at: string;
   doctor_name: string | null;
 }
+interface ObservationLite {
+  id: number;
+  loinc_code: string;
+  display_name: string | null;
+  value_numeric: number | string | null;
+  unit: string | null;
+  effective_time: string;
+  data_quality_tag: 'clean' | 'outlier' | 'noisy' | 'rejected';
+  category: string;
+}
+interface VitalsLatest {
+  heart_rate: ObservationLite | null;
+  hrv_sdnn: ObservationLite | null;
+  steps: ObservationLite | null;
+  spo2: ObservationLite | null;
+}
 interface PatientDetail {
   patient: Patient & { birthdate: string | null; created_at: string };
   appointments: AppointmentLite[];
   payments: PaymentLite[];
-  summary: { total_appointments: number; total_spent: number; total_payments: number };
+  health_observations: ObservationLite[];
+  vitals_latest: VitalsLatest;
+  summary: { total_appointments: number; total_spent: number; total_payments: number; total_observations: number };
 }
 
 function fmtBRL(v: number) {
@@ -56,6 +74,37 @@ function fmtDate(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function VitalCard({ label, obs, fallbackUnit }: { label: string; obs: ObservationLite | null; fallbackUnit: string }) {
+  if (!obs || obs.value_numeric === null) {
+    return (
+      <div className="rounded-lg border border-black/[0.06] px-3 py-2.5">
+        <div className="text-[11px] text-zinc-500">{label}</div>
+        <div className="text-[15px] font-semibold text-zinc-300 mt-1">—</div>
+      </div>
+    );
+  }
+  const value = typeof obs.value_numeric === 'string' ? Number(obs.value_numeric) : obs.value_numeric;
+  const ago = (() => {
+    const ms = Date.now() - new Date(obs.effective_time).getTime();
+    const mins = Math.floor(ms / 60000);
+    if (mins < 1) return 'agora';
+    if (mins < 60) return `${mins}min`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h`;
+    return `${Math.floor(hrs / 24)}d`;
+  })();
+  return (
+    <div className="rounded-lg border border-black/[0.06] px-3 py-2.5">
+      <div className="text-[11px] text-zinc-500">{label}</div>
+      <div className="flex items-baseline gap-1 mt-1">
+        <span className="text-[18px] font-semibold text-zinc-900 leading-none">{value}</span>
+        <span className="text-[11px] text-zinc-500">{obs.unit ?? fallbackUnit}</span>
+      </div>
+      <div className="text-[10px] text-zinc-400 mt-0.5">ha {ago}</div>
+    </div>
+  );
 }
 
 function PacientesInner() {
@@ -339,6 +388,65 @@ function PacientesInner() {
                           );
                         })}
                       </div>
+                    )}
+                  </section>
+
+                  {/* Saude cardiaca */}
+                  <section>
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <HeartPulse className="w-3.5 h-3.5" style={{ color: ACCENT }} />
+                      <h3 className="text-[13px] font-semibold text-zinc-900">Saude cardiaca</h3>
+                      {detail.summary.total_observations > 0 && (
+                        <span className="text-[10px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded ml-auto" style={{ background: ACCENT_SOFT, color: ACCENT_DEEP }}>
+                          {detail.summary.total_observations} leituras
+                        </span>
+                      )}
+                    </div>
+                    {detail.summary.total_observations === 0 ? (
+                      <p className="text-[13px] text-zinc-500 italic">Sem dados de telemonitoramento ainda.</p>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                          <VitalCard label="FC media" obs={detail.vitals_latest.heart_rate} fallbackUnit="bpm" />
+                          <VitalCard label="HRV (SDNN)" obs={detail.vitals_latest.hrv_sdnn} fallbackUnit="ms" />
+                          <VitalCard label="Passos" obs={detail.vitals_latest.steps} fallbackUnit="" />
+                          <VitalCard label="SpO2" obs={detail.vitals_latest.spo2} fallbackUnit="%" />
+                        </div>
+                        <details className="text-[12px]">
+                          <summary className="cursor-pointer text-zinc-500 hover:text-zinc-900 select-none py-1">
+                            Ver ultimas {Math.min(10, detail.health_observations.length)} leituras brutas
+                          </summary>
+                          <div className="mt-2 space-y-1">
+                            {detail.health_observations.slice(0, 10).map((o) => {
+                              const t = new Date(o.effective_time);
+                              const isReject = o.data_quality_tag === 'rejected';
+                              const isOut = o.data_quality_tag === 'outlier';
+                              return (
+                                <div key={o.id} className="flex items-center justify-between gap-2 py-1 border-t border-black/[0.04] first:border-t-0">
+                                  <div className="min-w-0">
+                                    <div className="text-[12px] font-medium text-zinc-900 truncate">
+                                      {o.display_name ?? o.loinc_code}
+                                    </div>
+                                    <div className="text-[10px] text-zinc-500">
+                                      {t.toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                  </div>
+                                  <div className="text-right flex-shrink-0">
+                                    <span className={`text-[12px] font-semibold ${isReject ? 'text-red-500 line-through' : 'text-zinc-900'}`}>
+                                      {o.value_numeric ?? '—'} {o.unit ?? ''}
+                                    </span>
+                                    {(isReject || isOut) && (
+                                      <span className="ml-1.5 text-[9px] uppercase font-bold tracking-wide" style={{ color: isReject ? '#dc2626' : '#d97706' }}>
+                                        {o.data_quality_tag}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      </>
                     )}
                   </section>
 
