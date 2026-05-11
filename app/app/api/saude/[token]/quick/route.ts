@@ -89,6 +89,8 @@ async function handle(req: NextRequest, params: { token: string }) {
     if (!isFinite(value) || value <= 0) continue;
     // Sono: iOS Shortcuts envia em segundos (Duração); converte pra minutos.
     if (meta.loinc === '93832-4' && value > 1000) value = Math.round(value / 60);
+    // Distância: se vier em km (valor < 100), converte pra metros.
+    if (meta.loinc === '41950-7' && value < 100) value = Math.round(value * 1000);
     const quality = classify(meta.loinc, value);
     rows.push({
       patient_id: patient.id,
