@@ -6,8 +6,9 @@ interface RouteContext {
 }
 
 // GET publico: identifica paciente pelo token e retorna info minima
-// (primeiro nome + ultimas leituras). Usado pela pagina /saude/[token].
-export async function GET(_req: Request, { params }: RouteContext) {
+// (primeiro nome + ultimas leituras). Registra consent_type='health_monitoring'
+// na primeira vez (LGPD art. 7/11). Usado pela pagina /saude/[token].
+export async function GET(req: Request, { params }: RouteContext) {
   const token = params.token;
   if (!token || !/^[0-9a-f-]{36}$/i.test(token)) {
     return NextResponse.json({ success: false, error: 'invalid_token' }, { status: 400 });
@@ -23,6 +24,29 @@ export async function GET(_req: Request, { params }: RouteContext) {
 
   if (pErr || !patient) {
     return NextResponse.json({ success: false, error: 'not_found' }, { status: 404 });
+  }
+
+  // LGPD: registra consent na 1a abertura do link.
+  // Idempotente: se ja existe registro ativo, nao re-insere (filtro abaixo).
+  const { data: existingConsent } = await supabase
+    .from('patient_consents')
+    .select('id')
+    .eq('patient_id', patient.id)
+    .eq('consent_type', 'health_monitoring')
+    .is('revoked_at', null)
+    .limit(1)
+    .maybeSingle();
+  if (!existingConsent) {
+    const ipHeader = req.headers.get('x-forwarded-for') ?? '';
+    const ip = ipHeader.split(',')[0].trim() || null;
+    await supabase.from('patient_consents').insert({
+      patient_id: patient.id,
+      tenant_id: patient.tenant_id,
+      consent_type: 'health_monitoring',
+      source: 'web_link',
+      ip_address: ip,
+      user_agent: req.headers.get('user-agent'),
+    });
   }
 
   // Primeiro nome (privacidade: nao vazar sobrenome).

@@ -1,0 +1,41 @@
+name: singulare_health
+description: "Singulare Saude - telemonitoramento cardiologico passivo (iOS/Android)"
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  # Health data: Apple HealthKit + Android Health Connect
+  health: ^11.1.0
+  # Background tasks: WorkManager (Android) + BGTaskScheduler (iOS)
+  workmanager: ^0.5.2
+  # Persistencia local: sqflite pra cache de last_sync_at por LOINC
+  sqflite: ^2.3.3
+  path: ^1.9.0
+  # Crypto pra UUID v4 derivado (sem usar hardware ID)
+  crypto: ^3.0.5
+  # Info de dispositivo (modelo, OS version) - ANONIMO, sem IMEI
+  device_info_plus: ^10.1.2
+  package_info_plus: ^8.0.2
+  # Permissions runtime
+  permission_handler: ^11.3.1
+  # HTTP nativo
+  http: ^1.2.2
+  # Deep linking pra abrir o app via link da clinica
+  app_links: ^6.3.0
+  # Secure storage do token de coleta
+  flutter_secure_storage: ^9.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

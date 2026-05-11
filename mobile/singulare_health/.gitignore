@@ -1,0 +1,39 @@
+# Flutter generated
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Generated
+*.g.dart
+*.freezed.dart
+*.lock
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Pods/
+ios/.symlinks/
+ios/Podfile.lock
+android/.gradle/
+android/captures/
+android/gradlew
+android/gradlew.bat
+android/gradle-wrapper.properties
+android/local.properties
+android/key.properties
+android/app/debug
+android/app/profile
+android/app/release
+
+# Secrets
+.env
+.env.local
+*.keystore
+*.jks
