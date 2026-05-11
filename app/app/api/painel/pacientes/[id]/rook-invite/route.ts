@@ -6,15 +6,29 @@ const INVITE_ROLES: MemberRole[] = ['owner', 'admin', 'doctor', 'staff'];
 
 // Convida paciente a conectar Apple Saude/Health Connect via Rook Extraction App.
 // Fluxo:
-// 1. Registra user no Rook (best-effort, sandbox)
-// 2. Gera connection URL: connections.rook-connect.review/client_uuid/<>/user_id/<>
+// 1. Bind user no Rook Extraction App via POST /user_extraction_app
+//    (endpoint que gera o deep-link/QR pra abrir o app pre-configurado)
+// 2. Resposta do Rook traz uma URL que ja abre o app na App Store (iOS) ou
+//    direto no app instalado, com client_uuid + user_id no scheme.
 // 3. Envia WhatsApp via Chatwoot API:
 //    a) busca/cria contato pelo phone
 //    b) cria conversation no inbox configurado
-//    c) POST message
+//    c) POST message com a URL do Extraction App
 // 4. Marca patients.rook_user_id + rook_invited_at
 //
 // Chatwoot -> Evolution -> WhatsApp (transparente).
+
+interface RookBindingResponse {
+  // Resposta do POST /user_extraction_app pode trazer varios formatos. Aceitamos
+  // qualquer um destes campos como URL final do deep-link.
+  url?: string;
+  app_url?: string;
+  extraction_app_url?: string;
+  binding_url?: string;
+  deeplink?: string;
+  link?: string;
+  redirect_url?: string;
+}
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const auth = await requireTenant();
@@ -55,33 +69,58 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const rookUserId = patient.rook_user_id && /^[a-zA-Z0-9-]{1,50}$/.test(patient.rook_user_id)
     ? patient.rook_user_id
     : desiredUserId;
-  const apiBaseUrl = process.env.ROOK_API_URL ?? 'https://api.rook-connect.review/api/v1';
+
+  const apiBaseUrl = process.env.ROOK_API_URL ?? 'https://api.tryrook.io/api/v1';
   const connectionsBase = process.env.ROOK_CONNECTIONS_BASE_URL ?? 'https://connections.rook-connect.review';
 
-  // Best-effort: registra user no Rook via POST /users (Basic auth).
+  // POST /user_extraction_app — endpoint de binding. Tentamos Basic auth (doc oficial)
+  // primeiro e fallback pra Api-Key (formato que aparece no quickstart do dashboard).
   const basicAuth = `Basic ${Buffer.from(`${clientUuid}:${apiKey}`).toString('base64')}`;
-  let rookRegistered = false;
+  const bindingPayload = JSON.stringify({ client_uuid: clientUuid, user_id: rookUserId });
+
+  let bindingRaw: unknown = null;
+  let bindingUrl: string | null = null;
+  let rookOk = false;
   let rookError: string | null = null;
-  try {
-    const r = await fetch(`${apiBaseUrl}/users`, {
+
+  async function tryBinding(authHeader: string) {
+    return fetch(`${apiBaseUrl}/user_extraction_app`, {
       method: 'POST',
       headers: {
-        'Authorization': basicAuth,
+        'Authorization': authHeader,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ client_uuid: clientUuid, user_id: rookUserId }),
-      signal: AbortSignal.timeout(8000),
+      body: bindingPayload,
+      signal: AbortSignal.timeout(10000),
     });
-    rookRegistered = r.ok;
+  }
+
+  try {
+    let r = await tryBinding(basicAuth);
+    if (!r.ok && (r.status === 401 || r.status === 403)) {
+      // Tenta com Api-Key header (formato alternativo aceito pelo Rook em alguns tenants)
+      r = await tryBinding(`Api-Key ${apiKey}`);
+    }
+    const txt = await r.text();
+    try {
+      bindingRaw = JSON.parse(txt);
+    } catch {
+      bindingRaw = txt;
+    }
+    rookOk = r.ok;
     if (!r.ok) {
-      const txt = await r.text().catch(() => '');
-      rookError = `HTTP ${r.status}: ${txt.slice(0, 200)}`;
+      rookError = `HTTP ${r.status}: ${typeof bindingRaw === 'string' ? bindingRaw.slice(0, 200) : JSON.stringify(bindingRaw).slice(0, 200)}`;
+    } else if (bindingRaw && typeof bindingRaw === 'object') {
+      const b = bindingRaw as RookBindingResponse;
+      bindingUrl = b.url ?? b.app_url ?? b.extraction_app_url ?? b.binding_url ?? b.deeplink ?? b.link ?? b.redirect_url ?? null;
     }
   } catch (e) {
     rookError = e instanceof Error ? e.message : String(e);
   }
 
-  const connectionUrl = `${connectionsBase}/client_uuid/${clientUuid}/user_id/${rookUserId}`;
+  // Fallback URL: connections page (caso Rook nao retorne URL no payload do binding)
+  const fallbackConnectionUrl = `${connectionsBase}/client_uuid/${clientUuid}/user_id/${rookUserId}`;
+  const finalUrl = bindingUrl ?? fallbackConnectionUrl;
 
   // Carrega config Chatwoot do tenant
   const { data: tenant } = await supa
@@ -105,13 +144,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         account_id: !accountId,
         inbox_id: !inboxId,
       },
-      connection_url: connectionUrl,
+      connection_url: finalUrl,
+      rook_ok: rookOk,
+      rook_error: rookError,
+      binding_raw: bindingRaw,
     }, { status: 500 });
   }
 
   const firstName = (patient.name ?? 'paciente').split(' ')[0];
   const clinicName = tenant?.clinic_name ?? 'Singulare';
-  const messageText = `Olá, ${firstName}.\n\nA ${clinicName} liberou acesso ao monitoramento contínuo dos seus dados de saúde (frequência cardíaca, sono, atividade). Isso permite ao seu médico acompanhar a evolução do tratamento com dados reais.\n\nClique no link, instale o app Rook Extraction e autorize o acesso ao app Saúde:\n\n${connectionUrl}\n\nO setup leva 2 minutos. Qualquer dúvida, responda esta mensagem.`;
+  const messageText = `Olá, ${firstName}.\n\nA ${clinicName} liberou acesso ao monitoramento contínuo dos seus dados de saúde (frequência cardíaca, sono, atividade). Isso permite ao seu médico acompanhar a evolução do tratamento com dados reais.\n\nClique no link, instale o app Rook Extraction (se ainda não tem) e autorize o acesso ao app Saúde do iPhone:\n\n${finalUrl}\n\nO setup leva 2 minutos. Qualquer dúvida, responda esta mensagem.`;
 
   // Normaliza phone (Chatwoot espera E.164 com +)
   const phone = patient.phone.startsWith('+') ? patient.phone : `+${patient.phone}`;
@@ -193,11 +235,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .eq('id', patientId);
 
   return NextResponse.json({
-    success: chatwootSent,
+    success: chatwootSent && rookOk,
     rook_user_id: rookUserId,
-    connection_url: connectionUrl,
-    rook_registered: rookRegistered,
+    extraction_app_url: finalUrl,
+    rook_ok: rookOk,
     rook_error: rookError,
+    binding_raw: bindingRaw,
     chatwoot_sent: chatwootSent,
     chatwoot_error: chatwootError,
     chatwoot_contact_id: contactId,
