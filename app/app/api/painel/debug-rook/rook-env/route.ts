@@ -20,5 +20,8 @@ export async function GET() {
     rook_connections_base_url_set: typeof process.env.ROOK_CONNECTIONS_BASE_URL === 'string' && process.env.ROOK_CONNECTIONS_BASE_URL.length > 0,
     rook_client_uuid_prefix: process.env.ROOK_CLIENT_UUID?.slice(0, 8) ?? null,
     rook_api_key_prefix: process.env.ROOK_API_KEY?.slice(0, 6) ?? null,
+    evolution_base_url_set: typeof process.env.EVOLUTION_BASE_URL === 'string' && process.env.EVOLUTION_BASE_URL.length > 0,
+    evolution_api_key_set: typeof process.env.EVOLUTION_API_KEY === 'string' && process.env.EVOLUTION_API_KEY.length > 0,
+    evolution_base_url_prefix: process.env.EVOLUTION_BASE_URL?.slice(0, 30) ?? null,
   });
 }
