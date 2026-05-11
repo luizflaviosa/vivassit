@@ -3,8 +3,8 @@ import { requireTenant, type MemberRole } from '@/lib/auth-tenant';
 
 const DEBUG_ROLES: MemberRole[] = ['owner', 'admin'];
 
-// Probing massivo de rotas Rook pra achar o endpoint correto de binding.
-// Sandbox em api.rook-connect.review responde 404 limpo em rotas inexistentes.
+// Probing v3: pattern user_id/{uid}/data_source/{name}/authorizer existe (422).
+// Testa nomes alternativos do Apple Health + endpoints de criacao de user.
 export async function GET() {
   const auth = await requireTenant();
   if (!auth.ok) return auth.response;
@@ -17,33 +17,42 @@ export async function GET() {
   const base = process.env.ROOK_API_URL?.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '')
     ?? 'https://api.rook-connect.review';
   const uid = 'singulare-pat-57';
-  const payload = JSON.stringify({ client_uuid: clientUuid, user_id: uid });
   const basicAuth = `Basic ${Buffer.from(`${clientUuid}:${apiKey}`).toString('base64')}`;
 
   type Try = { method: string; url: string; status: number; preview: string; ms: number };
   const tries: Try[] = [];
 
-  const candidates: Array<{ method: 'GET' | 'POST'; path: string; body?: string }> = [
-    // Pattern 1: /api/v1/user_extraction_app POST
-    { method: 'POST', path: '/api/v1/user_extraction_app', body: payload },
-    // Pattern 2: /v1/user_extraction_app (sem /api)
-    { method: 'POST', path: '/v1/user_extraction_app', body: payload },
-    // Pattern 3: /api/v2/user_extraction_app
-    { method: 'POST', path: '/api/v2/user_extraction_app', body: payload },
-    // Pattern 4: estilo recommended doc — /user_id/{uid}/...
-    { method: 'GET', path: `/api/v1/user_id/${uid}/extraction_app_binding` },
-    { method: 'GET', path: `/api/v1/user_id/${uid}/extraction_app/binding` },
+  const candidates: Array<{ method: 'GET' | 'POST' | 'PUT'; path: string; body?: string }> = [
+    // === Criação de user (várias formas) ===
+    { method: 'POST', path: `/api/v1/user_id/${uid}/time_zone`, body: JSON.stringify({ time_zone: 'America/Sao_Paulo', offset: '-03:00' }) },
+    { method: 'PUT', path: `/api/v1/user_id/${uid}/time_zone`, body: JSON.stringify({ time_zone: 'America/Sao_Paulo', offset: '-03:00' }) },
+    { method: 'POST', path: `/api/v1/user_id/${uid}/user_information`, body: JSON.stringify({ user_id: uid, time_zone: 'America/Sao_Paulo' }) },
+    { method: 'POST', path: '/api/v1/users', body: JSON.stringify({ user_id: uid, time_zone: 'America/Sao_Paulo' }) },
+
+    // === Nomes alternativos pro Apple Health ===
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/AppleHealth/authorizer` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/apple_health/authorizer` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/Apple/authorizer` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/ios/authorizer` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/iOS/authorizer` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/HealthKit/authorizer` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/health_kit/authorizer` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/Garmin/authorizer` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/Fitbit/authorizer` },
+
+    // === Listar data_sources permitidos ===
+    { method: 'GET', path: `/api/v1/data_sources` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_sources` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_sources/authorized` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/data_sources/enabled` },
+
+    // === Variantes do extraction app sob user_id/ ===
     { method: 'GET', path: `/api/v1/user_id/${uid}/extraction_app` },
-    { method: 'POST', path: `/api/v1/user_id/${uid}/extraction_app`, body: payload },
-    // Pattern 5: estilo deprecated — client_uuid + user_id no path
-    { method: 'GET', path: `/api/v1/client_uuid/${clientUuid}/user_id/${uid}/extraction_app_binding` },
-    { method: 'POST', path: `/api/v1/client_uuid/${clientUuid}/user_id/${uid}/extraction_app`, body: '{}' },
-    // Pattern 6: data sources authorizer (recommended new)
-    { method: 'GET', path: `/api/v1/user_id/${uid}/data_source/Apple%20Health/authorizer` },
-    // Pattern 7: root / + base
-    { method: 'GET', path: '/' },
-    { method: 'GET', path: '/api/v1' },
-    { method: 'GET', path: '/api/v2' },
+    { method: 'POST', path: `/api/v1/user_id/${uid}/extraction_app`, body: '{}' },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/extraction-app/link` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/extraction-app` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/binding` },
+    { method: 'GET', path: `/api/v1/user_id/${uid}/app` },
   ];
 
   for (const c of candidates) {
@@ -56,7 +65,7 @@ export async function GET() {
           'Authorization': basicAuth,
           'Content-Type': 'application/json',
         },
-        body: c.method === 'POST' ? (c.body ?? '{}') : undefined,
+        body: c.method !== 'GET' ? (c.body ?? '{}') : undefined,
         signal: AbortSignal.timeout(8000),
       });
       const txt = await r.text();
@@ -64,7 +73,7 @@ export async function GET() {
         method: c.method,
         url: c.path,
         status: r.status,
-        preview: txt.slice(0, 250),
+        preview: txt.slice(0, 300),
         ms: Date.now() - start,
       });
     } catch (e) {
@@ -78,5 +87,13 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ ok: true, base, user_id: uid, tries });
+  // Filtra so resultados interessantes (nao-404) no topo
+  const interesting = tries.filter((t) => t.status !== 404);
+  return NextResponse.json({
+    ok: true,
+    base,
+    user_id: uid,
+    interesting,
+    all_tries: tries,
+  });
 }
