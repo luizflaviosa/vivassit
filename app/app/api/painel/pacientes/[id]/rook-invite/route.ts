@@ -84,6 +84,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // POST /api/v1/extraction_app/binding/ — endpoint oficial de binding.
   // Doc Rook: retorna { universal_link, qr_code (base64 PNG) }.
   // Trailing slash no path eh obrigatorio (rota /binding/, nao /binding).
+  // Salt: 4-6 chars (validacao do schema Rook).
+  const salt = Math.random().toString(36).slice(2, 8).padEnd(6, 'x');
   const basicAuth = `Basic ${Buffer.from(`${clientUuid}:${apiKey}`).toString('base64')}`;
   const bindingPayload = JSON.stringify({
     user_id: rookUserId,
@@ -92,7 +94,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       support_url: supportUrl,
       complete_log_out: false,
     },
-    salt: rookUserId, // unico por user, usado como anti-replay
+    salt,
   });
 
   let bindingRaw: unknown = null;
