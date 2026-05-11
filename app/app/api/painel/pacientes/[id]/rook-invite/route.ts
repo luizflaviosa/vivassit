@@ -50,25 +50,33 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ success: false, error: 'rook_not_configured' }, { status: 500 });
   }
 
-  const rookUserId = patient.rook_user_id ?? `singulare_pat_${patient.id}`;
-  const apiBaseUrl = process.env.ROOK_API_URL ?? 'https://api.tryrook.io/api/v1';
+  // user_id format: regex Rook ^[a-zA-Z0-9\-]{1,50}$ — so hifens, no underscores.
+  const desiredUserId = `singulare-pat-${patient.id}`;
+  const rookUserId = patient.rook_user_id && /^[a-zA-Z0-9-]{1,50}$/.test(patient.rook_user_id)
+    ? patient.rook_user_id
+    : desiredUserId;
+  const apiBaseUrl = process.env.ROOK_API_URL ?? 'https://api.rook-connect.review/api/v1';
   const connectionsBase = process.env.ROOK_CONNECTIONS_BASE_URL ?? 'https://connections.rook-connect.review';
 
-  // Best-effort: registra user no Rook.
+  // Best-effort: registra user no Rook via POST /users (Basic auth).
+  const basicAuth = `Basic ${Buffer.from(`${clientUuid}:${apiKey}`).toString('base64')}`;
   let rookRegistered = false;
   let rookError: string | null = null;
   try {
     const r = await fetch(`${apiBaseUrl}/users`, {
       method: 'POST',
       headers: {
-        'Authorization': `Api-Key ${apiKey}`,
+        'Authorization': basicAuth,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ client_uuid: clientUuid, user_id: rookUserId }),
       signal: AbortSignal.timeout(8000),
     });
     rookRegistered = r.ok;
-    if (!r.ok) rookError = `HTTP ${r.status}`;
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      rookError = `HTTP ${r.status}: ${txt.slice(0, 200)}`;
+    }
   } catch (e) {
     rookError = e instanceof Error ? e.message : String(e);
   }
