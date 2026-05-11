@@ -15,14 +15,21 @@ interface RouteContext {
 // health_observations com source=ios_shortcut.
 
 const PARAM_MAP: Record<string, { loinc: string; unit: string; display: string; category: string }> = {
+  // Cardio
   fc: { loinc: '8867-4', unit: 'bpm', display: 'Heart rate', category: 'vital-signs' },
-  hrv: { loinc: '80404-7', unit: 'ms', display: 'Heart rate variability', category: 'vital-signs' },
+  hrv: { loinc: '80404-7', unit: 'ms', display: 'Heart rate variability (SDNN)', category: 'vital-signs' },
   fc_rep: { loinc: '40443-4', unit: 'bpm', display: 'Resting heart rate', category: 'vital-signs' },
+  palpitacao: { loinc: '80350-9', unit: 'count', display: 'Palpitations (rapid pounding/fluttering)', category: 'vital-signs' },
+  // Atividade
   passos: { loinc: '55423-8', unit: 'count', display: 'Number of steps', category: 'activity' },
-  distancia: { loinc: '41950-7', unit: 'm', display: 'Distance walked', category: 'activity' },
+  distancia: { loinc: '41950-7', unit: 'm', display: 'Distance walked/running', category: 'activity' },
   calorias: { loinc: '41981-2', unit: 'kcal', display: 'Active calories burned', category: 'activity' },
+  exercicio_min: { loinc: '75923-3', unit: 'min', display: 'Apple exercise time', category: 'activity' },
+  move_min: { loinc: '41947-3', unit: 'min', display: 'Apple move time (active minutes)', category: 'activity' },
+  // Pressao
   pa_sis: { loinc: '8480-6', unit: 'mmHg', display: 'Systolic blood pressure', category: 'vital-signs' },
   pa_dia: { loinc: '8462-4', unit: 'mmHg', display: 'Diastolic blood pressure', category: 'vital-signs' },
+  // Corpo
   peso: { loinc: '29463-7', unit: 'kg', display: 'Body weight', category: 'vital-signs' },
   temp: { loinc: '8310-5', unit: 'Cel', display: 'Body temperature', category: 'vital-signs' },
   spo2: { loinc: '59408-5', unit: '%', display: 'Oxygen saturation', category: 'vital-signs' },
