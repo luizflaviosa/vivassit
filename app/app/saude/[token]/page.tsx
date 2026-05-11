@@ -212,8 +212,7 @@ export default function ColetaSaudePage() {
           </button>
 
           <p className="text-[11px] text-zinc-400 text-center">
-            Seus dados sao enviados de forma segura para sua clinica. Sem login: o link {' '}
-            <span className="font-mono">/{token.slice(0, 8)}...</span> identifica voce.
+            Seus dados sao enviados com seguranca para a sua clinica. Voce esta autenticado(a) pelo link que recebeu, nao precisa de senha.
           </p>
         </form>
 
