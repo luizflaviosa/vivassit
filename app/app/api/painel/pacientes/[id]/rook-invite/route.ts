@@ -70,7 +70,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     ? patient.rook_user_id
     : desiredUserId;
 
-  const apiBaseUrl = process.env.ROOK_API_URL ?? 'https://api.tryrook.io/api/v1';
+  // api.tryrook.io aparece na doc oficial mas DNS nao resolve ainda (provavel
+  // alias futuro). Sandbox real responde em api.rook-connect.review.
+  // Quando Rook ativar o alias tryrook.io, basta setar ROOK_API_URL env var.
+  const apiBaseUrl = process.env.ROOK_API_URL ?? 'https://api.rook-connect.review/api/v1';
   const connectionsBase = process.env.ROOK_CONNECTIONS_BASE_URL ?? 'https://connections.rook-connect.review';
 
   // POST /user_extraction_app — endpoint de binding. Tentamos Basic auth (doc oficial)
