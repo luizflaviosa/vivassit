@@ -19,15 +19,13 @@ const INVITE_ROLES: MemberRole[] = ['owner', 'admin', 'doctor', 'staff'];
 // Chatwoot -> Evolution -> WhatsApp (transparente).
 
 interface RookBindingResponse {
-  // Resposta do POST /user_extraction_app pode trazer varios formatos. Aceitamos
-  // qualquer um destes campos como URL final do deep-link.
+  // POST /api/v1/extraction_app/binding/ retorna universal_link + qr_code.
+  // Mantemos campos alternativos por compatibilidade caso payload varie.
+  universal_link?: string;
+  qr_code?: string;
   url?: string;
   app_url?: string;
-  extraction_app_url?: string;
-  binding_url?: string;
-  deeplink?: string;
   link?: string;
-  redirect_url?: string;
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -70,40 +68,48 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     ? patient.rook_user_id
     : desiredUserId;
 
-  // api.tryrook.io aparece na doc oficial mas DNS nao resolve ainda (provavel
-  // alias futuro). Sandbox real responde em api.rook-connect.review.
-  // Quando Rook ativar o alias tryrook.io, basta setar ROOK_API_URL env var.
+  // Carrega tenant cedo (precisamos do clinic_name no metadata do binding)
+  const { data: tenant } = await supa
+    .from('tenants')
+    .select('clinic_name, chatwoot_url, chatwoot_account_id, chatwoot_inbox_id')
+    .eq('tenant_id', auth.ctx.tenant.tenant_id)
+    .maybeSingle();
+
   const apiBaseUrl = process.env.ROOK_API_URL ?? 'https://api.rook-connect.review/api/v1';
   const connectionsBase = process.env.ROOK_CONNECTIONS_BASE_URL ?? 'https://connections.rook-connect.review';
+  const supportUrl = process.env.NEXT_PUBLIC_APP_URL
+    ? `${process.env.NEXT_PUBLIC_APP_URL}/privacidade/saude`
+    : 'https://singulare.org/privacidade/saude';
 
-  // POST /user_extraction_app — endpoint de binding. Tentamos Basic auth (doc oficial)
-  // primeiro e fallback pra Api-Key (formato que aparece no quickstart do dashboard).
+  // POST /api/v1/extraction_app/binding/ — endpoint oficial de binding.
+  // Doc Rook: retorna { universal_link, qr_code (base64 PNG) }.
+  // Trailing slash no path eh obrigatorio (rota /binding/, nao /binding).
   const basicAuth = `Basic ${Buffer.from(`${clientUuid}:${apiKey}`).toString('base64')}`;
-  const bindingPayload = JSON.stringify({ client_uuid: clientUuid, user_id: rookUserId });
+  const bindingPayload = JSON.stringify({
+    user_id: rookUserId,
+    metadata: {
+      client_name: tenant?.clinic_name ?? 'Singulare',
+      support_url: supportUrl,
+      complete_log_out: false,
+    },
+    salt: rookUserId, // unico por user, usado como anti-replay
+  });
 
   let bindingRaw: unknown = null;
   let bindingUrl: string | null = null;
   let rookOk = false;
   let rookError: string | null = null;
 
-  async function tryBinding(authHeader: string) {
-    return fetch(`${apiBaseUrl}/user_extraction_app`, {
+  try {
+    const r = await fetch(`${apiBaseUrl}/extraction_app/binding/`, {
       method: 'POST',
       headers: {
-        'Authorization': authHeader,
+        'Authorization': basicAuth,
         'Content-Type': 'application/json',
       },
       body: bindingPayload,
       signal: AbortSignal.timeout(10000),
     });
-  }
-
-  try {
-    let r = await tryBinding(basicAuth);
-    if (!r.ok && (r.status === 401 || r.status === 403)) {
-      // Tenta com Api-Key header (formato alternativo aceito pelo Rook em alguns tenants)
-      r = await tryBinding(`Api-Key ${apiKey}`);
-    }
     const txt = await r.text();
     try {
       bindingRaw = JSON.parse(txt);
@@ -115,22 +121,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       rookError = `HTTP ${r.status}: ${typeof bindingRaw === 'string' ? bindingRaw.slice(0, 200) : JSON.stringify(bindingRaw).slice(0, 200)}`;
     } else if (bindingRaw && typeof bindingRaw === 'object') {
       const b = bindingRaw as RookBindingResponse;
-      bindingUrl = b.url ?? b.app_url ?? b.extraction_app_url ?? b.binding_url ?? b.deeplink ?? b.link ?? b.redirect_url ?? null;
+      bindingUrl = b.universal_link ?? b.url ?? b.app_url ?? b.link ?? null;
     }
   } catch (e) {
     rookError = e instanceof Error ? e.message : String(e);
   }
 
-  // Fallback URL: connections page (caso Rook nao retorne URL no payload do binding)
+  // Fallback URL: connections page (caso Rook nao retorne universal_link)
   const fallbackConnectionUrl = `${connectionsBase}/client_uuid/${clientUuid}/user_id/${rookUserId}`;
   const finalUrl = bindingUrl ?? fallbackConnectionUrl;
-
-  // Carrega config Chatwoot do tenant
-  const { data: tenant } = await supa
-    .from('tenants')
-    .select('clinic_name, chatwoot_url, chatwoot_account_id, chatwoot_inbox_id')
-    .eq('tenant_id', auth.ctx.tenant.tenant_id)
-    .maybeSingle();
 
   const chatwootKey = process.env.CHATWOOT_API_KEY;
   const chatwootUrl = tenant?.chatwoot_url?.replace(/\/$/, '');
