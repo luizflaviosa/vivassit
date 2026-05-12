@@ -168,7 +168,7 @@ const WIZARD_STEPS: WizardStep[] = [
     id: 2,
     title: 'Seu negócio',
     description: 'Solo ou clínica · contato',
-    fields: ['establishment_type', 'clinic_name', 'admin_email', 'real_phone'],
+    fields: ['establishment_type', 'clinic_name', 'admin_email', 'real_phone', 'admin_phone'],
   },
   {
     id: 3,
@@ -196,6 +196,8 @@ const INITIAL_DATA: OnboardingData = {
   professional_type: 'medico',
   establishment_size: 'private_practice',
   real_phone: '',
+  admin_phone: '',
+  doctor_phone: '',
   clinic_name: '',
   admin_email: '',
   doctor_name: '',
@@ -796,6 +798,20 @@ function OnboardingPageInner() {
         }
       }
 
+      if (stepFields.includes('admin_phone') && data.admin_phone) {
+        const normalized = normalizePhoneToE164(data.admin_phone);
+        if (!/^\+\d{10,15}$/.test(normalized)) {
+          newErrors.admin_phone = 'WhatsApp pessoal inválido. Informe DDD + número.';
+        }
+      }
+      // doctor_phone is optional — only validate format if provided
+      if (data.doctor_phone && data.doctor_phone.trim() !== '') {
+        const normalized = normalizePhoneToE164(data.doctor_phone);
+        if (!/^\+\d{10,15}$/.test(normalized)) {
+          newErrors.doctor_phone = 'WhatsApp do médico inválido. Deixe vazio se for o mesmo do admin.';
+        }
+      }
+
       if (stepFields.includes('lgpd_accepted') && !data.lgpd_accepted) {
         newErrors.lgpd_accepted = 'Você precisa aceitar os termos para continuar';
       }
@@ -836,6 +852,8 @@ function OnboardingPageInner() {
       const payload = {
         ...formData,
         real_phone: normalizedPhone,
+        admin_phone: normalizePhoneToE164(formData.admin_phone),
+        doctor_phone: formData.doctor_phone ? normalizePhoneToE164(formData.doctor_phone) : '',
         qualifications: selectedQualifications,
         timestamp: formEndTime,
         source: 'singulare-onboarding-wizard',
@@ -1071,6 +1089,52 @@ function OnboardingPageInner() {
                 <p className="text-[12px] sm:text-[11px] text-zinc-400 mt-1.5 flex items-center gap-1.5">
                   <span className="font-mono" style={{ color: ACCENT_DEEP }}>
                     {normalizePhoneToE164(formData.real_phone)}
+                  </span>
+                  <span>· formato internacional</span>
+                </p>
+              )}
+            </Field>
+
+            <Field
+              label="WhatsApp pessoal do admin"
+              hint="Onde a Singulare manda atualizações e suporte sobre a sua conta. Diferente do canal da clínica."
+              error={errors.admin_phone}
+            >
+              <input
+                type="tel"
+                value={formData.admin_phone}
+                onChange={e => handleInputChange('admin_phone', e.target.value)}
+                placeholder="11 99999-9999"
+                autoComplete="tel"
+                className={inputClasses(!!errors.admin_phone)}
+              />
+              {formData.admin_phone && !errors.admin_phone && (
+                <p className="text-[12px] sm:text-[11px] text-zinc-400 mt-1.5 flex items-center gap-1.5">
+                  <span className="font-mono" style={{ color: ACCENT_DEEP }}>
+                    {normalizePhoneToE164(formData.admin_phone)}
+                  </span>
+                  <span>· formato internacional</span>
+                </p>
+              )}
+            </Field>
+
+            <Field
+              label="WhatsApp pessoal do médico"
+              hint="Se for diferente do admin. Recebe a mensagem de boas-vindas separadamente."
+              error={errors.doctor_phone}
+            >
+              <input
+                type="tel"
+                value={formData.doctor_phone}
+                onChange={e => handleInputChange('doctor_phone', e.target.value)}
+                placeholder="(opcional) 11 99999-9999"
+                autoComplete="tel"
+                className={inputClasses(!!errors.doctor_phone)}
+              />
+              {formData.doctor_phone && !errors.doctor_phone && (
+                <p className="text-[12px] sm:text-[11px] text-zinc-400 mt-1.5 flex items-center gap-1.5">
+                  <span className="font-mono" style={{ color: ACCENT_DEEP }}>
+                    {normalizePhoneToE164(formData.doctor_phone)}
                   </span>
                   <span>· formato internacional</span>
                 </p>
@@ -1758,6 +1822,14 @@ function OnboardingPageInner() {
                   ['Nome', formData.clinic_name],
                   ['Email', formData.admin_email],
                   ['Telefone', normalizePhoneToE164(formData.real_phone)],
+                  [
+                    'WhatsApp admin',
+                    formData.admin_phone ? normalizePhoneToE164(formData.admin_phone) : '(não informado)',
+                  ],
+                  [
+                    'WhatsApp médico',
+                    formData.doctor_phone ? normalizePhoneToE164(formData.doctor_phone) : '(mesmo do admin)',
+                  ],
                 ]}
               />
               <ReviewBlock
