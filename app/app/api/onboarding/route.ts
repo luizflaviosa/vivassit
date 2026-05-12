@@ -62,6 +62,18 @@ export async function POST(request: NextRequest) {
       validationErrors.real_phone = `Telefone inválido. Formato esperado: +5511999999999 (recebido: ${normalizedPhone})`;
     }
 
+    const normalizedAdminPhone = body?.admin_phone ? normalizePhoneToE164(body.admin_phone) : '';
+    const normalizedDoctorPhone = body?.doctor_phone ? normalizePhoneToE164(body.doctor_phone) : '';
+
+    if (!body?.admin_phone?.trim()) {
+      validationErrors.admin_phone = 'Obrigatório';
+    } else if (!E164_REGEX.test(normalizedAdminPhone)) {
+      validationErrors.admin_phone = `WhatsApp pessoal inválido. Formato esperado: +5511999999999 (recebido: ${normalizedAdminPhone})`;
+    }
+    if (body?.doctor_phone?.trim() && !E164_REGEX.test(normalizedDoctorPhone)) {
+      validationErrors.doctor_phone = `WhatsApp do médico inválido. Formato esperado: +5511999999999 (recebido: ${normalizedDoctorPhone})`;
+    }
+
     if (Object.keys(validationErrors).length > 0) {
       return NextResponse.json(
         {
@@ -118,6 +130,8 @@ export async function POST(request: NextRequest) {
       email: body.admin_email,
       phone: normalizedPhone,
       real_phone: normalizedPhone,
+      admin_phone: normalizedAdminPhone,
+      doctor_phone: normalizedDoctorPhone || null,
       admin_email: body.admin_email,
       address: body?.address ?? null,
       doctor_name: body.doctor_name,
@@ -353,6 +367,9 @@ export async function POST(request: NextRequest) {
     // Sob Medida: NÃO dispara provisionamento — fica como lead pra equipe.
     const payload = {
       real_phone: normalizedPhone,
+      admin_phone: normalizedAdminPhone,
+      doctor_phone: normalizedDoctorPhone || '',
+      api_key_chatwoot: process.env.CHATWOOT_API_KEY ?? '',
       clinic_name: body.clinic_name,
       admin_email: body.admin_email,
       address: body?.address ?? null,
@@ -498,6 +515,8 @@ export async function POST(request: NextRequest) {
         clinic_name: payload.clinic_name,
         doctor_name: payload.doctor_name,
         admin_email: payload.admin_email,
+        admin_phone: normalizedAdminPhone,
+        doctor_phone: normalizedDoctorPhone || null,
         plan_type: planType,
         amount: totalAmount,
         plan_amount: planAmount,
