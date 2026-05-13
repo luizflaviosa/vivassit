@@ -93,10 +93,23 @@ const SCHEMA_ORG = {
       '@type': 'Organization',
       '@id': `${SITE_URL}/#organization`,
       name: 'Singulare',
+      legalName: 'MEDICAL SAO PAULO SERVICOS MEDICOS LTDA',
+      taxID: '20.247.908/0001-01',
       url: SITE_URL,
       logo: `${SITE_URL}/logos/singulare-a.png`,
       description:
         'Plataforma SaaS que automatiza atendimento de clínicas e consultórios via WhatsApp + IA.',
+      foundingDate: '2014',
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: 'Rua Capitão Cassiano Ricardo de Toledo, 191, Sala 306',
+        addressLocality: 'Jundiaí',
+        addressRegion: 'SP',
+        postalCode: '13201-840',
+        addressCountry: 'BR',
+      },
+      telephone: '+55-17-3305-9030',
+      email: 'contato@singulare.org',
       sameAs: [
         // Adicionar quando publicar perfis sociais oficiais:
         // 'https://www.instagram.com/singulareapp',
@@ -109,6 +122,7 @@ const SCHEMA_ORG = {
           areaServed: 'BR',
           availableLanguage: ['Portuguese'],
           email: 'contato@singulare.org',
+          telephone: '+55-17-3305-9030',
         },
       ],
     },

@@ -26,6 +26,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Mantidos no sitemap com priority baixa enquanto a transição de SEO acontece.
     { url: `${BASE_URL}/landing`, lastModified, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${BASE_URL}/onboarding`, lastModified, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/empresa`, lastModified, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/profissionais`, lastModified, changeFrequency: 'weekly', priority: 0.6 },
     { url: `${BASE_URL}/termos`, lastModified, changeFrequency: 'yearly', priority: 0.2 },
     { url: `${BASE_URL}/privacidade`, lastModified, changeFrequency: 'yearly', priority: 0.2 },
