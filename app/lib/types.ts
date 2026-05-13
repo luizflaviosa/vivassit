@@ -182,6 +182,8 @@ export interface OnboardingData {
   clinic_name: string;
   admin_email: string;
   real_phone: string;
+  admin_phone: string;
+  doctor_phone: string;
   address?: string;
 
   // atendimento (obrigatorio se 1 prof, opcional se clinica)
