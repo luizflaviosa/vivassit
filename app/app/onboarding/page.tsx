@@ -2452,7 +2452,7 @@ function ReviewBlock({
           <div key={k} className="flex items-baseline justify-between gap-3 px-4 py-3 sm:py-2.5">
             <dt className="text-[13px] sm:text-[12px] text-zinc-500">{k}</dt>
             <dd
-              className="text-[14px] sm:text-[13px] font-medium text-right truncate capitalize"
+              className="text-[14px] sm:text-[13px] font-medium text-right truncate"
               style={accent ? { color: ACCENT_DEEP } : undefined}
             >
               {v}
