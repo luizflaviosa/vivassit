@@ -1,0 +1,7 @@
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
+#include "Generated.xcconfig"
+
+// Permite que Xcode reconcilie entitlements gerados pelo profile dev
+// com o Runner.entitlements declarado (fix p/ erro "Entitlements file
+// modified during build" em assinatura automatica com Personal Team).
+CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES

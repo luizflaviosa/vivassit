@@ -1,4 +1,4 @@
-import 'package:rook_sdk_apple_health/rook_sdk_apple_health.dart';
+import 'package:rook_sdk_core/rook_sdk_core.dart';
 
 /// Credenciais e parametros do ambiente ROOK.
 ///
@@ -31,5 +31,8 @@ class RookConfig {
   );
 
   /// Sincronizacao passiva no background (BGTaskScheduler).
-  static const bool enableBackgroundSync = true;
+  /// Desabilitada em dev/sandbox: Personal Team (free) nao suporta a entitlement
+  /// `com.apple.developer.healthkit.background-delivery`. Ativar quando migrar
+  /// para Apple Developer Program pago.
+  static const bool enableBackgroundSync = false;
 }

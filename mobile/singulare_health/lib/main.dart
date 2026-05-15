@@ -1,20 +1,12 @@
 import 'package:flutter/material.dart';
 
-import 'config.dart';
 import 'screens/home_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'services/onboarding_state.dart';
-import 'services/rook_service.dart';
 import 'theme.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inicializa o ROOK antes do runApp pra que o SDK ja esteja pronto
-  // quando o usuario tocar "Ativar Monitoramento Medico".
-  await RookService.instance.initialize();
-  await RookService.instance.bindUser(RookConfig.defaultUserId);
-
   runApp(const SingulareHealthApp());
 }
 
@@ -35,6 +27,7 @@ class SingulareHealthApp extends StatelessWidget {
 /// Decide a tela inicial:
 ///   - Sem consent gravado: WelcomeScreen
 ///   - Consent ja registrado: HomeScreen
+/// ROOK SDK e inicializado tardiamente quando o usuario toca "Ativar Monitoramento".
 class _Bootstrap extends StatefulWidget {
   const _Bootstrap();
 
@@ -56,9 +49,20 @@ class _BootstrapState extends State<_Bootstrap> {
     return FutureBuilder<bool>(
       future: _consentFuture,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Scaffold(
-            body: Center(child: _Splash()),
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(body: Center(child: _Splash()));
+        }
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Erro ao iniciar: ${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
           );
         }
         final consented = snapshot.data ?? false;
@@ -89,7 +93,11 @@ class _Splash extends StatelessWidget {
             boxShadow: SingulareTokens.elevationAccent,
           ),
           alignment: Alignment.center,
-          child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 22),
+          child: const Icon(
+            Icons.favorite_rounded,
+            color: Colors.white,
+            size: 22,
+          ),
         ),
         const SizedBox(height: SingulareTokens.space24),
         const SizedBox(

@@ -29,6 +29,8 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
+      await RookService.instance.initialize();
+      await RookService.instance.bindUser(RookConfig.defaultUserId);
       await RookService.instance.requestPermissions();
       final granted = await RookService.instance.hasPermissions();
       if (!granted) {
