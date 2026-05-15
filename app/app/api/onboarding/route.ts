@@ -6,6 +6,12 @@ import { rateLimit, getClientIp } from '@/lib/rate-limit';
 const E164_REGEX = /^\+\d{10,15}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Inbox shared singulare — conta 1 / inbox 3 em chatwoot.singulare.org.
+// Fixa server-side: todo tenant 1-profissional cai aqui (N8N nao precisa criar inbox).
+const SINGULARE_SHARED_CHATWOOT_URL = 'https://chatwoot.singulare.org/';
+const SINGULARE_SHARED_CHATWOOT_ACCOUNT_ID = '1';
+const SINGULARE_SHARED_CHATWOOT_INBOX_ID = '3';
+
 const generateTenantId = (clinicName: string) => {
   const slug = clinicName
     .toLowerCase()
@@ -165,6 +171,14 @@ export async function POST(request: NextRequest) {
       consultation_duration: consultationDuration,
       establishment_type: establishmentType,
       chatwoot_type: chatwootType,
+      // Tenant shared nasce ja com os campos do inbox singulare preenchidos.
+      // Inbox dedicada (clinica) fica nulo aqui e eh preenchida no writeback do N8N.
+      ...(chatwootType === 'shared' ? {
+        chatwoot_url: SINGULARE_SHARED_CHATWOOT_URL,
+        chatwoot_domain: SINGULARE_SHARED_CHATWOOT_URL,
+        chatwoot_account_id: SINGULARE_SHARED_CHATWOOT_ACCOUNT_ID,
+        chatwoot_inbox_id: SINGULARE_SHARED_CHATWOOT_INBOX_ID,
+      } : {}),
       plan_type: planType,
       status: isSobMedida ? 'proposal_pending' : 'pending_payment',
       subscription_status: 'trialing',
@@ -493,7 +507,18 @@ export async function POST(request: NextRequest) {
           if (typeof sum.telegram_bot_link === 'string') updates.telegram_bot_link = sum.telegram_bot_link;
           if (typeof sum.telegram_chat_id === 'string') updates.telegram_chat_id = sum.telegram_chat_id;
           if (typeof sum.chatwoot_account_id === 'string') updates.chatwoot_account_id = sum.chatwoot_account_id;
-          if (typeof sum.chatwoot_domain === 'string') updates.chatwoot_domain = sum.chatwoot_domain;
+          // Espelha chatwoot_url e chatwoot_domain (drift de schema: ambas colunas existem,
+          // leitores espalhados usam ora uma ora outra — sempre grava nas duas).
+          if (typeof sum.chatwoot_domain === 'string') {
+            updates.chatwoot_domain = sum.chatwoot_domain;
+            updates.chatwoot_url = sum.chatwoot_url ?? sum.chatwoot_domain;
+          } else if (typeof sum.chatwoot_url === 'string') {
+            updates.chatwoot_url = sum.chatwoot_url;
+            updates.chatwoot_domain = sum.chatwoot_url;
+          }
+          if (typeof sum.chatwoot_inbox_id === 'string' || typeof sum.chatwoot_inbox_id === 'number') {
+            updates.chatwoot_inbox_id = String(sum.chatwoot_inbox_id);
+          }
           if (typeof sum.chatwoot_type === 'string') updates.chatwoot_type = sum.chatwoot_type;
           if (typeof sum.drive_folder_id === 'string') updates.drive_folder_id = sum.drive_folder_id;
           if (sum.calendar_config && typeof sum.calendar_config === 'object') updates.calendar_config = sum.calendar_config;

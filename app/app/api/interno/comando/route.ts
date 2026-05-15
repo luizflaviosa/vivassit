@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
     clinic_name: string;
     admin_email: string | null;
     chatwoot_url: string | null;
+    chatwoot_domain: string | null;
     chatwoot_account_id: string | null;
     rendered_prompt: string | null;
   };
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
   type Row = { role: string; tenant: TenantCtx | null };
 
   const TENANT_FIELDS =
-    'tenant_id, clinic_name, admin_email, chatwoot_url, chatwoot_account_id, rendered_prompt';
+    'tenant_id, clinic_name, admin_email, chatwoot_url, chatwoot_domain, chatwoot_account_id, rendered_prompt';
 
   if (preferredTenantId) {
     const { data } = await admin
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
     user_id: user.id,
     role,
     doctor_id: body.doctor_id ?? null,
-    chatwoot_url: tenant.chatwoot_url ?? null,
+    chatwoot_url: tenant.chatwoot_url ?? tenant.chatwoot_domain ?? null,
     chatwoot_account_id: tenant.chatwoot_account_id ?? null,
     rendered_prompt: tenant.rendered_prompt ?? null,
     message: body.message.trim(),
