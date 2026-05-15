@@ -1,11 +1,12 @@
 // app/lib/seo-data.ts
 //
 // Dados estaticos pra geracao programatica das paginas de SEO local
-// (/para/[especialidade]/[cidade]). Cobrimos as 11 especialidades mais
-// procuradas em consultorios privados brasileiros x 30 maiores cidades
-// (criterio: populacao IBGE + capitais regionais), totalizando 330
-// combinacoes. Mantemos abaixo do limite onde o Google passa a tratar
-// como spam de paginas geradas (referencia: 200-500 combinacoes).
+// (/secretaria-ia/[especialidade]/[cidade] e /para/[especialidade]/[cidade]).
+// Cobrimos as 12 especialidades mais procuradas em consultorios privados
+// brasileiros x 30 maiores cidades (criterio: populacao IBGE + capitais
+// regionais), totalizando 360 combinacoes. Mantemos abaixo do limite
+// onde o Google passa a tratar como spam de paginas geradas
+// (referencia: 200-500 combinacoes).
 //
 // As listas sao append-only — adicionar novos itens nao invalida URLs
 // existentes. Renomear slug exige redirect 301 no proximo passo.
@@ -20,6 +21,29 @@ export type Specialty = {
   article: 'o' | 'a';
   /** Sigla do conselho profissional, vazio quando nao se aplica. */
   councilLabel: string;
+};
+
+/**
+ * Especialidade enriquecida com casos de uso especificos da profissao.
+ * Usada pelas paginas programaticas pra evitar copia "doctor-centric"
+ * que nao faz sentido pra dentista/psicologo/fisio/nutri/etc.
+ */
+export type SeoSpecialty = Specialty & {
+  /**
+   * Termo neutro pra referir-se a quem o profissional atende:
+   * "paciente" pra medico/dentista/fisio/nutri/psicologo, "cliente" pra esteticista.
+   */
+  audience: 'paciente' | 'cliente';
+  /**
+   * Termo pro evento principal: "consulta" pra medico/psicologo/nutri,
+   * "sessao" pra psicologo/fisio/terapeuta, "atendimento" generico.
+   */
+  appointmentTerm: 'consulta' | 'sessao' | 'atendimento' | 'procedimento';
+  /**
+   * 3 casos de uso reais e especificos da profissao — usados em copy
+   * pra mostrar que a IA entende o fluxo daquela especialidade.
+   */
+  useCases: ReadonlyArray<string>;
 };
 
 export type City = {
@@ -45,6 +69,184 @@ export const SPECIALTIES: ReadonlyArray<Specialty> = [
   { slug: 'enfermeiro', name: 'Enfermeiro', plural: 'Enfermeiros', article: 'o', councilLabel: 'COREN' },
   { slug: 'psicopedagogo', name: 'Psicopedagogo', plural: 'Psicopedagogos', article: 'o', councilLabel: 'ABPp' },
   { slug: 'esteticista', name: 'Profissional de Estética', plural: 'Profissionais de Estética', article: 'o', councilLabel: '' },
+];
+
+/**
+ * Especialidades enriquecidas com terminologia e casos de uso especificos.
+ * Esta eh a lista canonica usada pelas paginas programaticas /secretaria-ia/.
+ *
+ * Quando adicionar nova especialidade, garantir que useCases seja
+ * concreto e profissional-apropriado, nao generico.
+ */
+export const SEO_ESPECIALIDADES: ReadonlyArray<SeoSpecialty> = [
+  {
+    slug: 'medico',
+    name: 'Médico',
+    plural: 'Médicos',
+    article: 'o',
+    councilLabel: 'CRM',
+    audience: 'paciente',
+    appointmentTerm: 'consulta',
+    useCases: [
+      'triagem de sintomas urgentes',
+      'agendamento de consulta',
+      'envio de exames pré-consulta',
+    ],
+  },
+  {
+    slug: 'dentista',
+    name: 'Dentista',
+    plural: 'Dentistas',
+    article: 'o',
+    councilLabel: 'CRO',
+    audience: 'paciente',
+    appointmentTerm: 'procedimento',
+    useCases: [
+      'agendamento de procedimentos',
+      'lembrete de retorno em 6 meses',
+      'cobrança parcelada de tratamento',
+    ],
+  },
+  {
+    slug: 'psicologo',
+    name: 'Psicólogo',
+    plural: 'Psicólogos',
+    article: 'o',
+    councilLabel: 'CRP',
+    audience: 'paciente',
+    appointmentTerm: 'sessao',
+    useCases: [
+      'agendamento semanal de sessões',
+      'reagendamento sem fricção',
+      'lembrete D-1 com discrição',
+    ],
+  },
+  {
+    slug: 'fisioterapeuta',
+    name: 'Fisioterapeuta',
+    plural: 'Fisioterapeutas',
+    article: 'o',
+    councilLabel: 'CREFITO',
+    audience: 'paciente',
+    appointmentTerm: 'sessao',
+    useCases: [
+      'controle de presença em pacotes',
+      'evolução pós-sessão',
+      'cobrança por sessão',
+    ],
+  },
+  {
+    slug: 'nutricionista',
+    name: 'Nutricionista',
+    plural: 'Nutricionistas',
+    article: 'o',
+    councilLabel: 'CRN',
+    audience: 'paciente',
+    appointmentTerm: 'consulta',
+    useCases: [
+      'envio do plano alimentar',
+      'acompanhamento semanal',
+      'retorno mensal',
+    ],
+  },
+  {
+    slug: 'fonoaudiologo',
+    name: 'Fonoaudiólogo',
+    plural: 'Fonoaudiólogos',
+    article: 'o',
+    councilLabel: 'CRFa',
+    audience: 'paciente',
+    appointmentTerm: 'sessao',
+    useCases: [
+      'agendamento de sessões recorrentes',
+      'envio de exercícios entre sessões',
+      'acompanhamento de evolução',
+    ],
+  },
+  {
+    slug: 'terapeuta',
+    name: 'Terapeuta',
+    plural: 'Terapeutas',
+    article: 'o',
+    councilLabel: '',
+    audience: 'paciente',
+    appointmentTerm: 'sessao',
+    useCases: [
+      'agendamento de sessões individuais',
+      'pacotes mensais com cobrança recorrente',
+      'lembrete discreto pré-sessão',
+    ],
+  },
+  {
+    slug: 'psicanalista',
+    name: 'Psicanalista',
+    plural: 'Psicanalistas',
+    article: 'o',
+    councilLabel: '',
+    audience: 'paciente',
+    appointmentTerm: 'sessao',
+    useCases: [
+      'agendamento de sessões fixas semanais',
+      'reagendamento sem expor o paciente',
+      'cobrança mensal automatizada',
+    ],
+  },
+  {
+    slug: 'enfermeiro',
+    name: 'Enfermeiro',
+    plural: 'Enfermeiros',
+    article: 'o',
+    councilLabel: 'COREN',
+    audience: 'paciente',
+    appointmentTerm: 'atendimento',
+    useCases: [
+      'agendamento de procedimentos domiciliares',
+      'controle de medicações e curativos',
+      'follow-up pós-alta',
+    ],
+  },
+  {
+    slug: 'psicopedagogo',
+    name: 'Psicopedagogo',
+    plural: 'Psicopedagogos',
+    article: 'o',
+    councilLabel: 'ABPp',
+    audience: 'paciente',
+    appointmentTerm: 'sessao',
+    useCases: [
+      'agendamento de sessões com crianças e responsáveis',
+      'envio de relatórios pra escola',
+      'acompanhamento longitudinal',
+    ],
+  },
+  {
+    slug: 'esteticista',
+    name: 'Profissional de Estética',
+    plural: 'Profissionais de Estética',
+    article: 'o',
+    councilLabel: '',
+    audience: 'cliente',
+    appointmentTerm: 'procedimento',
+    useCases: [
+      'agendamento de pacotes de procedimentos',
+      'lembrete de retorno por protocolo',
+      'cobrança parcelada com link de pagamento',
+    ],
+  },
+  {
+    slug: 'pediatra',
+    name: 'Pediatra',
+    plural: 'Pediatras',
+    article: 'o',
+    councilLabel: 'CRM',
+    audience: 'paciente',
+    appointmentTerm: 'consulta',
+    useCases: [
+      'agendamento conforme calendário vacinal',
+      'lembrete de puericultura por faixa etária',
+      'orientação a pais antes da consulta',
+    ],
+  },
 ];
 
 export const CITIES: ReadonlyArray<City> = [
@@ -82,6 +284,10 @@ export const CITIES: ReadonlyArray<City> = [
 
 export function findSpecialty(slug: string): Specialty | undefined {
   return SPECIALTIES.find((s) => s.slug === slug);
+}
+
+export function findSeoEspecialidade(slug: string): SeoSpecialty | undefined {
+  return SEO_ESPECIALIDADES.find((s) => s.slug === slug);
 }
 
 export function findCity(slug: string): City | undefined {
