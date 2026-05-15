@@ -17,6 +17,8 @@ export default function robots(): MetadataRoute.Robots {
           '/profissionais', // hub de cidades
           '/profissionais/', // cidades dinâmicas
           '/p/', // vitrines de profissionais
+          '/secretaria-ia/', // paginas SEO programaticas por especialidade x cidade
+          '/bem-vindo', // guia publico Q&A
         ],
         disallow: [
           '/painel', // dashboard logado

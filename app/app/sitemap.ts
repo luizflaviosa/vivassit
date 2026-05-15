@@ -2,6 +2,7 @@
 
 import type { MetadataRoute } from 'next';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getAllPaths } from '@/lib/seo-data';
 
 const BASE_URL = 'https://singulare.org';
 
@@ -78,5 +79,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Falha silenciosa — sitemap continua com static pages
   }
 
-  return [...staticPages, ...dynamicPages];
+  // Páginas SEO programmáticas — 12 especialidades × 20 cidades = 240 paths
+  const seoProgrammaticPages: MetadataRoute.Sitemap = getAllPaths().map((p) => ({
+    url: `${BASE_URL}/secretaria-ia/${p.especialidade.slug}/${p.cidade.slug}`,
+    lastModified,
+    changeFrequency: 'monthly' as const,
+    priority: 0.7,
+  }));
+
+  return [...staticPages, ...dynamicPages, ...seoProgrammaticPages];
 }
