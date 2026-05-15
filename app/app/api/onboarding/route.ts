@@ -94,6 +94,9 @@ export async function POST(request: NextRequest) {
 
     // ── Setup ─────────────────────────────────────────────────────────────────
     const tenantId = generateTenantId(body.clinic_name);
+    // connect_token: UUID publico pra montar URL /conectar/<token> que o cliente
+    // abre direto do email pra escanear o QR do WhatsApp, sem passar por login.
+    const connectToken = uuidv4();
     const planType = body?.plan_type ?? 'professional';
     const planAmount = SAAS_PLAN_AMOUNTS[planType] ?? SAAS_PLAN_AMOUNTS.professional;
     const isSobMedida = planType === 'sob_medida' || body?.establishment_type === 'large_clinic';
@@ -185,6 +188,7 @@ export async function POST(request: NextRequest) {
       trial_ends_at: trialEndsAt,
       assistant_prompt: assistantPrompt || null,
       calendar_id: preCreatedCalendarId,
+      connect_token: connectToken,
       payment_info: {
         qualifications,
         source: 'vivassit-frontend',
@@ -439,6 +443,9 @@ export async function POST(request: NextRequest) {
       trial_ends_at: trialEndsAt,
       // Magic link de primeiro acesso - inserir como CTA principal do email N8N
       magic_link_url: magicLinkUrl,
+      // URL publica do QR de WhatsApp (sem login) - novo CTA primario do email
+      connect_url: `${request.nextUrl.origin || 'https://singulare.org'}/conectar/${connectToken}`,
+      connect_token: connectToken,
       panel_url: `${request.nextUrl.origin || 'https://app.singulare.org'}/painel`,
       checkout_url: orderId
         ? `${request.nextUrl.origin || 'https://app.singulare.org'}/checkout/${externalReference}`
@@ -581,6 +588,8 @@ export async function POST(request: NextRequest) {
         // Sob Medida: SEM checkout_url. UI mostra tela de "obrigado, equipe vai contatar"
         checkout_url: !isSobMedida && orderId ? `/checkout/${externalReference}` : null,
         magic_link_url: magicLinkUrl,
+        connect_url: `${request.nextUrl.origin || 'https://singulare.org'}/conectar/${connectToken}`,
+        connect_token: connectToken,
         // Dados de provisionamento N8N (se disponiveis)
         calendar_link: n8nSummary?.calendar_access_link ?? null,
         telegram_link: n8nSummary?.telegram_bot_link ?? null,
