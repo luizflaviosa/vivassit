@@ -123,6 +123,31 @@ export async function POST(request: NextRequest) {
 
     const supabase = supabaseAdmin();
 
+    // ── Pre-create Calendar via Service Account (Vercel-side, SA-based, never expires) ──
+    // Substitui a criacao via OAuth no n8n (que expira). SA eh dona do calendar,
+    // depois compartilha com o profissional. Se falhar, cron de backfill assume.
+    let preCreatedCalendarId: string | null = null;
+    let preCreatedCalendarError: string | null = null;
+    if (!isSobMedida) {
+      try {
+        const { createCalendar } = await import('@/lib/google-calendar');
+        const calRes = await createCalendar({
+          summary: `${body.clinic_name} - Agenda Singulare`,
+          timeZone: 'America/Sao_Paulo',
+        });
+        if ('calendar_id' in calRes && calRes.calendar_id) {
+          preCreatedCalendarId = calRes.calendar_id;
+          console.log('[onboarding] Calendar criado via SA:', calRes.calendar_id);
+        } else if ('error' in calRes) {
+          preCreatedCalendarError = calRes.error;
+          console.warn('[onboarding] Calendar SA falhou:', calRes.error);
+        }
+      } catch (err) {
+        preCreatedCalendarError = err instanceof Error ? err.message : 'unknown';
+        console.error('[onboarding] Calendar SA exception:', err);
+      }
+    }
+
     // ── Persistencia: tenants ─────────────────────────────────────────────────
     const tenantRow = {
       tenant_id: tenantId,
@@ -145,6 +170,7 @@ export async function POST(request: NextRequest) {
       subscription_status: 'trialing',
       trial_ends_at: trialEndsAt,
       assistant_prompt: assistantPrompt || null,
+      calendar_id: preCreatedCalendarId,
       payment_info: {
         qualifications,
         source: 'vivassit-frontend',
@@ -393,6 +419,7 @@ export async function POST(request: NextRequest) {
       working_hours: workingHours,
       assistant_prompt: assistantPrompt,
       tenant_id: tenantId,
+      pre_created_calendar_id: preCreatedCalendarId,
       order_id: orderId,
       external_reference: externalReference,
       trial_ends_at: trialEndsAt,
