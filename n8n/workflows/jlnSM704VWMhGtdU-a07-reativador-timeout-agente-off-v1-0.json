@@ -1,5 +1,5 @@
 {
-    "updatedAt": "2026-05-16T17:26:20.454Z",
+    "updatedAt": "2026-05-16T22:15:49.020Z",
     "createdAt": "2026-05-16T17:25:13.798Z",
     "id": "jlnSM704VWMhGtdU",
     "name": "A07 \u2014 Reativador \u00b7 Timeout Agente-Off \u00b7 v1.0",
@@ -98,7 +98,7 @@
                 304
             ],
             "parameters": {
-                "jsCode": "// Para cada item (1 por tenant), filtra conversas com agente-off cujo last_activity > 6h.\nconst SIX_HOURS_MS = 6 * 60 * 60 * 1000;\nconst now = Date.now();\nconst out = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const item = $input.all()[i];\n  const resp = item.json;\n  const conversations = resp?.data?.payload || resp?.payload || [];\n  // Pegar tenant data via paired item\n  const tenant = $('Tenants Ativos').itemMatching(i)?.json || {};\n  for (const conv of conversations) {\n    const labels = conv.labels || conv.meta?.labels || [];\n    if (!labels.includes('agente-off')) continue;\n    const lastTs = conv.last_activity_at || conv.timestamp || 0;\n    const ageMs = now - (lastTs * 1000);\n    if (ageMs < SIX_HOURS_MS) continue;\n    out.push({\n      json: {\n        conv_id: conv.id,\n        contact_name: conv.meta?.sender?.name || 'Paciente',\n        contact_phone: conv.meta?.sender?.phone_number || null,\n        labels_atuais: labels,\n        labels_novas: labels.filter(l => l !== 'agente-off'),\n        age_hours: Math.round(ageMs / 1000 / 60 / 60),\n        last_activity_at: lastTs,\n        tenant_id: tenant.tenant_id,\n        clinic_name: tenant.clinic_name,\n        chatwoot_url: tenant.chatwoot_url,\n        chatwoot_account_id: tenant.chatwoot_account_id,\n        telegram_chat_id: tenant.telegram_chat_id,\n      },\n    });\n  }\n}\n\nreturn out;"
+                "jsCode": "// Para cada item (1 por tenant), filtra conversas com agente-off cujo last_activity > 6h.\n// Skipa conversas que tem label aguardando_reagendamento (proposta de reagendamento\n// em curso \u2014 nao reativar bot, esperar resposta do paciente).\nconst SIX_HOURS_MS = 6 * 60 * 60 * 1000;\nconst now = Date.now();\nconst out = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const item = $input.all()[i];\n  const resp = item.json;\n  const conversations = resp?.data?.payload || resp?.payload || [];\n  // Pegar tenant data via paired item\n  const tenant = $('Tenants Ativos').itemMatching(i)?.json || {};\n  for (const conv of conversations) {\n    const labels = conv.labels || conv.meta?.labels || [];\n    if (!labels.includes('agente-off')) continue;\n    // Defensivo: nao reativar conversa com proposta de reagendamento pendente\n    if (labels.includes('aguardando_reagendamento')) continue;\n    const lastTs = conv.last_activity_at || conv.timestamp || 0;\n    const ageMs = now - (lastTs * 1000);\n    if (ageMs < SIX_HOURS_MS) continue;\n    out.push({\n      json: {\n        conv_id: conv.id,\n        contact_name: conv.meta?.sender?.name || 'Paciente',\n        contact_phone: conv.meta?.sender?.phone_number || null,\n        labels_atuais: labels,\n        labels_novas: labels.filter(l => l !== 'agente-off'),\n        age_hours: Math.round(ageMs / 1000 / 60 / 60),\n        last_activity_at: lastTs,\n        tenant_id: tenant.tenant_id,\n        clinic_name: tenant.clinic_name,\n        chatwoot_url: tenant.chatwoot_url,\n        chatwoot_account_id: tenant.chatwoot_account_id,\n        telegram_chat_id: tenant.telegram_chat_id,\n      },\n    });\n  }\n}\n\nreturn out;"
             }
         },
         {
@@ -268,9 +268,9 @@
     },
     "meta": null,
     "pinData": null,
-    "versionId": "7c61c26c-b06e-4165-94ce-e82843ac6b4f",
-    "activeVersionId": "7c61c26c-b06e-4165-94ce-e82843ac6b4f",
-    "versionCounter": 6,
+    "versionId": "a6156c96-e6cd-4506-ab82-b209297dec50",
+    "activeVersionId": "a6156c96-e6cd-4506-ab82-b209297dec50",
+    "versionCounter": 9,
     "triggerCount": 1,
     "shared": [
         {
@@ -293,9 +293,9 @@
     ],
     "tags": [],
     "activeVersion": {
-        "updatedAt": "2026-05-16T17:25:54.613Z",
-        "createdAt": "2026-05-16T17:25:54.613Z",
-        "versionId": "7c61c26c-b06e-4165-94ce-e82843ac6b4f",
+        "updatedAt": "2026-05-16T22:15:49.022Z",
+        "createdAt": "2026-05-16T22:15:49.022Z",
+        "versionId": "a6156c96-e6cd-4506-ab82-b209297dec50",
         "workflowId": "jlnSM704VWMhGtdU",
         "nodes": [
             {
@@ -389,7 +389,7 @@
                     304
                 ],
                 "parameters": {
-                    "jsCode": "// Para cada item (1 por tenant), filtra conversas com agente-off cujo last_activity > 6h.\nconst SIX_HOURS_MS = 6 * 60 * 60 * 1000;\nconst now = Date.now();\nconst out = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const item = $input.all()[i];\n  const resp = item.json;\n  const conversations = resp?.data?.payload || resp?.payload || [];\n  // Pegar tenant data via paired item\n  const tenant = $('Tenants Ativos').itemMatching(i)?.json || {};\n  for (const conv of conversations) {\n    const labels = conv.labels || conv.meta?.labels || [];\n    if (!labels.includes('agente-off')) continue;\n    const lastTs = conv.last_activity_at || conv.timestamp || 0;\n    const ageMs = now - (lastTs * 1000);\n    if (ageMs < SIX_HOURS_MS) continue;\n    out.push({\n      json: {\n        conv_id: conv.id,\n        contact_name: conv.meta?.sender?.name || 'Paciente',\n        contact_phone: conv.meta?.sender?.phone_number || null,\n        labels_atuais: labels,\n        labels_novas: labels.filter(l => l !== 'agente-off'),\n        age_hours: Math.round(ageMs / 1000 / 60 / 60),\n        last_activity_at: lastTs,\n        tenant_id: tenant.tenant_id,\n        clinic_name: tenant.clinic_name,\n        chatwoot_url: tenant.chatwoot_url,\n        chatwoot_account_id: tenant.chatwoot_account_id,\n        telegram_chat_id: tenant.telegram_chat_id,\n      },\n    });\n  }\n}\n\nreturn out;"
+                    "jsCode": "// Para cada item (1 por tenant), filtra conversas com agente-off cujo last_activity > 6h.\n// Skipa conversas que tem label aguardando_reagendamento (proposta de reagendamento\n// em curso \u2014 nao reativar bot, esperar resposta do paciente).\nconst SIX_HOURS_MS = 6 * 60 * 60 * 1000;\nconst now = Date.now();\nconst out = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const item = $input.all()[i];\n  const resp = item.json;\n  const conversations = resp?.data?.payload || resp?.payload || [];\n  // Pegar tenant data via paired item\n  const tenant = $('Tenants Ativos').itemMatching(i)?.json || {};\n  for (const conv of conversations) {\n    const labels = conv.labels || conv.meta?.labels || [];\n    if (!labels.includes('agente-off')) continue;\n    // Defensivo: nao reativar conversa com proposta de reagendamento pendente\n    if (labels.includes('aguardando_reagendamento')) continue;\n    const lastTs = conv.last_activity_at || conv.timestamp || 0;\n    const ageMs = now - (lastTs * 1000);\n    if (ageMs < SIX_HOURS_MS) continue;\n    out.push({\n      json: {\n        conv_id: conv.id,\n        contact_name: conv.meta?.sender?.name || 'Paciente',\n        contact_phone: conv.meta?.sender?.phone_number || null,\n        labels_atuais: labels,\n        labels_novas: labels.filter(l => l !== 'agente-off'),\n        age_hours: Math.round(ageMs / 1000 / 60 / 60),\n        last_activity_at: lastTs,\n        tenant_id: tenant.tenant_id,\n        clinic_name: tenant.clinic_name,\n        chatwoot_url: tenant.chatwoot_url,\n        chatwoot_account_id: tenant.chatwoot_account_id,\n        telegram_chat_id: tenant.telegram_chat_id,\n      },\n    });\n  }\n}\n\nreturn out;"
                 }
             },
             {
@@ -554,10 +554,18 @@
         "autosaved": false,
         "workflowPublishHistory": [
             {
-                "createdAt": "2026-05-16T17:26:21.122Z",
-                "id": 326,
+                "createdAt": "2026-05-16T22:15:49.067Z",
+                "id": 350,
                 "workflowId": "jlnSM704VWMhGtdU",
-                "versionId": "7c61c26c-b06e-4165-94ce-e82843ac6b4f",
+                "versionId": "a6156c96-e6cd-4506-ab82-b209297dec50",
+                "event": "deactivated",
+                "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+            },
+            {
+                "createdAt": "2026-05-16T22:15:49.096Z",
+                "id": 351,
+                "workflowId": "jlnSM704VWMhGtdU",
+                "versionId": "a6156c96-e6cd-4506-ab82-b209297dec50",
                 "event": "activated",
                 "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
             }

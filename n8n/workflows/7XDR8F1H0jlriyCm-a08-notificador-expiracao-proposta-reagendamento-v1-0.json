@@ -1,0 +1,390 @@
+{
+    "updatedAt": "2026-05-16T22:17:48.630Z",
+    "createdAt": "2026-05-16T22:17:40.709Z",
+    "id": "7XDR8F1H0jlriyCm",
+    "name": "A08 \u2014 Notificador \u00b7 Expira\u00e7\u00e3o Proposta Reagendamento \u00b7 v1.0",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "id": "cron-a08",
+            "name": "Cron 5min",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                240,
+                304
+            ],
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 5
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "id": "pg-expire-a08",
+            "name": "Expirar propostas vencidas",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.6,
+            "position": [
+                464,
+                304
+            ],
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "SELECT e.booking_id, e.tenant_id, e.patient_phone, e.patient_name, e.proposed_slot_start, t.telegram_chat_id, t.clinic_name, tm.user_id AS proposer_user_id, td.calendar_id, b.original_calendar_event_id\nFROM public.fn_expire_pending_confirmations() e\nLEFT JOIN public.tenants t ON t.tenant_id = e.tenant_id\nLEFT JOIN public.tenant_members tm ON tm.id = e.proposed_by\nLEFT JOIN public.doctor_bookings b ON b.id = e.booking_id\nLEFT JOIN public.tenant_doctors td ON td.id = e.doctor_id",
+                "options": {}
+            },
+            "credentials": {
+                "postgres": {
+                    "id": "2MWvHIrEZHdAbAz1",
+                    "name": "Postgres account"
+                }
+            }
+        },
+        {
+            "id": "code-format-a08",
+            "name": "Formatar mensagens",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                688,
+                304
+            ],
+            "parameters": {
+                "jsCode": "// Para cada booking expirado, monta payload para deletar Calendar + notificar Telegram.\nfunction utcToBRT(isoString) {\n  if (!isoString) return '';\n  try {\n    const dt = new Date(isoString);\n    if (isNaN(dt.getTime())) return isoString;\n    const brtTime = new Date(dt.getTime() - 3 * 60 * 60 * 1000);\n    const dias = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];\n    const dayName = dias[brtTime.getUTCDay()];\n    const dd = String(brtTime.getUTCDate()).padStart(2, '0');\n    const mm = String(brtTime.getUTCMonth() + 1).padStart(2, '0');\n    const hh = String(brtTime.getUTCHours()).padStart(2, '0');\n    const min = String(brtTime.getUTCMinutes()).padStart(2, '0');\n    const timeStr = min === '00' ? hh + 'h' : hh + 'h' + min;\n    return dayName + ', ' + dd + '/' + mm + ' as ' + timeStr;\n  } catch(e) { return isoString; }\n}\n\nconst out = [];\nfor (const item of $input.all()) {\n  const e = item.json;\n  if (!e.booking_id) continue;\n  const slotBrt = utcToBRT(e.proposed_slot_start);\n  out.push({\n    json: {\n      booking_id: e.booking_id,\n      tenant_id: e.tenant_id,\n      clinic_name: e.clinic_name,\n      patient_phone: e.patient_phone,\n      patient_name: e.patient_name,\n      telegram_chat_id: e.telegram_chat_id,\n      calendar_id: e.calendar_id,\n      calendar_event_id: e.original_calendar_event_id,\n      telegram_msg: '*Proposta de reagendamento expirou*\\n\\n' +\n        'Clinica: ' + (e.clinic_name || e.tenant_id) + '\\n' +\n        'Paciente: ' + (e.patient_name || e.patient_phone) + '\\n' +\n        'Horario proposto: ' + slotBrt + '\\n\\n' +\n        'Paciente nao respondeu em 24h. O slot foi liberado e a consulta foi cancelada. ' +\n        'Se quiser tentar de novo, abra a agenda e proponha um novo horario.',\n    },\n  });\n}\nreturn out;"
+            }
+        },
+        {
+            "id": "http-cal-delete-a08",
+            "name": "Deletar Calendar event expirado",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                912,
+                176
+            ],
+            "parameters": {
+                "method": "DELETE",
+                "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($json.calendar_id) }}/events/{{ $json.calendar_event_id }}",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "googleCalendarOAuth2Api",
+                "options": {}
+            },
+            "credentials": {
+                "googleCalendarOAuth2Api": {
+                    "id": "OkOV7izIvJcvD3wl",
+                    "name": "Google Calendar account"
+                }
+            },
+            "onError": "continueRegularOutput"
+        },
+        {
+            "id": "tg-notify-a08",
+            "name": "Notificar Telegram",
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                1136,
+                304
+            ],
+            "parameters": {
+                "resource": "message",
+                "operation": "sendMessage",
+                "chatId": "={{ $('Formatar mensagens').itemMatching($itemIndex).$json.telegram_chat_id }}",
+                "text": "={{ $('Formatar mensagens').itemMatching($itemIndex).$json.telegram_msg }}",
+                "additionalFields": {
+                    "parse_mode": "Markdown"
+                }
+            },
+            "credentials": {
+                "telegramApi": {
+                    "id": "sDb6ROA0185exLKN",
+                    "name": "Telegram account"
+                }
+            },
+            "onError": "continueRegularOutput",
+            "webhookId": "b9b3f55e-0cf4-4696-ad2e-832eb77e8e70"
+        },
+        {
+            "id": "sticky-a08-doc",
+            "name": "Doc",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [
+                240,
+                80
+            ],
+            "parameters": {
+                "content": "## A08 - Notificador Expiracao Proposta de Reagendamento\n\nFase 5 do feature \"propor reagendamento via UI\":\n\n1. A cada 5min chama fn_expire_pending_confirmations() (substitui o pg_cron antigo)\n2. Para cada booking que vencido em 24h sem resposta: status vai pra cancelled (a fn faz isso)\n3. Workflow deleta Calendar event que ainda estava com [PROPOSTO]\n4. Notifica Telegram do tenant que a proposta expirou e slot foi liberado\n\nSubstitui o pg_cron job fn_expire_pending_confirmations (desativado).",
+                "height": 200,
+                "width": 600,
+                "color": 4
+            }
+        }
+    ],
+    "connections": {
+        "Cron 5min": {
+            "main": [
+                [
+                    {
+                        "node": "Expirar propostas vencidas",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Expirar propostas vencidas": {
+            "main": [
+                [
+                    {
+                        "node": "Formatar mensagens",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Formatar mensagens": {
+            "main": [
+                [
+                    {
+                        "node": "Deletar Calendar event expirado",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Notificar Telegram",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "America/Sao_Paulo"
+    },
+    "staticData": {
+        "node:Cron 5min": {
+            "recurrenceRules": []
+        }
+    },
+    "meta": null,
+    "pinData": null,
+    "versionId": "3c261a30-8fc6-4cb3-9581-b2cf28c3d162",
+    "activeVersionId": "3c261a30-8fc6-4cb3-9581-b2cf28c3d162",
+    "versionCounter": 5,
+    "triggerCount": 1,
+    "shared": [
+        {
+            "updatedAt": "2026-05-16T22:17:40.709Z",
+            "createdAt": "2026-05-16T22:17:40.709Z",
+            "role": "workflow:owner",
+            "workflowId": "7XDR8F1H0jlriyCm",
+            "projectId": "2cGyYwvKw4dDUUz9",
+            "project": {
+                "updatedAt": "2026-05-04T21:21:30.902Z",
+                "createdAt": "2026-05-04T21:15:25.493Z",
+                "id": "2cGyYwvKw4dDUUz9",
+                "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-05-16T22:17:40.709Z",
+        "createdAt": "2026-05-16T22:17:40.709Z",
+        "versionId": "3c261a30-8fc6-4cb3-9581-b2cf28c3d162",
+        "workflowId": "7XDR8F1H0jlriyCm",
+        "nodes": [
+            {
+                "id": "cron-a08",
+                "name": "Cron 5min",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    240,
+                    304
+                ],
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "field": "minutes",
+                                "minutesInterval": 5
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "id": "pg-expire-a08",
+                "name": "Expirar propostas vencidas",
+                "type": "n8n-nodes-base.postgres",
+                "typeVersion": 2.6,
+                "position": [
+                    464,
+                    304
+                ],
+                "parameters": {
+                    "operation": "executeQuery",
+                    "query": "SELECT e.booking_id, e.tenant_id, e.patient_phone, e.patient_name, e.proposed_slot_start, t.telegram_chat_id, t.clinic_name, tm.user_id AS proposer_user_id, td.calendar_id, b.original_calendar_event_id\nFROM public.fn_expire_pending_confirmations() e\nLEFT JOIN public.tenants t ON t.tenant_id = e.tenant_id\nLEFT JOIN public.tenant_members tm ON tm.id = e.proposed_by\nLEFT JOIN public.doctor_bookings b ON b.id = e.booking_id\nLEFT JOIN public.tenant_doctors td ON td.id = e.doctor_id",
+                    "options": {}
+                },
+                "credentials": {
+                    "postgres": {
+                        "id": "2MWvHIrEZHdAbAz1",
+                        "name": "Postgres account"
+                    }
+                }
+            },
+            {
+                "id": "code-format-a08",
+                "name": "Formatar mensagens",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    688,
+                    304
+                ],
+                "parameters": {
+                    "jsCode": "// Para cada booking expirado, monta payload para deletar Calendar + notificar Telegram.\nfunction utcToBRT(isoString) {\n  if (!isoString) return '';\n  try {\n    const dt = new Date(isoString);\n    if (isNaN(dt.getTime())) return isoString;\n    const brtTime = new Date(dt.getTime() - 3 * 60 * 60 * 1000);\n    const dias = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];\n    const dayName = dias[brtTime.getUTCDay()];\n    const dd = String(brtTime.getUTCDate()).padStart(2, '0');\n    const mm = String(brtTime.getUTCMonth() + 1).padStart(2, '0');\n    const hh = String(brtTime.getUTCHours()).padStart(2, '0');\n    const min = String(brtTime.getUTCMinutes()).padStart(2, '0');\n    const timeStr = min === '00' ? hh + 'h' : hh + 'h' + min;\n    return dayName + ', ' + dd + '/' + mm + ' as ' + timeStr;\n  } catch(e) { return isoString; }\n}\n\nconst out = [];\nfor (const item of $input.all()) {\n  const e = item.json;\n  if (!e.booking_id) continue;\n  const slotBrt = utcToBRT(e.proposed_slot_start);\n  out.push({\n    json: {\n      booking_id: e.booking_id,\n      tenant_id: e.tenant_id,\n      clinic_name: e.clinic_name,\n      patient_phone: e.patient_phone,\n      patient_name: e.patient_name,\n      telegram_chat_id: e.telegram_chat_id,\n      calendar_id: e.calendar_id,\n      calendar_event_id: e.original_calendar_event_id,\n      telegram_msg: '*Proposta de reagendamento expirou*\\n\\n' +\n        'Clinica: ' + (e.clinic_name || e.tenant_id) + '\\n' +\n        'Paciente: ' + (e.patient_name || e.patient_phone) + '\\n' +\n        'Horario proposto: ' + slotBrt + '\\n\\n' +\n        'Paciente nao respondeu em 24h. O slot foi liberado e a consulta foi cancelada. ' +\n        'Se quiser tentar de novo, abra a agenda e proponha um novo horario.',\n    },\n  });\n}\nreturn out;"
+                }
+            },
+            {
+                "id": "http-cal-delete-a08",
+                "name": "Deletar Calendar event expirado",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    912,
+                    176
+                ],
+                "parameters": {
+                    "method": "DELETE",
+                    "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($json.calendar_id) }}/events/{{ $json.calendar_event_id }}",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "googleCalendarOAuth2Api",
+                    "options": {}
+                },
+                "credentials": {
+                    "googleCalendarOAuth2Api": {
+                        "id": "OkOV7izIvJcvD3wl",
+                        "name": "Google Calendar account"
+                    }
+                },
+                "onError": "continueRegularOutput"
+            },
+            {
+                "id": "tg-notify-a08",
+                "name": "Notificar Telegram",
+                "type": "n8n-nodes-base.telegram",
+                "typeVersion": 1.2,
+                "position": [
+                    1136,
+                    304
+                ],
+                "parameters": {
+                    "resource": "message",
+                    "operation": "sendMessage",
+                    "chatId": "={{ $('Formatar mensagens').itemMatching($itemIndex).$json.telegram_chat_id }}",
+                    "text": "={{ $('Formatar mensagens').itemMatching($itemIndex).$json.telegram_msg }}",
+                    "additionalFields": {
+                        "parse_mode": "Markdown"
+                    }
+                },
+                "credentials": {
+                    "telegramApi": {
+                        "id": "sDb6ROA0185exLKN",
+                        "name": "Telegram account"
+                    }
+                },
+                "onError": "continueRegularOutput",
+                "webhookId": "b9b3f55e-0cf4-4696-ad2e-832eb77e8e70"
+            },
+            {
+                "id": "sticky-a08-doc",
+                "name": "Doc",
+                "type": "n8n-nodes-base.stickyNote",
+                "typeVersion": 1,
+                "position": [
+                    240,
+                    80
+                ],
+                "parameters": {
+                    "content": "## A08 - Notificador Expiracao Proposta de Reagendamento\n\nFase 5 do feature \"propor reagendamento via UI\":\n\n1. A cada 5min chama fn_expire_pending_confirmations() (substitui o pg_cron antigo)\n2. Para cada booking que vencido em 24h sem resposta: status vai pra cancelled (a fn faz isso)\n3. Workflow deleta Calendar event que ainda estava com [PROPOSTO]\n4. Notifica Telegram do tenant que a proposta expirou e slot foi liberado\n\nSubstitui o pg_cron job fn_expire_pending_confirmations (desativado).",
+                    "height": 200,
+                    "width": 600,
+                    "color": 4
+                }
+            }
+        ],
+        "connections": {
+            "Cron 5min": {
+                "main": [
+                    [
+                        {
+                            "node": "Expirar propostas vencidas",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Expirar propostas vencidas": {
+                "main": [
+                    [
+                        {
+                            "node": "Formatar mensagens",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Formatar mensagens": {
+                "main": [
+                    [
+                        {
+                            "node": "Deletar Calendar event expirado",
+                            "type": "main",
+                            "index": 0
+                        },
+                        {
+                            "node": "Notificar Telegram",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Luiz Flavio Sa",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-05-16T22:17:49.230Z",
+                "id": 354,
+                "workflowId": "7XDR8F1H0jlriyCm",
+                "versionId": "3c261a30-8fc6-4cb3-9581-b2cf28c3d162",
+                "event": "activated",
+                "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+            }
+        ]
+    }
+}

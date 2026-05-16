@@ -1,5 +1,5 @@
 {
-    "updatedAt": "2026-05-16T17:23:58.588Z",
+    "updatedAt": "2026-05-16T22:16:14.399Z",
     "createdAt": "2026-04-03T14:01:11.748Z",
     "id": "PkLnFYScOdCfqTQr",
     "name": "A04 \u2014 Monitor \u00b7 Reativa\u00e7\u00e3o do Bot \u00b7 v2.0",
@@ -58,6 +58,16 @@
                             "operator": {
                                 "type": "array",
                                 "operation": "contains",
+                                "rightType": "any"
+                            }
+                        },
+                        {
+                            "id": "skip-pending-reschedule",
+                            "leftValue": "={{ $json.body.labels ?? $json.body.meta?.labels ?? [] }}",
+                            "rightValue": "aguardando_reagendamento",
+                            "operator": {
+                                "type": "array",
+                                "operation": "notContains",
                                 "rightType": "any"
                             }
                         }
@@ -311,9 +321,9 @@
     "staticData": null,
     "meta": null,
     "pinData": {},
-    "versionId": "d196d435-93ab-4bf7-8b31-002f479ab793",
-    "activeVersionId": "d196d435-93ab-4bf7-8b31-002f479ab793",
-    "versionCounter": 19,
+    "versionId": "f0e00876-a22e-4f87-92a9-280281b4e982",
+    "activeVersionId": "f0e00876-a22e-4f87-92a9-280281b4e982",
+    "versionCounter": 22,
     "triggerCount": 1,
     "shared": [
         {
@@ -336,9 +346,9 @@
     ],
     "tags": [],
     "activeVersion": {
-        "updatedAt": "2026-05-16T17:23:58.589Z",
-        "createdAt": "2026-05-16T17:23:58.589Z",
-        "versionId": "d196d435-93ab-4bf7-8b31-002f479ab793",
+        "updatedAt": "2026-05-16T22:16:14.417Z",
+        "createdAt": "2026-05-16T22:16:14.417Z",
+        "versionId": "f0e00876-a22e-4f87-92a9-280281b4e982",
         "workflowId": "PkLnFYScOdCfqTQr",
         "nodes": [
             {
@@ -392,6 +402,16 @@
                                 "operator": {
                                     "type": "array",
                                     "operation": "contains",
+                                    "rightType": "any"
+                                }
+                            },
+                            {
+                                "id": "skip-pending-reschedule",
+                                "leftValue": "={{ $json.body.labels ?? $json.body.meta?.labels ?? [] }}",
+                                "rightValue": "aguardando_reagendamento",
+                                "operator": {
+                                    "type": "array",
+                                    "operation": "notContains",
                                     "rightType": "any"
                                 }
                             }
@@ -642,18 +662,18 @@
         "autosaved": false,
         "workflowPublishHistory": [
             {
-                "createdAt": "2026-05-16T17:23:58.659Z",
-                "id": 324,
+                "createdAt": "2026-05-16T22:16:14.491Z",
+                "id": 352,
                 "workflowId": "PkLnFYScOdCfqTQr",
-                "versionId": "d196d435-93ab-4bf7-8b31-002f479ab793",
+                "versionId": "f0e00876-a22e-4f87-92a9-280281b4e982",
                 "event": "deactivated",
                 "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
             },
             {
-                "createdAt": "2026-05-16T17:23:58.680Z",
-                "id": 325,
+                "createdAt": "2026-05-16T22:16:14.515Z",
+                "id": 353,
                 "workflowId": "PkLnFYScOdCfqTQr",
-                "versionId": "d196d435-93ab-4bf7-8b31-002f479ab793",
+                "versionId": "f0e00876-a22e-4f87-92a9-280281b4e982",
                 "event": "activated",
                 "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
             }
