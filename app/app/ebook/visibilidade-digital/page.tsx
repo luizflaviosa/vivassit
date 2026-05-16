@@ -23,45 +23,45 @@ const PILARES = [
     n: '01',
     nome: 'Google Meu Negócio',
     peso: 30,
-    desc: 'Onde 78% das buscas por clínica acontecem. Inclui Maps, Knowledge Panel e reviews.',
-    dor: 'O paciente abre o Maps, vê três clínicas próximas, escolhe uma. Se você não está ali, simplesmente não existe pra essa busca — não importa quanto você seja bom.',
-    resolve: 'Perfil completo, fotos boas, horário sempre atualizado, reviews recentes e respondidos colocam você no top 3 da sua região. É a vitrine que mais converte busca em agendamento real.',
+    desc: 'Onde a maior parte das buscas por clínica começa — no Maps, no Knowledge Panel, nas avaliações que aparecem antes de qualquer site.',
+    dor: 'É noite, alguém sente um aperto no peito e procura um cardiologista no celular. Surgem três clínicas próximas, com fotos cuidadas e horário aberto. A primeira é escolhida. Quem não estava ali sequer foi cogitado — competência alguma compensa ausência completa.',
+    resolve: 'Um perfil sob cuidado contínuo — fotos que mostram, horário que se cumpre, reviews que se respondem — vai, aos poucos, sendo recompensado pelo Google. Estar entre os três primeiros da sua região deixa de ser sorte; passa a ser consequência previsível.',
     metricas: ['Impressões em busca e mapa', 'Cliques de chamada', 'Pedidos de rota', 'Reviews e rating'],
   },
   {
     n: '02',
     nome: 'Doctoralia',
     peso: 15,
-    desc: 'Diretório de saúde mais relevante do Brasil. Marketplace ativo de busca por especialidade.',
-    dor: 'Quando o paciente já decidiu pela especialidade mas não sabe quem procurar, ele compara opções no Doctoralia como compara hotel no Booking. Sem perfil verificado, você fica fora da shortlist antes mesmo de competir.',
-    resolve: 'Perfil verificado, rating cuidado e agendamento online ativo capturam o lead exatamente no momento da decisão — sem precisar levar o paciente pra outro canal e perder ele no caminho.',
+    desc: 'O diretório de saúde mais relevante do país. Onde o paciente já decidiu a especialidade e está, agora, escolhendo o nome.',
+    dor: 'Há um instante entre saber do que se precisa e saber a quem entregar essa necessidade. Nesse intervalo, milhares de pacientes abrem o Doctoralia — comparam, como quem compara hotéis para uma viagem importante. Sem perfil verificado, você está fora da lista antes mesmo da disputa começar.',
+    resolve: 'Um perfil verificado, um rating que se zela e um botão de agendamento que de fato funciona: o paciente decide no instante em que está decidido, sem ser conduzido a outro lugar onde a dúvida possa, no caminho, voltar.',
     metricas: ['Presença e perfil verificado', 'Rating e reviews', 'Agendamento online ativo'],
   },
   {
     n: '03',
     nome: 'Redes sociais',
     peso: 20,
-    desc: 'Instagram e Facebook ativos. Não é vaidade — é prova social pré-consulta.',
-    dor: 'Um amigo te indicou. O paciente abre seu Instagram pra confirmar que você existe. Última publicação 8 meses atrás. A indicação evapora antes mesmo de virar primeira mensagem.',
-    resolve: 'Conteúdo recente (mesmo simples), link de agendamento na bio, depoimentos e respostas a dúvidas frequentes viram prova social que reduz a fricção entre a indicação que chega e a consulta marcada.',
+    desc: 'Instagram e Facebook como prova social — não como vaidade, mas como a superfície onde a confiança alheia precisa, em algum momento, se apoiar.',
+    dor: 'Uma indicação é dada num jantar. No dia seguinte, antes de ligar, a pessoa abre seu Instagram. O perfil está parado há oito meses. O elogio do amigo, que parecia sólido na hora, dissolve-se em uma dúvida — e a dúvida raramente sobrevive até o telefone.',
+    resolve: 'Publicações regulares, mesmo singelas, um link de agendamento à mão, depoimentos que se acumulam sem alarde. É sobre dar à indicação alheia uma superfície onde se apoiar — para que ela sobreviva o trajeto do jantar até a primeira consulta.',
     metricas: ['Seguidores e engajamento', 'Posts nos últimos 30 dias', 'Link de agendamento na bio'],
   },
   {
     n: '04',
     nome: 'SEO e site',
     peso: 20,
-    desc: 'Site rápido, mobile-first, com SSL. Ranking nas 10 primeiras posições orgânicas.',
-    dor: 'Site que demora 5 segundos pra abrir no celular, sem SSL, com layout quebrado, é dinheiro evaporando. Cada segundo de delay no carregamento derruba cerca de 7% das conversões — silenciosamente.',
-    resolve: 'Mobile-first, performance score acima de 80, SSL ativo e palavras-chave da sua especialidade bem trabalhadas colocam você nas 10 primeiras posições orgânicas. É um ativo digital que trabalha 24h sem custo marginal por paciente.',
+    desc: 'O ativo digital que trabalha em silêncio — rápido, móvel, seguro, com as palavras certas nas posições certas da busca orgânica.',
+    dor: 'Um site lento no celular não falha de maneira ruidosa. Falha em silêncio — o paciente fecha a aba antes mesmo de saber que fechou. Cada segundo a mais no carregamento devora cerca de 7% das conversões; o consultório não percebe, porque a hemorragia escorre num lugar invisível.',
+    resolve: 'Mobile-first, performance acima de oitenta, SSL ativo e as palavras da sua especialidade bem postas onde precisam estar: o site passa a trabalhar enquanto você dorme, sem cobrar mais por paciente atendido. É o único pilar que rende juros compostos.',
     metricas: ['Performance e mobile score', 'Posição em busca orgânica', 'SSL e domínio próprio'],
   },
   {
     n: '05',
     nome: 'Operacional',
     peso: 15,
-    desc: 'NPS, taxa de conversão e tempo de resposta. O marketing que continua depois do clique.',
-    dor: 'Você investiu R$ 2.000 em anúncio. 100 pessoas clicaram, 60 mandaram mensagem. Mas só 12 marcaram, porque a resposta demorou 4 horas. O marketing virou furo no balde — e nem percebeu.',
-    resolve: 'Resposta abaixo de 15 minutos, NPS acima de 70 e processo de confirmação claro fazem o paciente atraído virar agendamento real — e geram o boca-a-boca que sustenta o crescimento orgânico de longo prazo.',
+    desc: 'O marketing que começa depois do clique — NPS, tempo de resposta, taxa de confirmação. A parte que ninguém vê e que decide quase tudo.',
+    dor: 'Há clínicas que gastam dois mil reais para serem encontradas, e perdem quase tudo por demorar quatro horas para responder. O marketing entregou cem cliques; a operação entregou doze pacientes. A diferença entre os dois números é o que o consultório nunca soube que possuía.',
+    resolve: 'Responder em menos de quinze minutos, manter o NPS acima de setenta, ter um processo de confirmação simples — três disciplinas pequenas que transformam atenção em agenda preenchida. E mais: começam o boca-a-boca que, anos depois, dispensa anúncio.',
     metricas: ['NPS médio', 'Taxa de agendamento', 'Tempo médio de resposta', 'Recorrência'],
   },
 ];
@@ -70,37 +70,37 @@ const KPIS = [
   {
     n: '01',
     nome: 'Impressões no Google',
-    desc: 'Quantas vezes você apareceu para alguém pesquisando.',
+    desc: 'O número de vezes em que o seu nome se tornou, ainda que por um instante, uma possibilidade no celular de alguém.',
     exemplo: '4.812 impressões / mês',
   },
   {
     n: '02',
     nome: 'Cliques úteis',
-    desc: 'Ligações, rotas e cliques no site. O paciente saiu do Google indo na sua direção.',
+    desc: 'Quantos saíram do Google indo na sua direção — pedindo o telefone, traçando a rota, abrindo o site.',
     exemplo: '127 cliques úteis · +18% MoM',
   },
   {
     n: '03',
     nome: 'Brand search',
-    desc: 'Volume de buscas pelo seu nome. É o awareness real medido em pesquisa.',
+    desc: 'Quantos digitaram, no Google, exatamente o seu nome. É a métrica mais íntima da sua reputação.',
     exemplo: '210 buscas pelo nome / mês',
   },
   {
     n: '04',
     nome: 'Taxa de agendamento',
-    desc: 'De cada 100 que falaram com você, quantos efetivamente marcaram.',
-    exemplo: '47% booking rate',
+    desc: 'De cada cem que iniciaram uma conversa, quantos chegaram à agenda. Mede a operação tanto quanto mede o marketing.',
+    exemplo: '47% de conversão',
   },
   {
     n: '05',
     nome: 'NPS',
-    desc: 'Quantos te recomendariam. Métrica que prediz o orgânico de longo prazo.',
-    exemplo: 'NPS 72 — promotor',
+    desc: 'A medida da disposição alheia em recomendar você. Com o tempo, prediz o tamanho do seu orgânico.',
+    exemplo: 'NPS 72 · promotor',
   },
   {
     n: '06',
     nome: 'Score Singulare',
-    desc: 'Composto ponderado dos cinco pilares. Onde você está hoje, em uma só leitura.',
+    desc: 'A média ponderada dos cinco pilares condensada em um número. Onde você está hoje, sem necessidade de interpretação.',
     exemplo: '68 / 100 · classe B',
   },
 ];
@@ -233,8 +233,8 @@ export default function EbookVisibilidadeDigital() {
                 pra clínicas.
               </h1>
               <p className="text-[20px] leading-[1.5] text-zinc-600 max-w-[520px] mb-10">
-                Sem teoria genérica. Com dados reais. Em cinco páginas, o que decide se o
-                paciente te encontra — e o que vale a pena medir.
+                Cinco páginas sobre o caminho silencioso que conduz o paciente até a sua porta.
+                O que decide a escolha. E o que, com método e sem fé, se pode fazer a respeito.
               </p>
 
               <div className="flex items-center gap-6 text-[13px] text-zinc-500">
@@ -260,7 +260,7 @@ export default function EbookVisibilidadeDigital() {
                   Para
                 </p>
                 <p className="text-[14px] text-zinc-700 leading-relaxed max-w-[300px]">
-                  Donos e gestores de clínica que cansaram de marketing vago.
+                  Quem cuida de uma clínica e cansou de marketing vago.
                 </p>
               </div>
               <div className="text-right">
@@ -283,9 +283,11 @@ export default function EbookVisibilidadeDigital() {
             <span className="font-serif italic font-normal text-zinc-700">te encontra.</span>
           </h2>
           <p className="text-[16px] leading-[1.6] text-zinc-600 max-w-[640px] mb-10">
-            Visibilidade digital não é ter Instagram. É a soma do que aparece quando alguém procura
-            sua especialidade, sua cidade, ou o seu nome. Cada pilar pesa uma fatia da decisão. Quem
-            mede sabe onde está; quem não mede acha que está bem.
+            Visibilidade digital não é uma vitrine — é uma somatória, quase invisível ao olho de
+            quem está dentro do consultório, de tudo o que o mundo encontra quando procura por
+            aquilo que você faz. Cada pilar carrega seu peso na decisão silenciosa que o paciente
+            toma antes mesmo de fazer a primeira ligação. Quem mede sabe onde está. Quem não mede,
+            acredita.
           </p>
 
           <div className="space-y-3 mb-10">
@@ -353,8 +355,10 @@ export default function EbookVisibilidadeDigital() {
           >
             <p className="text-[15px] leading-[1.6]" style={{ color: ACCENT_DEEP }}>
               <span className="font-serif italic">Insight.</span>{' '}
-              <span className="font-medium">Score 65/100 não é nota da prova.</span> É o quanto da sua
-              presença digital está convertendo em paciente real. O resto é vaidade.
+              <span className="font-medium">Um score 65 sobre 100 não é nota de prova</span> — é a
+              fração da sua presença digital que efetivamente vira paciente. Tudo o que sobra
+              (seguidores que não comparecem, posts que ninguém clicou, indicações que não chegaram)
+              é vaidade vestida de métrica.
             </p>
           </div>
         </PageShell>
@@ -369,9 +373,12 @@ export default function EbookVisibilidadeDigital() {
             <span className="font-serif italic font-normal text-zinc-700">Pago colhe.</span>
           </h2>
           <p className="text-[16px] leading-[1.6] text-zinc-600 max-w-[640px] mb-10">
-            Todo paciente novo chegou por um dos dois caminhos. Confundir os dois custa caro: faz
-            você esperar resultado de pago no orgânico, e desistir do orgânico antes dele dar
-            retorno. A pergunta certa não é qual escolher — é qual proporção.
+            Todo paciente novo chegou por um de dois caminhos — e esses caminhos operam em ritmos
+            quase opostos. O orgânico é lento como árvore: leva estação inteira para frutificar,
+            mas, frutificando, alimenta por anos. O pago é veloz como fogo: aquece o ambiente no
+            instante em que se acende, e se extingue assim que falta combustível. Quem mistura os
+            dois sem compreender seus tempos espera frutos do fogo, ou calor da árvore, e desiste
+            antes da hora.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
@@ -392,8 +399,10 @@ export default function EbookVisibilidadeDigital() {
                 O paciente te encontra sozinho.
               </h3>
               <p className="text-[14px] text-zinc-600 leading-relaxed mb-5">
-                Google Meu Negócio, SEO, Doctoralia, Instagram com conteúdo. Você aparece porque
-                merece — não porque pagou para aparecer.
+                Você aparece, em silêncio, no caminho de quem te procurava sem saber seu nome.
+                Google Meu Negócio, SEO, Doctoralia, redes sociais com conteúdo: o paciente chega
+                até você porque o algoritmo, ao longo do tempo, concluiu que faz sentido. Você não
+                pagou a fila — esperou ser convocado.
               </p>
               <div className="space-y-2.5 text-[13px]">
                 <div className="flex items-start gap-2.5">
@@ -432,8 +441,10 @@ export default function EbookVisibilidadeDigital() {
                 Você compra a posição.
               </h3>
               <p className="text-[14px] text-zinc-600 leading-relaxed mb-5">
-                Google Ads, Instagram Ads, Meta Ads. Aparece porque pagou pelo lance — e o cliente
-                que clicou custou um valor mensurável.
+                Você abre uma janela de visibilidade pagando por ela. Google Ads, Instagram Ads,
+                Meta Ads: o lance é seu, a posição também, e cada clique tem um preço que se pode
+                anotar no caderno. É a forma mais honesta de saber, em reais, quanto custa um
+                paciente novo.
               </p>
               <div className="space-y-2.5 text-[13px]">
                 <div className="flex items-start gap-2.5">
@@ -497,8 +508,9 @@ export default function EbookVisibilidadeDigital() {
               </div>
             </div>
             <p className="text-[12px] text-zinc-400 mt-4 leading-relaxed">
-              O CPA vale a pena se a primeira consulta + recorrência paga isso e sobra. Sem medir
-              ticket médio e LTV, qualquer número parece caro.
+              Um CPA vale o que vale o paciente que ele compra. Sem saber o ticket médio nem o
+              quanto esse paciente voltará nos próximos anos, qualquer número parece caro — e
+              qualquer barato esconde um prejuízo lento.
             </p>
           </div>
         </PageShell>
@@ -509,13 +521,14 @@ export default function EbookVisibilidadeDigital() {
         <PageShell>
           <Eyebrow>03 · O que medir</Eyebrow>
           <h2 className="text-[40px] sm:text-[44px] leading-[1.05] tracking-[-0.025em] font-medium text-zinc-900 mb-6">
-            Seis números reduzem o caos a{' '}
+            Seis números bastam para virar o caos em{' '}
             <span className="font-serif italic font-normal text-zinc-700">estratégia.</span>
           </h2>
           <p className="text-[16px] leading-[1.6] text-zinc-600 max-w-[640px] mb-10">
-            Não precisa de dashboard com 40 métricas. Precisa de seis, atualizados, lidos toda
-            semana. Estes são os que o painel da Singulare calcula automaticamente — extraídos do
-            Google, Doctoralia, Instagram e da sua própria operação.
+            Painéis com quarenta métricas não dão clareza — dão sensação de controle. Bastam seis,
+            atualizados sem esforço, lidos com alguma regularidade. Estes seis a Singulare extrai
+            sozinha do Google, do Doctoralia, do Instagram e da sua própria operação, e os entrega
+            prontos a cada semana, como quem entrega um boletim simples sobre o estado da clínica.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
@@ -557,10 +570,10 @@ export default function EbookVisibilidadeDigital() {
             style={{ background: ACCENT_SOFT, borderColor: 'rgba(110,86,207,0.18)' }}
           >
             <p className="text-[15px] leading-[1.6]" style={{ color: ACCENT_DEEP }}>
-              <span className="font-serif italic">Sem medir é fé.</span>{' '}
-              <span className="font-medium">Com medir é estratégia.</span> A diferença entre clínica
-              que cresce e clínica que ocupa espaço é exatamente esses seis números — e a disciplina
-              de olhar pra eles toda semana.
+              <span className="font-serif italic">Sem medir, há apenas fé.</span>{' '}
+              <span className="font-medium">Com medir, começa a haver estratégia.</span> O que
+              separa a clínica que cresce da clínica que apenas ocupa um endereço é, quase sempre,
+              esses seis números — e a disciplina pequena, semanal, de voltar a eles.
             </p>
           </div>
         </PageShell>
@@ -572,12 +585,13 @@ export default function EbookVisibilidadeDigital() {
           <div className="flex flex-col h-full min-h-[calc(100vh-160px)]">
             <Eyebrow>Pra você</Eyebrow>
             <h2 className="text-[44px] sm:text-[52px] leading-[1.02] tracking-[-0.03em] font-medium text-zinc-900 mb-6">
-              O painel que vê tudo isso{' '}
+              O painel que enxerga isso{' '}
               <span className="font-serif italic font-normal text-zinc-700">por você.</span>
             </h2>
             <p className="text-[18px] leading-[1.55] text-zinc-600 max-w-[560px] mb-12">
-              Você já leu o que importa medir. Agora a parte difícil: fazer isso toda semana, sem
-              esquecer, sem precisar virar analista de dados. A Singulare faz por você.
+              Saber o que medir é a metade fácil. A metade difícil é fazer isso toda semana, sem
+              esquecer, sem precisar se tornar analista. A Singulare cuida da parte difícil — para
+              que sobre tempo de cuidar do paciente.
             </p>
 
             <div className="grid grid-cols-3 gap-4 mb-12">
@@ -595,7 +609,8 @@ export default function EbookVisibilidadeDigital() {
                   Conecta
                 </h3>
                 <p className="text-[13px] text-zinc-600 leading-relaxed">
-                  Google, Instagram, Doctoralia em 4 minutos via OAuth. Sem instalar nada.
+                  Google, Instagram e Doctoralia em quatro minutos, via OAuth. Nada para instalar,
+                  nada para configurar.
                 </p>
               </div>
 
@@ -613,7 +628,8 @@ export default function EbookVisibilidadeDigital() {
                   Mede
                 </h3>
                 <p className="text-[13px] text-zinc-600 leading-relaxed">
-                  17 métricas reais a cada 24h. Histórico, tendência e score 0–100.
+                  Dezessete métricas reais, atualizadas a cada vinte e quatro horas. Histórico,
+                  tendência e um score de zero a cem.
                 </p>
               </div>
 
@@ -631,8 +647,8 @@ export default function EbookVisibilidadeDigital() {
                   Aciona
                 </h3>
                 <p className="text-[13px] text-zinc-600 leading-relaxed">
-                  Alertas inteligentes quando há janela de oportunidade — gap de tema, CPC barato,
-                  reviews pra coletar.
+                  Avisa, em linguagem direta, quando se abre uma janela — uma lacuna de conteúdo,
+                  um leilão barato, pacientes prontos para deixar uma review.
                 </p>
               </div>
             </div>
@@ -660,11 +676,11 @@ export default function EbookVisibilidadeDigital() {
                 </p>
                 <h3 className="text-[28px] sm:text-[32px] leading-[1.1] tracking-[-0.02em] font-medium text-white mb-3">
                   Diagnóstico gratuito da sua clínica em{' '}
-                  <span className="font-serif italic font-normal text-zinc-300">4 minutos.</span>
+                  <span className="font-serif italic font-normal text-zinc-300">quatro minutos.</span>
                 </h3>
                 <p className="text-[14px] leading-relaxed text-zinc-400 mb-6 max-w-[480px]">
-                  Conecta seu Google Meu Negócio, recebe seu score, vê em quais pilares está bem e
-                  onde está sangrando. Sem cartão. Sem compromisso.
+                  Conecte seu Google Meu Negócio, receba seu score e descubra em quais pilares está
+                  saudável e onde está sangrando sem perceber. Sem cartão. Sem compromisso.
                 </p>
                 <div className="flex items-center gap-4 flex-wrap">
                   <div
