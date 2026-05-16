@@ -1,0 +1,566 @@
+{
+    "updatedAt": "2026-05-16T17:26:20.454Z",
+    "createdAt": "2026-05-16T17:25:13.798Z",
+    "id": "jlnSM704VWMhGtdU",
+    "name": "A07 \u2014 Reativador \u00b7 Timeout Agente-Off \u00b7 v1.0",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "id": "schedule-trigger-001",
+            "name": "Cron 30min",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1.2,
+            "position": [
+                240,
+                304
+            ],
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 30
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "id": "postgres-tenants-001",
+            "name": "Tenants Ativos",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.5,
+            "position": [
+                464,
+                304
+            ],
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "SELECT tenant_id, clinic_name, chatwoot_url, chatwoot_account_id, chatwoot_inbox_id, telegram_chat_id\nFROM tenants\nWHERE status = 'active'\n  AND tenant_id != 'admin-system'\n  AND chatwoot_url IS NOT NULL\n  AND chatwoot_account_id IS NOT NULL\nORDER BY tenant_id",
+                "options": {}
+            },
+            "credentials": {
+                "postgres": {
+                    "id": "2MWvHIrEZHdAbAz1",
+                    "name": "Postgres account"
+                }
+            }
+        },
+        {
+            "id": "http-list-off-001",
+            "name": "Listar conversas off",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                688,
+                304
+            ],
+            "parameters": {
+                "method": "GET",
+                "url": "={{ $json.chatwoot_url }}api/v1/accounts/{{ $json.chatwoot_account_id }}/conversations",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "chatwootApi",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "status",
+                            "value": "open"
+                        },
+                        {
+                            "name": "labels[]",
+                            "value": "agente-off"
+                        },
+                        {
+                            "name": "page",
+                            "value": "1"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "credentials": {
+                "chatwootApi": {
+                    "id": "6RGRnozwwfQx8hHl",
+                    "name": "ChatWoot account"
+                }
+            }
+        },
+        {
+            "id": "code-filter-001",
+            "name": "Filtrar > 6h",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                912,
+                304
+            ],
+            "parameters": {
+                "jsCode": "// Para cada item (1 por tenant), filtra conversas com agente-off cujo last_activity > 6h.\nconst SIX_HOURS_MS = 6 * 60 * 60 * 1000;\nconst now = Date.now();\nconst out = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const item = $input.all()[i];\n  const resp = item.json;\n  const conversations = resp?.data?.payload || resp?.payload || [];\n  // Pegar tenant data via paired item\n  const tenant = $('Tenants Ativos').itemMatching(i)?.json || {};\n  for (const conv of conversations) {\n    const labels = conv.labels || conv.meta?.labels || [];\n    if (!labels.includes('agente-off')) continue;\n    const lastTs = conv.last_activity_at || conv.timestamp || 0;\n    const ageMs = now - (lastTs * 1000);\n    if (ageMs < SIX_HOURS_MS) continue;\n    out.push({\n      json: {\n        conv_id: conv.id,\n        contact_name: conv.meta?.sender?.name || 'Paciente',\n        contact_phone: conv.meta?.sender?.phone_number || null,\n        labels_atuais: labels,\n        labels_novas: labels.filter(l => l !== 'agente-off'),\n        age_hours: Math.round(ageMs / 1000 / 60 / 60),\n        last_activity_at: lastTs,\n        tenant_id: tenant.tenant_id,\n        clinic_name: tenant.clinic_name,\n        chatwoot_url: tenant.chatwoot_url,\n        chatwoot_account_id: tenant.chatwoot_account_id,\n        telegram_chat_id: tenant.telegram_chat_id,\n      },\n    });\n  }\n}\n\nreturn out;"
+            }
+        },
+        {
+            "id": "http-remove-label-001",
+            "name": "Remover agente-off",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1136,
+                304
+            ],
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $json.chatwoot_url }}api/v1/accounts/{{ $json.chatwoot_account_id }}/conversations/{{ $json.conv_id }}/labels",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "chatwootApi",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "labels",
+                            "value": "={{ $json.labels_novas }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "credentials": {
+                "chatwootApi": {
+                    "id": "6RGRnozwwfQx8hHl",
+                    "name": "ChatWoot account"
+                }
+            },
+            "continueOnFail": true
+        },
+        {
+            "id": "code-aggregate-001",
+            "name": "Agregar por tenant",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1360,
+                304
+            ],
+            "parameters": {
+                "jsCode": "// Agrega por tenant e ja monta linha pronta pro Telegram (evita template literal no node Telegram).\nconst items = $input.all();\nconst byTenant = {};\nfor (let i = 0; i < items.length; i++) {\n  const src = $('Filtrar > 6h').itemMatching(i)?.json || items[i].json;\n  if (!src.telegram_chat_id) continue;\n  const key = src.tenant_id;\n  if (!byTenant[key]) {\n    byTenant[key] = {\n      tenant_id: src.tenant_id,\n      clinic_name: src.clinic_name,\n      telegram_chat_id: src.telegram_chat_id,\n      reactivated: [],\n      reactivated_lines: [],\n    };\n  }\n  byTenant[key].reactivated.push({\n    conv_id: src.conv_id,\n    contact_name: src.contact_name,\n    age_hours: src.age_hours,\n  });\n  byTenant[key].reactivated_lines.push('- #' + src.conv_id + ' ' + src.contact_name + ' (' + src.age_hours + 'h sem atividade)');\n}\nreturn Object.values(byTenant).map(v => ({\n  json: Object.assign({}, v, {\n    reactivated_count: v.reactivated.length,\n    reactivated_text: v.reactivated_lines.join('\\n'),\n  }),\n}));"
+            }
+        },
+        {
+            "id": "telegram-notify-001",
+            "name": "Notificar Telegram",
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                1584,
+                304
+            ],
+            "parameters": {
+                "resource": "message",
+                "operation": "sendMessage",
+                "chatId": "={{ $json.telegram_chat_id }}",
+                "text": "=Agente reativado por timeout 6h\n\nClinica: {{ $json.clinic_name }}\nConversas reativadas: {{ $json.reactivated_count }}\n\n{{ $json.reactivated_text }}",
+                "additionalFields": {}
+            },
+            "credentials": {
+                "telegramApi": {
+                    "id": "sDb6ROA0185exLKN",
+                    "name": "Telegram account"
+                }
+            },
+            "continueOnFail": true,
+            "webhookId": "c8586c0b-f515-4f84-8552-f0d5967e34b4"
+        },
+        {
+            "id": "sticky-a07-001",
+            "name": "Sticky Note Doc",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [
+                240,
+                128
+            ],
+            "parameters": {
+                "content": "## A07 - Reativador por Timeout Agente-Off\n\nA cada 30min, lista conversas com label agente-off em todos tenants ativos.\nPara cada conversa com last_activity_at > 6h, remove a label agente-off (paciente volta a ser atendido pelo bot na proxima mensagem).\n\nWHY: 100% das escalacoes hoje sao Modo A (profissional continua no WhatsApp), e nao havia trigger pra retirar a label apos resolucao. A04 so funciona pra Modo B (resolve via Chatwoot). A07 cobre o gap.\n\nDeixa o Modo B intacto: se A04 ja removeu a label, A07 simplesmente nao vai achar a conversa.",
+                "height": 200,
+                "width": 600,
+                "color": 4
+            }
+        }
+    ],
+    "connections": {
+        "Cron 30min": {
+            "main": [
+                [
+                    {
+                        "node": "Tenants Ativos",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tenants Ativos": {
+            "main": [
+                [
+                    {
+                        "node": "Listar conversas off",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Listar conversas off": {
+            "main": [
+                [
+                    {
+                        "node": "Filtrar > 6h",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filtrar > 6h": {
+            "main": [
+                [
+                    {
+                        "node": "Remover agente-off",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Remover agente-off": {
+            "main": [
+                [
+                    {
+                        "node": "Agregar por tenant",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Agregar por tenant": {
+            "main": [
+                [
+                    {
+                        "node": "Notificar Telegram",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "America/Sao_Paulo"
+    },
+    "staticData": {
+        "node:Cron 30min": {
+            "recurrenceRules": []
+        }
+    },
+    "meta": null,
+    "pinData": null,
+    "versionId": "7c61c26c-b06e-4165-94ce-e82843ac6b4f",
+    "activeVersionId": "7c61c26c-b06e-4165-94ce-e82843ac6b4f",
+    "versionCounter": 6,
+    "triggerCount": 1,
+    "shared": [
+        {
+            "updatedAt": "2026-05-16T17:25:13.798Z",
+            "createdAt": "2026-05-16T17:25:13.798Z",
+            "role": "workflow:owner",
+            "workflowId": "jlnSM704VWMhGtdU",
+            "projectId": "2cGyYwvKw4dDUUz9",
+            "project": {
+                "updatedAt": "2026-05-04T21:21:30.902Z",
+                "createdAt": "2026-05-04T21:15:25.493Z",
+                "id": "2cGyYwvKw4dDUUz9",
+                "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-05-16T17:25:54.613Z",
+        "createdAt": "2026-05-16T17:25:54.613Z",
+        "versionId": "7c61c26c-b06e-4165-94ce-e82843ac6b4f",
+        "workflowId": "jlnSM704VWMhGtdU",
+        "nodes": [
+            {
+                "id": "schedule-trigger-001",
+                "name": "Cron 30min",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1.2,
+                "position": [
+                    240,
+                    304
+                ],
+                "parameters": {
+                    "rule": {
+                        "interval": [
+                            {
+                                "field": "minutes",
+                                "minutesInterval": 30
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "id": "postgres-tenants-001",
+                "name": "Tenants Ativos",
+                "type": "n8n-nodes-base.postgres",
+                "typeVersion": 2.5,
+                "position": [
+                    464,
+                    304
+                ],
+                "parameters": {
+                    "operation": "executeQuery",
+                    "query": "SELECT tenant_id, clinic_name, chatwoot_url, chatwoot_account_id, chatwoot_inbox_id, telegram_chat_id\nFROM tenants\nWHERE status = 'active'\n  AND tenant_id != 'admin-system'\n  AND chatwoot_url IS NOT NULL\n  AND chatwoot_account_id IS NOT NULL\nORDER BY tenant_id",
+                    "options": {}
+                },
+                "credentials": {
+                    "postgres": {
+                        "id": "2MWvHIrEZHdAbAz1",
+                        "name": "Postgres account"
+                    }
+                }
+            },
+            {
+                "id": "http-list-off-001",
+                "name": "Listar conversas off",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    688,
+                    304
+                ],
+                "parameters": {
+                    "method": "GET",
+                    "url": "={{ $json.chatwoot_url }}api/v1/accounts/{{ $json.chatwoot_account_id }}/conversations",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "chatwootApi",
+                    "sendQuery": true,
+                    "queryParameters": {
+                        "parameters": [
+                            {
+                                "name": "status",
+                                "value": "open"
+                            },
+                            {
+                                "name": "labels[]",
+                                "value": "agente-off"
+                            },
+                            {
+                                "name": "page",
+                                "value": "1"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "credentials": {
+                    "chatwootApi": {
+                        "id": "6RGRnozwwfQx8hHl",
+                        "name": "ChatWoot account"
+                    }
+                }
+            },
+            {
+                "id": "code-filter-001",
+                "name": "Filtrar > 6h",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    912,
+                    304
+                ],
+                "parameters": {
+                    "jsCode": "// Para cada item (1 por tenant), filtra conversas com agente-off cujo last_activity > 6h.\nconst SIX_HOURS_MS = 6 * 60 * 60 * 1000;\nconst now = Date.now();\nconst out = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const item = $input.all()[i];\n  const resp = item.json;\n  const conversations = resp?.data?.payload || resp?.payload || [];\n  // Pegar tenant data via paired item\n  const tenant = $('Tenants Ativos').itemMatching(i)?.json || {};\n  for (const conv of conversations) {\n    const labels = conv.labels || conv.meta?.labels || [];\n    if (!labels.includes('agente-off')) continue;\n    const lastTs = conv.last_activity_at || conv.timestamp || 0;\n    const ageMs = now - (lastTs * 1000);\n    if (ageMs < SIX_HOURS_MS) continue;\n    out.push({\n      json: {\n        conv_id: conv.id,\n        contact_name: conv.meta?.sender?.name || 'Paciente',\n        contact_phone: conv.meta?.sender?.phone_number || null,\n        labels_atuais: labels,\n        labels_novas: labels.filter(l => l !== 'agente-off'),\n        age_hours: Math.round(ageMs / 1000 / 60 / 60),\n        last_activity_at: lastTs,\n        tenant_id: tenant.tenant_id,\n        clinic_name: tenant.clinic_name,\n        chatwoot_url: tenant.chatwoot_url,\n        chatwoot_account_id: tenant.chatwoot_account_id,\n        telegram_chat_id: tenant.telegram_chat_id,\n      },\n    });\n  }\n}\n\nreturn out;"
+                }
+            },
+            {
+                "id": "http-remove-label-001",
+                "name": "Remover agente-off",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    1136,
+                    304
+                ],
+                "parameters": {
+                    "method": "POST",
+                    "url": "={{ $json.chatwoot_url }}api/v1/accounts/{{ $json.chatwoot_account_id }}/conversations/{{ $json.conv_id }}/labels",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "chatwootApi",
+                    "sendBody": true,
+                    "bodyParameters": {
+                        "parameters": [
+                            {
+                                "name": "labels",
+                                "value": "={{ $json.labels_novas }}"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "credentials": {
+                    "chatwootApi": {
+                        "id": "6RGRnozwwfQx8hHl",
+                        "name": "ChatWoot account"
+                    }
+                },
+                "continueOnFail": true
+            },
+            {
+                "id": "code-aggregate-001",
+                "name": "Agregar por tenant",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1360,
+                    304
+                ],
+                "parameters": {
+                    "jsCode": "// Agrega por tenant e ja monta linha pronta pro Telegram (evita template literal no node Telegram).\nconst items = $input.all();\nconst byTenant = {};\nfor (let i = 0; i < items.length; i++) {\n  const src = $('Filtrar > 6h').itemMatching(i)?.json || items[i].json;\n  if (!src.telegram_chat_id) continue;\n  const key = src.tenant_id;\n  if (!byTenant[key]) {\n    byTenant[key] = {\n      tenant_id: src.tenant_id,\n      clinic_name: src.clinic_name,\n      telegram_chat_id: src.telegram_chat_id,\n      reactivated: [],\n      reactivated_lines: [],\n    };\n  }\n  byTenant[key].reactivated.push({\n    conv_id: src.conv_id,\n    contact_name: src.contact_name,\n    age_hours: src.age_hours,\n  });\n  byTenant[key].reactivated_lines.push('- #' + src.conv_id + ' ' + src.contact_name + ' (' + src.age_hours + 'h sem atividade)');\n}\nreturn Object.values(byTenant).map(v => ({\n  json: Object.assign({}, v, {\n    reactivated_count: v.reactivated.length,\n    reactivated_text: v.reactivated_lines.join('\\n'),\n  }),\n}));"
+                }
+            },
+            {
+                "id": "telegram-notify-001",
+                "name": "Notificar Telegram",
+                "type": "n8n-nodes-base.telegram",
+                "typeVersion": 1.2,
+                "position": [
+                    1584,
+                    304
+                ],
+                "parameters": {
+                    "resource": "message",
+                    "operation": "sendMessage",
+                    "chatId": "={{ $json.telegram_chat_id }}",
+                    "text": "=Agente reativado por timeout 6h\n\nClinica: {{ $json.clinic_name }}\nConversas reativadas: {{ $json.reactivated_count }}\n\n{{ $json.reactivated_text }}",
+                    "additionalFields": {}
+                },
+                "credentials": {
+                    "telegramApi": {
+                        "id": "sDb6ROA0185exLKN",
+                        "name": "Telegram account"
+                    }
+                },
+                "continueOnFail": true,
+                "webhookId": "c8586c0b-f515-4f84-8552-f0d5967e34b4"
+            },
+            {
+                "id": "sticky-a07-001",
+                "name": "Sticky Note Doc",
+                "type": "n8n-nodes-base.stickyNote",
+                "typeVersion": 1,
+                "position": [
+                    240,
+                    128
+                ],
+                "parameters": {
+                    "content": "## A07 - Reativador por Timeout Agente-Off\n\nA cada 30min, lista conversas com label agente-off em todos tenants ativos.\nPara cada conversa com last_activity_at > 6h, remove a label agente-off (paciente volta a ser atendido pelo bot na proxima mensagem).\n\nWHY: 100% das escalacoes hoje sao Modo A (profissional continua no WhatsApp), e nao havia trigger pra retirar a label apos resolucao. A04 so funciona pra Modo B (resolve via Chatwoot). A07 cobre o gap.\n\nDeixa o Modo B intacto: se A04 ja removeu a label, A07 simplesmente nao vai achar a conversa.",
+                    "height": 200,
+                    "width": 600,
+                    "color": 4
+                }
+            }
+        ],
+        "connections": {
+            "Cron 30min": {
+                "main": [
+                    [
+                        {
+                            "node": "Tenants Ativos",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Tenants Ativos": {
+                "main": [
+                    [
+                        {
+                            "node": "Listar conversas off",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Listar conversas off": {
+                "main": [
+                    [
+                        {
+                            "node": "Filtrar > 6h",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Filtrar > 6h": {
+                "main": [
+                    [
+                        {
+                            "node": "Remover agente-off",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Remover agente-off": {
+                "main": [
+                    [
+                        {
+                            "node": "Agregar por tenant",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Agregar por tenant": {
+                "main": [
+                    [
+                        {
+                            "node": "Notificar Telegram",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Luiz Flavio Sa",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-05-16T17:26:21.122Z",
+                "id": 326,
+                "workflowId": "jlnSM704VWMhGtdU",
+                "versionId": "7c61c26c-b06e-4165-94ce-e82843ac6b4f",
+                "event": "activated",
+                "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+            }
+        ]
+    }
+}
