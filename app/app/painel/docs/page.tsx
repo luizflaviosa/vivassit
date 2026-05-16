@@ -12,7 +12,7 @@ import {
 import { useMe } from '@/lib/painel-context';
 import { DOC_TYPES, DOC_STATUSES, type DocStatus, type DocTypeKey, type MedicalDocument } from '@/lib/docs-types';
 
-const ACCENT_DEEP = '#5746AF';
+const ACCENT_DEEP = '#0F1B33';
 
 type DocWithPatient = MedicalDocument & { patient_name: string };
 
@@ -157,7 +157,7 @@ function DocsInner() {
               <Link
                 key={d.id}
                 href={`/painel/docs/${d.id}`}
-                className="w-full text-left px-5 py-4 grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 items-center hover:bg-violet-50/30 transition-colors group block"
+                className="w-full text-left px-5 py-4 grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 items-center hover:bg-slate-50/30 transition-colors group block"
               >
                 <div className="col-span-3 min-w-0">
                   <p className="text-[14px] font-semibold text-zinc-900 truncate">
@@ -177,7 +177,7 @@ function DocsInner() {
                   {fmtDate(d.created_at)}
                 </div>
                 <div className="col-span-2 text-right hidden sm:flex items-center justify-end">
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-violet-500 transition-colors" />
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-slate-500 transition-colors" />
                 </div>
               </Link>
             ))}

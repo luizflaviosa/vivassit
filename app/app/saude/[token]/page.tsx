@@ -4,8 +4,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { HeartPulse, Activity, Droplet, Scale, Thermometer, Wind, Loader2, CheckCircle2 } from 'lucide-react';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 
 interface ObsRow {
   id: number;

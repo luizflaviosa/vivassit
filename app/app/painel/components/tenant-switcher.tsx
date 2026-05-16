@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronsUpDown, Check, Loader2, Building2 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 
-const ACCENT_DEEP = '#5746AF';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 interface TenantOption {
@@ -129,7 +129,7 @@ export default function TenantSwitcher() {
                       onClick={() => handleSwitch(t.tenant_id)}
                       disabled={!!switching}
                       className={`w-full text-left flex items-center gap-3 px-3 py-2.5 transition-colors ${
-                        active ? 'bg-violet-50/40' : 'hover:bg-zinc-50'
+                        active ? 'bg-slate-50/40' : 'hover:bg-zinc-50'
                       }`}
                     >
                       <div

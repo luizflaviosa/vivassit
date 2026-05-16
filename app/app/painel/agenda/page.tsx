@@ -38,8 +38,8 @@ import { ptBR } from 'date-fns/locale';
 
 import './calendar.css';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 interface AgendaEvent {
@@ -581,7 +581,7 @@ function AgendaInner() {
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl p-5 sm:p-6 border border-violet-200/60 bg-gradient-to-br from-violet-50/80 to-white"
+          className="rounded-2xl p-5 sm:p-6 border border-slate-200/60 bg-gradient-to-br from-slate-50/80 to-white"
         >
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
@@ -609,7 +609,7 @@ function AgendaInner() {
                 {todayEvents.slice(0, 4).map((ev) => (
                   <span
                     key={ev.id}
-                    className="text-[11px] font-medium px-2 py-1 rounded-md bg-white border border-violet-200/70 text-zinc-700"
+                    className="text-[11px] font-medium px-2 py-1 rounded-md bg-white border border-slate-200/70 text-zinc-700"
                   >
                     {!ev.allDay ? fmtTime(ev.start) + ' · ' : ''}
                     {ev.title.slice(0, 28)}
@@ -641,7 +641,7 @@ function AgendaInner() {
               disabled={!d.has_calendar}
               className={`h-8 px-3 text-[12.5px] font-semibold rounded-md transition-all ${
                 activeDoctor === d.id
-                  ? 'bg-violet-100 text-violet-900'
+                  ? 'bg-slate-100 text-slate-900'
                   : d.has_calendar
                     ? 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
                     : 'text-zinc-300 cursor-not-allowed'
@@ -882,7 +882,7 @@ function AgendaInner() {
                     value={createForm.title}
                     onChange={(e) => setCreateForm((f) => ({ ...f, title: e.target.value }))}
                     placeholder="Bloqueio almoço, Consulta João, Folga..."
-                    className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                    className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-500/20"
                   />
                 </div>
 
@@ -898,7 +898,7 @@ function AgendaInner() {
                         c ? { ...c, start: fromLocalInputValue(e.target.value) } : c,
                       )
                     }
-                    className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                    className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-500/20"
                   />
                 </div>
                 <div>
@@ -913,7 +913,7 @@ function AgendaInner() {
                         c ? { ...c, end: fromLocalInputValue(e.target.value) } : c,
                       )
                     }
-                    className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                    className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-500/20"
                   />
                 </div>
 
@@ -927,7 +927,7 @@ function AgendaInner() {
                       setCreateForm((f) => ({ ...f, description: e.target.value }))
                     }
                     rows={3}
-                    className="w-full px-3 py-2.5 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 resize-none"
+                    className="w-full px-3 py-2.5 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-500/20 resize-none"
                   />
                 </div>
 
@@ -940,7 +940,7 @@ function AgendaInner() {
                     value={createForm.location}
                     onChange={(e) => setCreateForm((f) => ({ ...f, location: e.target.value }))}
                     placeholder="Sala 1, online, endereço..."
-                    className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                    className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-500/20"
                   />
                 </div>
               </div>
@@ -1130,7 +1130,7 @@ function AgendaInner() {
                           onChange={(e) =>
                             setEditForm((f) => (f ? { ...f, title: e.target.value } : f))
                           }
-                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-500/20"
                         />
                       </div>
 
@@ -1146,7 +1146,7 @@ function AgendaInner() {
                               f ? { ...f, start: fromLocalInputValue(e.target.value) } : f,
                             )
                           }
-                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-500/20"
                         />
                       </div>
                       <div>
@@ -1161,7 +1161,7 @@ function AgendaInner() {
                               f ? { ...f, end: fromLocalInputValue(e.target.value) } : f,
                             )
                           }
-                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-500/20"
                         />
                       </div>
 
@@ -1175,7 +1175,7 @@ function AgendaInner() {
                             setEditForm((f) => (f ? { ...f, description: e.target.value } : f))
                           }
                           rows={3}
-                          className="w-full px-3 py-2.5 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 resize-none"
+                          className="w-full px-3 py-2.5 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-500/20 resize-none"
                         />
                       </div>
 
@@ -1189,7 +1189,7 @@ function AgendaInner() {
                           onChange={(e) =>
                             setEditForm((f) => (f ? { ...f, location: e.target.value } : f))
                           }
-                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-500/20"
                         />
                       </div>
                     </div>

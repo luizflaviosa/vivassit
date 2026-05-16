@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft, X, Sparkles } from 'lucide-react';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 const STORAGE_KEY = 'singulare_tour_done_v1';

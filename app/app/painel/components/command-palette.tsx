@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
-const ACCENT_DEEP = '#5746AF';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 interface CmdItem {
@@ -208,7 +208,7 @@ export default function CommandPalette() {
                           onMouseEnter={() => setActiveIdx(idx)}
                           onClick={() => { it.onSelect(); setOpen(false); }}
                           className={`w-full text-left flex items-center gap-3 px-4 py-2.5 transition-colors ${
-                            active ? 'bg-violet-50' : 'hover:bg-zinc-50'
+                            active ? 'bg-slate-50' : 'hover:bg-zinc-50'
                           }`}
                           style={active ? { color: ACCENT_DEEP } : undefined}
                         >

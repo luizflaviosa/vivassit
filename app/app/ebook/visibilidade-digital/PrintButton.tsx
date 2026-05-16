@@ -1,7 +1,7 @@
 'use client';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 
 export function PrintButton() {
   return (

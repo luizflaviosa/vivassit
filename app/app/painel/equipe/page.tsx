@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { UserPlus, X, Crown, Users, Mail, Loader2, Trash2, Check, Clock } from 'lucide-react';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 interface Member {

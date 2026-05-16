@@ -156,13 +156,13 @@ export default async function CitySpecialtyPage({ params }: Props) {
             <Link
               key={p.slug}
               href={`/p/${p.slug}`}
-              className="block bg-white rounded-2xl border border-black/[0.06] p-6 hover:border-[#6E56CF]/20 transition-colors"
+              className="block bg-white rounded-2xl border border-black/[0.06] p-6 hover:border-[#0F1B33]/20 transition-colors"
             >
               <div className="flex items-center gap-4">
                 {p.photo_url ? (
                   <img src={p.photo_url} alt={`Foto de ${p.display_name}, ${p.specialty}`} className="w-14 h-14 rounded-xl object-cover" />
                 ) : (
-                  <div className="w-14 h-14 rounded-xl bg-[#F5F3FF] flex items-center justify-center text-xl font-medium text-[#6E56CF]" aria-hidden="true">
+                  <div className="w-14 h-14 rounded-xl bg-[#F5F3FF] flex items-center justify-center text-xl font-medium text-[#0F1B33]" aria-hidden="true">
                     {p.display_name.charAt(0)}
                   </div>
                 )}
@@ -187,7 +187,7 @@ export default async function CitySpecialtyPage({ params }: Props) {
           {profiles.length === 0 && (
             <div className="text-center py-16 text-zinc-400">
               Nenhum {specLower} cadastrado em {city} ainda. Seja o primeiro:{' '}
-              <Link href="/onboarding" className="text-violet-700 hover:underline">
+              <Link href="/onboarding" className="text-slate-700 hover:underline">
                 cadastre seu consultório
               </Link>.
             </div>

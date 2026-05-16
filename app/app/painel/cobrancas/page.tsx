@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { Loader2, CreditCard, ExternalLink, Filter } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 
-const ACCENT_DEEP = '#5746AF';
+const ACCENT_DEEP = '#0F1B33';
 
 interface Payment {
   id: number;
@@ -110,13 +110,13 @@ function CobrancasInner() {
             </div>
             <div
               className="rounded-xl p-4 sm:p-5 text-white"
-              style={{ background: `linear-gradient(135deg, #6E56CF, ${ACCENT_DEEP})` }}
+              style={{ background: `linear-gradient(135deg, #0F1B33, ${ACCENT_DEEP})` }}
             >
-              <div className="text-[12px] text-violet-100 mb-1">Você recebe</div>
+              <div className="text-[12px] text-slate-100 mb-1">Você recebe</div>
               <div className="text-[24px] font-medium tracking-[-0.02em] leading-none">
                 {fmtBRL(summary.received_net)}
               </div>
-              <div className="text-[12px] text-violet-200 mt-1">cai direto na sua conta</div>
+              <div className="text-[12px] text-slate-200 mt-1">cai direto na sua conta</div>
             </div>
           </div>
           {summary.received > 0 && (

@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
           link: `https://calendar.google.com/calendar/event?eid=${ev.event_id}`,
           meet_link: null,
           color_id: null,
-          color_hex: booking ? '#5746AF' /* roxo Singulare pra consultas */ : null,
+          color_hex: booking ? '#0F1B33' /* roxo Singulare pra consultas */ : null,
           // Extras: úteis pro UI distinguir consulta vs bloco
           booking_id: ev.booking_id,
           patient_phone: booking?.patient_phone ?? null,

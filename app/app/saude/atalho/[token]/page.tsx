@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { HeartPulse, Copy, Check, Loader2, ChevronRight, Smartphone } from 'lucide-react';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 
 interface PageState {
   loading: boolean;
@@ -99,7 +99,7 @@ export default function AtalhoIosPage() {
           <p className="text-[15px] text-zinc-600 leading-relaxed">
             Voce vai criar um <strong>Atalho no iPhone</strong> que envia automaticamente seus dados de saude pra clinica todo dia, sem precisar abrir nenhum app. Funciona com o app <strong>Atalhos</strong> que ja vem instalado no seu iPhone.
           </p>
-          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-100 text-violet-800">
+          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-800">
             <Smartphone className="w-3.5 h-3.5" />
             <span className="text-[12px] font-medium">Voce precisa de um iPhone com iOS 14 ou superior</span>
           </div>
@@ -189,12 +189,12 @@ export default function AtalhoIosPage() {
           </Step>
         </ol>
 
-        <div className="mt-10 p-5 rounded-2xl bg-violet-50 border border-violet-100">
-          <h3 className="text-[14px] font-semibold text-violet-900 mb-2">Como saber se ta funcionando?</h3>
-          <p className="text-[13px] text-violet-800 leading-relaxed">
+        <div className="mt-10 p-5 rounded-2xl bg-slate-50 border border-slate-100">
+          <h3 className="text-[14px] font-semibold text-slate-900 mb-2">Como saber se ta funcionando?</h3>
+          <p className="text-[13px] text-slate-800 leading-relaxed">
             Toque uma vez no atalho <strong>Singulare Saude</strong> manualmente no app Atalhos. Se nao deu erro, ta tudo certo — sua clinica ja viu os dados no painel dela.
           </p>
-          <p className="text-[12px] text-violet-700 mt-3">
+          <p className="text-[12px] text-slate-700 mt-3">
             Voce pode editar o atalho depois pra incluir pressao, sono, SpO2 e outros — me peca instrucoes se quiser adicionar mais.
           </p>
         </div>

@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { Loader2, MessageCircle, Bot, User } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 
-const ACCENT_DEEP = '#5746AF';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 interface MessageRow {

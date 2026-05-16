@@ -167,7 +167,7 @@ export default function PrivacidadeSaudePage() {
             Voce tambem pode contatar diretamente a clinica que enviou o link/app para voce - ela e a controladora dos seus dados clinicos e o Singulare atua como operador (LGPD art. 5, VI e VII).
           </p>
           <p>
-            Autoridade Nacional de Protecao de Dados (ANPD): <a className="text-violet-700 underline" href="https://www.gov.br/anpd" rel="noopener noreferrer" target="_blank">gov.br/anpd</a>
+            Autoridade Nacional de Protecao de Dados (ANPD): <a className="text-slate-700 underline" href="https://www.gov.br/anpd" rel="noopener noreferrer" target="_blank">gov.br/anpd</a>
           </p>
         </Section>
 

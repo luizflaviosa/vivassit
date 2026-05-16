@@ -81,7 +81,7 @@ export default async function VitrineProfilePage({ params }: Props) {
                 className="w-24 h-24 rounded-2xl object-cover"
               />
             ) : (
-              <div className="w-24 h-24 rounded-2xl bg-[#F5F3FF] flex items-center justify-center text-3xl font-medium text-[#6E56CF]">
+              <div className="w-24 h-24 rounded-2xl bg-[#F5F3FF] flex items-center justify-center text-3xl font-medium text-[#0F1B33]">
                 {profile.display_name.charAt(0)}
               </div>
             )}
@@ -125,7 +125,7 @@ export default async function VitrineProfilePage({ params }: Props) {
             target="_blank"
             rel="noopener noreferrer"
             className="block w-full text-center py-4 px-6 rounded-2xl text-white font-medium text-base"
-            style={{ background: '#6E56CF' }}
+            style={{ background: '#0F1B33' }}
           >
             Agendar via WhatsApp
           </a>

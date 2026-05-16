@@ -27,8 +27,8 @@ export const metadata = {
 // Design tokens — consistent with onboarding/page.tsx
 // ──────────────────────────────────────────────────────────────────────────────
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 const SUPPORT_WHATSAPP_DISPLAY = '(11) 98939-0155';

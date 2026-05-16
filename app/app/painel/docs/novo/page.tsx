@@ -20,7 +20,7 @@ import {
   type AptidaoFisicaForm,
 } from '@/lib/docs-types';
 
-const ACCENT_DEEP = '#5746AF';
+const ACCENT_DEEP = '#0F1B33';
 
 interface PatientLite {
   id: number;
@@ -181,13 +181,13 @@ export default function NovoDocPage() {
                 key={key}
                 type="button"
                 onClick={() => { setDocType(key); setStep(2); }}
-                className="w-full text-left px-5 py-4 rounded-xl border border-black/[0.07] bg-white hover:border-violet-300 hover:bg-violet-50/30 transition-all flex items-center justify-between group"
+                className="w-full text-left px-5 py-4 rounded-xl border border-black/[0.07] bg-white hover:border-slate-300 hover:bg-slate-50/30 transition-all flex items-center justify-between group"
               >
                 <div className="flex items-center gap-3">
-                  <FileText className="w-5 h-5 text-zinc-400 group-hover:text-violet-500" />
+                  <FileText className="w-5 h-5 text-zinc-400 group-hover:text-slate-500" />
                   <span className="text-[15px] font-medium text-zinc-900">{DOC_TYPES[key]}</span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-violet-500" />
+                <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-slate-500" />
               </button>
             ))}
             {/* Disabled types */}
@@ -231,7 +231,7 @@ export default function NovoDocPage() {
                 key={p.id}
                 type="button"
                 onClick={() => { setSelectedPatient(p); setStep(3); }}
-                className="w-full text-left px-4 py-3 hover:bg-violet-50/30 transition-colors border-b border-black/[0.05] last:border-b-0 flex items-center justify-between"
+                className="w-full text-left px-4 py-3 hover:bg-slate-50/30 transition-colors border-b border-black/[0.05] last:border-b-0 flex items-center justify-between"
               >
                 <div>
                   <p className="text-[14px] font-semibold text-zinc-900">{p.name ?? 'Sem nome'}</p>
@@ -291,7 +291,7 @@ export default function NovoDocPage() {
                   onClick={() => setActivityType(a)}
                   className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-all ${
                     activityType === a
-                      ? 'bg-violet-100 text-violet-800 border border-violet-300'
+                      ? 'bg-slate-100 text-slate-800 border border-slate-300'
                       : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
                   }`}
                 >
@@ -312,7 +312,7 @@ export default function NovoDocPage() {
                   onClick={() => setResult(r.value as FitnessResult)}
                   className={`flex-1 px-4 py-3 rounded-lg text-[13px] font-medium transition-all text-center ${
                     result === r.value
-                      ? 'bg-violet-100 text-violet-800 border border-violet-300'
+                      ? 'bg-slate-100 text-slate-800 border border-slate-300'
                       : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
                   }`}
                 >

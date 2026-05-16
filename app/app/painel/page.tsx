@@ -22,7 +22,7 @@ import SetupChecklist from './components/setup-checklist';
 import AssistantCTA from './components/assistant-cta';
 import PushCard from './components/push-card';
 
-const ACCENT_DEEP = '#5746AF';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 // Extrai nome de saudação preservando título profissional (Dr./Dra.) + 1º nome.
@@ -414,7 +414,7 @@ function Sparkbar({ series }: { series: { date: string; count: number }[] }) {
             className="flex-1 rounded-t-sm relative group"
             style={{
               height: `${Math.max(h, 4)}%`,
-              background: isCurrent ? '#6E56CF' : '#E4E4E7',
+              background: isCurrent ? '#0F1B33' : '#E4E4E7',
             }}
             title={`${new Date(p.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} — ${p.count} consultas`}
           />
@@ -438,7 +438,7 @@ function MetricCard({
   accent: 'violet' | 'emerald' | 'blue' | 'amber';
 }) {
   const colors = {
-    violet: { bg: '#F5F3FF', fg: '#5746AF' },
+    violet: { bg: '#F5F3FF', fg: '#0F1B33' },
     emerald: { bg: '#ECFDF5', fg: '#047857' },
     blue: { bg: '#EFF6FF', fg: '#1D4ED8' },
     amber: { bg: '#FFFBEB', fg: '#B45309' },

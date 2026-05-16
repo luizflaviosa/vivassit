@@ -12,8 +12,8 @@ import {
 import { useMe } from '@/lib/painel-context';
 import { DoctorCardSkeleton } from '@/lib/painel-skeleton';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 type WorkingHours = Record<string, string>;
@@ -392,7 +392,7 @@ function ProfissionaisInner() {
                     <button
                       type="button"
                       onClick={() => setField('accepts_insurance', !form.accepts_insurance)}
-                      className={`h-6 w-11 rounded-full transition-colors relative ${form.accepts_insurance ? 'bg-violet-500' : 'bg-zinc-300'}`}
+                      className={`h-6 w-11 rounded-full transition-colors relative ${form.accepts_insurance ? 'bg-slate-500' : 'bg-zinc-300'}`}
                     >
                       <span className={`absolute top-0.5 h-5 w-5 bg-white rounded-full transition-transform shadow-sm ${form.accepts_insurance ? 'translate-x-5' : 'translate-x-0.5'}`} />
                     </button>
@@ -459,7 +459,7 @@ function ProfissionaisInner() {
                         type="checkbox"
                         checked={form.rule_allow_emergency_fds}
                         onChange={(e) => setField('rule_allow_emergency_fds', e.target.checked)}
-                        className="mt-0.5 h-4 w-4 accent-violet-600 cursor-pointer"
+                        className="mt-0.5 h-4 w-4 accent-slate-600 cursor-pointer"
                       />
                       <span className="text-[13px] text-zinc-700 group-hover:text-zinc-900">
                         Atende emergência em fim de semana (sob demanda)
@@ -470,7 +470,7 @@ function ProfissionaisInner() {
                         type="checkbox"
                         checked={form.rule_requires_anamnese}
                         onChange={(e) => setField('rule_requires_anamnese', e.target.checked)}
-                        className="mt-0.5 h-4 w-4 accent-violet-600 cursor-pointer"
+                        className="mt-0.5 h-4 w-4 accent-slate-600 cursor-pointer"
                       />
                       <span className="text-[13px] text-zinc-700 group-hover:text-zinc-900">
                         Exige formulário de anamnese antes da primeira consulta
@@ -708,7 +708,7 @@ function WorkingHoursEditor({ value, onChange }: { value: WorkingHours; onChange
             <button
               type="button"
               onClick={() => setIntervals(d.key, isClosed ? [{ start: '08:00', end: '18:00' }] : [])}
-              className={`h-6 w-10 rounded-full transition-colors relative flex-shrink-0 mt-1.5 ${!isClosed ? 'bg-violet-500' : 'bg-zinc-300'}`}
+              className={`h-6 w-10 rounded-full transition-colors relative flex-shrink-0 mt-1.5 ${!isClosed ? 'bg-slate-500' : 'bg-zinc-300'}`}
               aria-label={isClosed ? 'Abrir' : 'Fechar'}
             >
               <span className={`absolute top-0.5 h-5 w-5 bg-white rounded-full transition-transform shadow-sm ${!isClosed ? 'translate-x-5' : 'translate-x-0.5'}`} />
@@ -756,7 +756,7 @@ function WorkingHoursEditor({ value, onChange }: { value: WorkingHours; onChange
                   <button
                     type="button"
                     onClick={() => setIntervals(d.key, [...intervals, { start: '14:00', end: '18:00' }])}
-                    className="inline-flex items-center gap-1 text-[12px] font-medium text-violet-700 hover:text-violet-900 transition-colors"
+                    className="inline-flex items-center gap-1 text-[12px] font-medium text-slate-700 hover:text-slate-900 transition-colors"
                   >
                     <Plus className="w-3 h-3" /> intervalo
                   </button>
