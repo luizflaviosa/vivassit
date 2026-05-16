@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Check, Copy, Loader2 } from 'lucide-react';
+import { Check, Copy, Loader2, RefreshCw } from 'lucide-react';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -30,6 +30,13 @@ interface StatusResponse {
   redirect_url: string | null;
 }
 
+interface RefreshResponse {
+  connected: boolean;
+  evolution_status: string;
+  evolution_qr_code: string | null;
+  evolution_pairing_code: string | null;
+}
+
 export function ConnectClient({
   token,
   clinicName,
@@ -47,8 +54,49 @@ export function ConnectClient({
   const [showQr, setShowQr] = useState<boolean>(!initialPairingCode);
   const [copied, setCopied] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   const connected = CONNECTED_STATUSES.has((status ?? '').toLowerCase());
+
+  const refreshQr = async () => {
+    if (refreshing || connected) return;
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      const res = await fetch(`/api/conectar/${token}/refresh-qr`, {
+        method: 'POST',
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        if (res.status === 429) {
+          setRefreshError('Devagar — espera alguns segundos.');
+        } else if (res.status === 409) {
+          setRefreshError('Sua instancia esta sendo preparada. Aguarde.');
+        } else {
+          setRefreshError('Falha ao atualizar. Tente de novo.');
+        }
+        return;
+      }
+      const json = (await res.json()) as RefreshResponse;
+      if (json.evolution_status) setStatus(json.evolution_status);
+      if (json.evolution_qr_code) setQrCode(json.evolution_qr_code);
+      if (json.evolution_pairing_code) setPairingCode(json.evolution_pairing_code);
+    } catch {
+      setRefreshError('Sem conexao. Verifique sua internet.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Auto-refresh ao montar: o QR cacheado no DB e do momento do onboarding
+  // (provavelmente ja expirou se o cliente abriu o email minutos depois).
+  // Pedimos QR fresh em background sem bloquear a primeira renderizacao.
+  useEffect(() => {
+    if (connected) return;
+    refreshQr();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Polling pra detectar conexao + atualizar QR/pair caso o n8n popule depois
   useEffect(() => {
@@ -313,8 +361,8 @@ export function ConnectClient({
                 )}
               </AnimatePresence>
 
-              {/* Status + toggle */}
-              <div className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-[12px] text-zinc-500">
+              {/* Status + acoes */}
+              <div className="mt-12 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-[12px] text-zinc-500">
                 <span className="inline-flex items-center gap-2" aria-live="polite">
                   <motion.span
                     className="inline-block h-1.5 w-1.5 rounded-full"
@@ -324,6 +372,20 @@ export function ConnectClient({
                   />
                   Aguardando conexão
                 </span>
+
+                <button
+                  onClick={refreshQr}
+                  disabled={refreshing}
+                  className="inline-flex items-center gap-1.5 hover:text-zinc-300 transition-colors underline-offset-4 hover:underline focus-visible:outline-none focus-visible:underline disabled:opacity-60 disabled:cursor-not-allowed"
+                  aria-label="Gerar novo QR Code"
+                >
+                  <RefreshCw
+                    className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`}
+                    strokeWidth={2}
+                  />
+                  {refreshing ? 'Atualizando' : 'Atualizar QR'}
+                </button>
+
                 {hasQr && hasPair && (
                   <button
                     onClick={() => setShowQr(!showQr)}
@@ -332,12 +394,23 @@ export function ConnectClient({
                     {showQr ? 'Prefiro código' : 'Prefiro QR Code'}
                   </button>
                 )}
+
                 {phoneNumber && (
                   <span className="text-zinc-600">
                     Número: <span className="text-zinc-400">{phoneNumber}</span>
                   </span>
                 )}
               </div>
+
+              {refreshError && (
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className="mt-4 text-[12px] text-amber-300/80"
+                >
+                  {refreshError}
+                </p>
+              )}
             </div>
           )}
         </div>
