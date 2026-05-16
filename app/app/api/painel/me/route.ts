@@ -31,11 +31,12 @@ export async function GET() {
     subscription_status: string;
     admin_email: string;
     chatwoot_url: string | null;
+    chatwoot_domain: string | null;
     chatwoot_account_id: string | number | null;
   };
   let tenant: T | null = null;
 
-  const TENANT_FIELDS = 'tenant_id, clinic_name, plan_type, subscription_status, admin_email, chatwoot_url, chatwoot_account_id';
+  const TENANT_FIELDS = 'tenant_id, clinic_name, plan_type, subscription_status, admin_email, chatwoot_url, chatwoot_domain, chatwoot_account_id';
 
   // 1. Cookie de tenant ativo (verifica autorização)
   if (preferredTenantId) {
@@ -114,9 +115,16 @@ export async function GET() {
     }, { status: 404 });
   }
 
+  // Fallback drift de schema: leitores no frontend usam chatwoot_url; tenants
+  // antigos podem ter apenas chatwoot_domain preenchido.
+  const tenantOut = {
+    ...tenant,
+    chatwoot_url: tenant.chatwoot_url ?? tenant.chatwoot_domain ?? null,
+  };
+
   return NextResponse.json({
     success: true,
     user: { id: user.id, email: user.email },
-    tenant,
+    tenant: tenantOut,
   });
 }

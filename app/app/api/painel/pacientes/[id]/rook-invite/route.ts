@@ -68,10 +68,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     ? patient.rook_user_id
     : desiredUserId;
 
-  // Carrega tenant cedo (precisamos do clinic_name no metadata do binding)
+  // Carrega tenant cedo (precisamos do clinic_name no metadata do binding).
+  // Tenants antigos podem ter chatwoot_domain preenchido mas chatwoot_url nulo
+  // (drift de schema do onboarding) — selecionamos ambos e usamos fallback abaixo.
   const { data: tenant } = await supa
     .from('tenants')
-    .select('clinic_name, chatwoot_url, chatwoot_account_id, chatwoot_inbox_id')
+    .select('clinic_name, chatwoot_url, chatwoot_domain, chatwoot_account_id, chatwoot_inbox_id')
     .eq('tenant_id', auth.ctx.tenant.tenant_id)
     .maybeSingle();
 
@@ -134,7 +136,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const finalUrl = bindingUrl ?? fallbackConnectionUrl;
 
   const chatwootKey = process.env.CHATWOOT_API_KEY;
-  const chatwootUrl = tenant?.chatwoot_url?.replace(/\/$/, '');
+  const chatwootUrl = (tenant?.chatwoot_url ?? tenant?.chatwoot_domain)?.replace(/\/$/, '');
   const accountId = tenant?.chatwoot_account_id;
   const inboxId = tenant?.chatwoot_inbox_id;
 

@@ -293,3 +293,16 @@ export function findSeoEspecialidade(slug: string): SeoSpecialty | undefined {
 export function findCity(slug: string): City | undefined {
   return CITIES.find((c) => c.slug === slug);
 }
+
+export function getAllPaths(): ReadonlyArray<{
+  especialidade: SeoSpecialty;
+  cidade: City;
+}> {
+  const paths: Array<{ especialidade: SeoSpecialty; cidade: City }> = [];
+  for (const especialidade of SEO_ESPECIALIDADES) {
+    for (const cidade of CITIES) {
+      paths.push({ especialidade, cidade });
+    }
+  }
+  return paths;
+}
