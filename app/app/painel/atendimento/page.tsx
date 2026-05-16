@@ -6,8 +6,8 @@ import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useMe } from '@/lib/painel-context';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 function buildChatwootUrl(rawUrl?: string | null, accountId?: string | number | null): string | null {

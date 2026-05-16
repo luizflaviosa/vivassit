@@ -34,7 +34,7 @@ import {
 } from '@/lib/docs-types';
 import { DocPreviewAptidao } from '@/lib/components/doc-preview-aptidao';
 
-const ACCENT_DEEP = '#5746AF';
+const ACCENT_DEEP = '#0F1B33';
 
 function StatusBadge({ status }: { status: DocStatus }) {
   const info = DOC_STATUSES[status];
@@ -462,8 +462,8 @@ export default function DocDetailPage() {
               {signingBirdId && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-white/95 backdrop-blur-sm gap-4">
                   <div className="relative">
-                    <div className="h-16 w-16 rounded-full border-4 border-violet-100 border-t-violet-600 animate-spin" />
-                    <Fingerprint className="absolute inset-0 m-auto w-7 h-7 text-violet-600" />
+                    <div className="h-16 w-16 rounded-full border-4 border-slate-100 border-t-slate-600 animate-spin" />
+                    <Fingerprint className="absolute inset-0 m-auto w-7 h-7 text-slate-600" />
                   </div>
                   <div className="text-center">
                     <p className="text-[15px] font-semibold text-zinc-900">Assinando com BirdID…</p>
@@ -475,10 +475,10 @@ export default function DocDetailPage() {
               {/* ── Success screen ── */}
               {signSuccess && (
                 <div className="flex flex-col items-center justify-center px-8 py-12 text-center gap-5">
-                  <div className={`h-20 w-20 rounded-full flex items-center justify-center ${signSuccess.method === 'birdid' ? 'bg-emerald-100' : 'bg-violet-100'}`}>
+                  <div className={`h-20 w-20 rounded-full flex items-center justify-center ${signSuccess.method === 'birdid' ? 'bg-emerald-100' : 'bg-slate-100'}`}>
                     {signSuccess.method === 'birdid'
                       ? <Fingerprint className="w-10 h-10 text-emerald-600" />
-                      : <CheckCircle2 className="w-10 h-10 text-violet-600" />
+                      : <CheckCircle2 className="w-10 h-10 text-slate-600" />
                     }
                   </div>
                   <div>
@@ -548,7 +548,7 @@ export default function DocDetailPage() {
                 {/* 2. BirdID section */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <Fingerprint className="w-4 h-4 text-violet-600" />
+                    <Fingerprint className="w-4 h-4 text-slate-600" />
                     <p className="text-[14px] font-semibold text-zinc-900">Assinatura digital BirdID</p>
                   </div>
 
@@ -570,7 +570,7 @@ export default function DocDetailPage() {
                         value={birdidAccountInput}
                         onChange={(e) => setBirdidAccountInput(e.target.value.replace(/\D/g, '').slice(0, 11))}
                         placeholder="CPF do profissional (11 dígitos)"
-                        className="w-full h-11 px-4 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border-2 border-zinc-200 focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all font-mono tracking-widest"
+                        className="w-full h-11 px-4 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 rounded-xl border-2 border-zinc-200 focus:border-slate-500 focus:outline-none focus:ring-4 focus:ring-slate-500/10 transition-all font-mono tracking-widest"
                         inputMode="numeric"
                       />
                       <label className="flex items-center gap-2.5 cursor-pointer group">
@@ -578,7 +578,7 @@ export default function DocDetailPage() {
                           type="checkbox"
                           checked={saveAccountId}
                           onChange={(e) => setSaveAccountId(e.target.checked)}
-                          className="h-4 w-4 accent-violet-600 cursor-pointer rounded"
+                          className="h-4 w-4 accent-slate-600 cursor-pointer rounded"
                         />
                         <span className="text-[13px] text-zinc-500 group-hover:text-zinc-800 transition-colors">
                           Salvar no perfil do profissional
@@ -600,7 +600,7 @@ export default function DocDetailPage() {
                         placeholder="000000"
                         autoFocus={doctorHasAccount}
                         disabled={acting}
-                        className="w-full h-16 px-4 bg-zinc-50 text-center text-[28px] text-zinc-900 placeholder:text-zinc-300 placeholder:text-[22px] rounded-xl border-2 border-zinc-200 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-violet-500/10 transition-all font-mono tracking-[0.35em] disabled:opacity-50"
+                        className="w-full h-16 px-4 bg-zinc-50 text-center text-[28px] text-zinc-900 placeholder:text-zinc-300 placeholder:text-[22px] rounded-xl border-2 border-zinc-200 focus:border-slate-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-slate-500/10 transition-all font-mono tracking-[0.35em] disabled:opacity-50"
                         inputMode="numeric"
                       />
                       <p className="text-[11px] text-zinc-400 text-center">
@@ -729,18 +729,18 @@ export default function DocDetailPage() {
                   onClick={() => setSendChannel('both')}
                   className={`w-full text-left px-4 py-3 rounded-xl border transition-all flex items-center gap-3 ${
                     sendChannel === 'both'
-                      ? 'border-violet-300 bg-violet-50'
-                      : 'border-black/[0.07] hover:border-violet-200 hover:bg-violet-50/30'
+                      ? 'border-slate-300 bg-slate-50'
+                      : 'border-black/[0.07] hover:border-slate-200 hover:bg-slate-50/30'
                   }`}
                 >
-                  <div className="h-9 w-9 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
-                    <Smartphone className="w-4 h-4 text-violet-600" />
+                  <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                    <Smartphone className="w-4 h-4 text-slate-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[14px] font-semibold text-zinc-900">Ambos</p>
                     <p className="text-[12px] text-zinc-500">WhatsApp + E-mail</p>
                   </div>
-                  {sendChannel === 'both' && <CheckCircle2 className="w-4 h-4 text-violet-500 flex-shrink-0" />}
+                  {sendChannel === 'both' && <CheckCircle2 className="w-4 h-4 text-slate-500 flex-shrink-0" />}
                 </button>
               )}
             </div>
@@ -888,7 +888,7 @@ export default function DocDetailPage() {
                         onClick={() => setEditForm((f) => ({ ...f, activity_type: a }))}
                         className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${
                           editForm.activity_type === a
-                            ? 'bg-violet-100 text-violet-800 border border-violet-300'
+                            ? 'bg-slate-100 text-slate-800 border border-slate-300'
                             : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
                         }`}
                       >
@@ -909,7 +909,7 @@ export default function DocDetailPage() {
                         onClick={() => setEditForm((f) => ({ ...f, result: r.value as FitnessResult }))}
                         className={`flex-1 px-3 py-2 rounded-lg text-[13px] font-medium transition-all text-center ${
                           editForm.result === r.value
-                            ? 'bg-violet-100 text-violet-800 border border-violet-300'
+                            ? 'bg-slate-100 text-slate-800 border border-slate-300'
                             : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
                         }`}
                       >

@@ -1,5 +1,5 @@
 /* react-big-calendar overrides — Singulare aesthetic */
-/* Refined minimalism, hairlines, violet accent #6E56CF */
+/* Refined minimalism, hairlines, violet accent #0F1B33 */
 
 @import 'react-big-calendar/lib/css/react-big-calendar.css';
 @import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
@@ -40,9 +40,9 @@
 .singulare-calendar .rbc-toolbar button.rbc-active,
 .singulare-calendar .rbc-toolbar button.rbc-active:hover,
 .singulare-calendar .rbc-toolbar button.rbc-active:focus {
-  background: #6E56CF;
+  background: #0F1B33;
   color: #FFFFFF;
-  border-color: #6E56CF;
+  border-color: #0F1B33;
   box-shadow: none;
 }
 .singulare-calendar .rbc-toolbar-label {
@@ -127,7 +127,7 @@
   text-decoration: none;
 }
 .singulare-calendar .rbc-now .rbc-button-link {
-  color: #5746AF;
+  color: #0F1B33;
   font-weight: 700;
 }
 .singulare-calendar .rbc-today {
@@ -136,7 +136,7 @@
 
 /* ---- Events ---- */
 .singulare-calendar .rbc-event {
-  background: #6E56CF;
+  background: #0F1B33;
   border: none;
   border-radius: 6px;
   padding: 2px 6px;
@@ -151,7 +151,7 @@
   filter: brightness(1.08);
 }
 .singulare-calendar .rbc-event.rbc-selected {
-  background: #5746AF;
+  background: #0F1B33;
   outline: 2px solid rgba(110, 86, 207, 0.3);
   outline-offset: 1px;
 }
@@ -170,7 +170,7 @@
   text-decoration: line-through;
 }
 .singulare-calendar .rbc-show-more {
-  color: #5746AF;
+  color: #0F1B33;
   font-weight: 600;
   font-size: 11px;
   background: transparent;
@@ -207,11 +207,11 @@
   padding: 0 8px;
 }
 .singulare-calendar .rbc-current-time-indicator {
-  background: #6E56CF;
+  background: #0F1B33;
   height: 2px;
 }
 .singulare-calendar .rbc-day-slot .rbc-event {
-  border-left: 3px solid #5746AF;
+  border-left: 3px solid #0F1B33;
   border-radius: 4px;
 }
 .singulare-calendar .rbc-day-slot .rbc-event.singulare-event-cancelled {

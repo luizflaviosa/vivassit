@@ -21,8 +21,8 @@ import {
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 interface FinancialScenario {
@@ -322,7 +322,7 @@ function PerformanceInner() {
           </div>
           {Object.keys(i.revenue.by_method).length === 0 ? (
             <p className="text-[12px] text-zinc-500 leading-snug">
-              Nenhum pagamento rastreado. Ative o Asaas em <span className="text-violet-700">Pagamentos → Ativar</span> pra começar a registrar receita automaticamente.
+              Nenhum pagamento rastreado. Ative o Asaas em <span className="text-slate-700">Pagamentos → Ativar</span> pra começar a registrar receita automaticamente.
             </p>
           ) : (
             <div className="space-y-2 text-[13px]">
@@ -383,7 +383,7 @@ function PerformanceInner() {
             i.google_reviews.configured ? (
               <span className="text-zinc-500">Última sincronização em breve.</span>
             ) : (
-              <a href="/painel/configuracoes" className="text-violet-700 font-semibold hover:underline">
+              <a href="/painel/configuracoes" className="text-slate-700 font-semibold hover:underline">
                 Vincular Google Place ID →
               </a>
             )
@@ -404,7 +404,7 @@ function PerformanceInner() {
                 <span className="text-[36px] leading-none font-medium tracking-[-0.03em] text-zinc-300">—</span>
               </div>
               <p className="text-[12px] text-zinc-500 leading-snug">
-                Google Place ID não vinculado. Cadastre nas <span className="text-violet-700">Configurações</span> pra ver reviews aqui.
+                Google Place ID não vinculado. Cadastre nas <span className="text-slate-700">Configurações</span> pra ver reviews aqui.
               </p>
             </>
           )}
@@ -495,7 +495,7 @@ function PerformanceInner() {
                   </span>
                 </div>
               ) : financial.ticket.source === 'unknown' ? (
-                <a href="/painel/configuracoes" className="text-violet-700 font-semibold hover:underline">
+                <a href="/painel/configuracoes" className="text-slate-700 font-semibold hover:underline">
                   Configurar ticket médio →
                 </a>
               ) : null

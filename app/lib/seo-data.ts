@@ -294,15 +294,24 @@ export function findCity(slug: string): City | undefined {
   return CITIES.find((c) => c.slug === slug);
 }
 
-export function getAllPaths(): ReadonlyArray<{
+/**
+ * Produto cartesiano de todas as combinacoes (especialidade x cidade)
+ * pras paginas programaticas de SEO. Usado pelo sitemap.ts pra registrar
+ * cada URL `/secretaria-ia/[especialidade]/[cidade]`.
+ *
+ * Re-exporta o mesmo conjunto que `generateStaticParams` retorna na rota
+ * `secretaria-ia/[especialidade]/[cidade]/page.tsx`, mas em formato de
+ * objeto com slug aninhado pra facilitar montagem da URL.
+ */
+export function getAllPaths(): Array<{
   especialidade: SeoSpecialty;
   cidade: City;
 }> {
-  const paths: Array<{ especialidade: SeoSpecialty; cidade: City }> = [];
+  const out: Array<{ especialidade: SeoSpecialty; cidade: City }> = [];
   for (const especialidade of SEO_ESPECIALIDADES) {
     for (const cidade of CITIES) {
-      paths.push({ especialidade, cidade });
+      out.push({ especialidade, cidade });
     }
   }
-  return paths;
+  return out;
 }

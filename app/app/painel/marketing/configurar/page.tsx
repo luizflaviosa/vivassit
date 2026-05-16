@@ -17,7 +17,7 @@ import {
 import { useMe } from '@/lib/painel-context';
 import type { MarketingSubscription } from '@/lib/marketing-types';
 
-const ACCENT_DEEP = '#5746AF';
+const ACCENT_DEEP = '#0F1B33';
 
 interface SubExtra {
   instagram_business_account_id?: string | null;
@@ -180,8 +180,8 @@ function PageInner() {
       <div className="rounded-xl border border-black/[0.07] bg-white p-5 space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="h-8 w-8 rounded-full bg-violet-50 flex items-center justify-center">
-              <Instagram className="w-4 h-4 text-violet-600" />
+            <div className="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center">
+              <Instagram className="w-4 h-4 text-slate-600" />
             </div>
             <div>
               <p className="text-[15px] font-semibold text-zinc-900">Instagram</p>
@@ -289,7 +289,7 @@ function PageInner() {
             href="https://support.google.com/business/answer/7035772"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[12px] font-medium text-violet-600 hover:text-violet-800"
+            className="inline-flex items-center gap-1 text-[12px] font-medium text-slate-600 hover:text-slate-800"
           >
             Ver instruções do Google
             <ExternalLink className="w-3 h-3" />

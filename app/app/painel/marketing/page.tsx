@@ -10,8 +10,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -436,7 +436,7 @@ function ActionCard({
     </div>
   );
 
-  const cls = "rounded-xl border border-black/[0.07] bg-white p-5 block transition-colors hover:border-violet-200/60";
+  const cls = "rounded-xl border border-black/[0.07] bg-white p-5 block transition-colors hover:border-slate-200/60";
   const shadow = { boxShadow: '0 1px 4px rgba(0,0,0,0.04)' };
 
   if (href) {
@@ -912,7 +912,7 @@ function CompetitorsCard({ d, refreshing, onRefresh }: { d: Competitors; refresh
               <div key={c.place_id} className="flex items-center justify-between gap-2 text-[12px]">
                 <span className="flex items-center gap-2 truncate">
                   <span className="text-zinc-400 tabular-nums w-4">{i + 1}.</span>
-                  <span className={`truncate ${c.is_self ? 'font-semibold text-[#5746AF]' : 'text-zinc-700'}`}>
+                  <span className={`truncate ${c.is_self ? 'font-semibold text-[#0F1B33]' : 'text-zinc-700'}`}>
                     {c.name} {c.is_self && <span className="ml-1 text-[10px] uppercase">você</span>}
                   </span>
                 </span>

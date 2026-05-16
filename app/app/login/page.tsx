@@ -11,8 +11,8 @@ import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 type OAuthProvider = 'google';
 type Step = 'email' | 'otp';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 // Bypass de OTP pra contas pré-aprovadas (precisa estar igual ao backend

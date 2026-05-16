@@ -27,7 +27,7 @@ export default function ProfissionaisRootPage() {
             <Link
               key={key}
               href={`/profissionais/sao-paulo/${key}`}
-              className="bg-white rounded-xl border border-black/[0.06] p-4 text-center hover:border-[#6E56CF]/20 transition-colors"
+              className="bg-white rounded-xl border border-black/[0.06] p-4 text-center hover:border-[#0F1B33]/20 transition-colors"
             >
               <p className="text-sm font-medium text-zinc-700">{label as string}</p>
             </Link>

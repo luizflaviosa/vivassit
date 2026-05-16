@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, ArrowUp, Mic, MicOff, Bot, Sparkles, Loader2, Trash2, Bell, BellOff } from 'lucide-react';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 const STORAGE_KEY = 'vivassit_chat_history_v1';
@@ -608,7 +608,7 @@ export default function ChatDrawer() {
                       title={notifPerm === 'granted' ? 'Notificações ativas' : 'Ativar notificações'}
                     >
                       {notifPerm === 'granted'
-                        ? <Bell className="w-4 h-4 text-violet-500" />
+                        ? <Bell className="w-4 h-4 text-slate-500" />
                         : <BellOff className="w-4 h-4" />}
                     </button>
                   )}
@@ -724,7 +724,7 @@ export default function ChatDrawer() {
                       autoCapitalize="sentences"
                       spellCheck={true}
                       lang="pt-BR"
-                      className="w-full resize-none px-4 py-2.5 bg-zinc-100/80 text-[16px] sm:text-[14px] leading-snug text-zinc-900 placeholder:text-zinc-400 rounded-3xl border-0 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50 transition-colors max-h-[120px]"
+                      className="w-full resize-none px-4 py-2.5 bg-zinc-100/80 text-[16px] sm:text-[14px] leading-snug text-zinc-900 placeholder:text-zinc-400 rounded-3xl border-0 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:opacity-50 transition-colors max-h-[120px]"
                       style={{ minHeight: 40 }}
                       {...({ enterKeyHint: 'send' } as Record<string, string>)}
                     />
@@ -832,7 +832,7 @@ function ActionCardView({
   return (
     <div
       className="max-w-[88%] w-full rounded-2xl border bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] overflow-hidden"
-      style={{ borderColor: isDone ? '#22c55e33' : isCancelled ? '#a1a1aa33' : '#6E56CF33' }}
+      style={{ borderColor: isDone ? '#22c55e33' : isCancelled ? '#a1a1aa33' : '#0F1B3333' }}
     >
       <div
         className="px-4 py-3 border-b"

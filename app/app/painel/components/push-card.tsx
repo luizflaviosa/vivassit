@@ -5,8 +5,8 @@ import { motion } from 'framer-motion';
 import { Bell, BellOff, Check, Loader2, Send, Share, Plus, Smartphone } from 'lucide-react';
 import { detectPushStatus, subscribePush, unsubscribePush, type PushStatus } from '@/lib/push-client';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 const NOTIF_TYPES = [
@@ -57,7 +57,7 @@ export default function PushCard() {
 
   if (status === 'ios-needs-pwa') {
     return (
-      <div className="rounded-xl border border-violet-200/60 bg-violet-50/30 p-4 flex items-start gap-3">
+      <div className="rounded-xl border border-slate-200/60 bg-slate-50/30 p-4 flex items-start gap-3">
         <div className="h-8 w-8 rounded-lg inline-flex items-center justify-center text-white flex-shrink-0" style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DEEP})` }}>
           <Smartphone className="w-3.5 h-3.5" />
         </div>
@@ -70,7 +70,7 @@ export default function PushCard() {
               <span key="3">Abra pelo ícone e ative aqui</span>,
             ].map((s, i) => (
               <li key={i} className="flex items-start gap-1.5">
-                <span className="inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700 font-bold text-[10px] mt-0.5">{i + 1}</span>
+                <span className="inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-bold text-[10px] mt-0.5">{i + 1}</span>
                 {s}
               </li>
             ))}
@@ -105,7 +105,7 @@ export default function PushCard() {
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-xl border border-violet-200/50 overflow-hidden"
+      className="rounded-xl border border-slate-200/50 overflow-hidden"
       style={{ background: 'linear-gradient(to bottom, #F9F7FF, #ffffff)' }}
     >
       {/* Header */}
@@ -135,7 +135,7 @@ export default function PushCard() {
       </div>
 
       {/* Lista 2 colunas */}
-      <div className="px-4 pb-3 grid grid-cols-2 gap-y-2 gap-x-3 border-t border-violet-100/60 pt-3">
+      <div className="px-4 pb-3 grid grid-cols-2 gap-y-2 gap-x-3 border-t border-slate-100/60 pt-3">
         {NOTIF_TYPES.map((it) => (
           <div key={it.label} className="flex items-center gap-2">
             <span className="text-[14px] flex-shrink-0">{it.icon}</span>
@@ -145,7 +145,7 @@ export default function PushCard() {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-t border-violet-100/60" style={{ background: 'rgba(109,86,207,0.03)' }}>
+      <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-100/60" style={{ background: 'rgba(109,86,207,0.03)' }}>
         {isOn ? (
           <>
             <span className="inline-flex items-center gap-1.5 text-[12px] font-medium" style={{ color: ACCENT_DEEP }}>

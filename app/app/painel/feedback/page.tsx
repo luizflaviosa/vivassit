@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { Loader2, Star, MessageSquare } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 
-const ACCENT_DEEP = '#5746AF';
+const ACCENT_DEEP = '#0F1B33';
 
 interface Feedback {
   id: number;
@@ -165,7 +165,7 @@ function NPSCard({ nps }: { nps: number | null }) {
   const tier =
     nps >= 75 ? { bg: '#ECFDF5', border: '#A7F3D0', fg: '#047857', label: 'excelente' } :
     nps >= 50 ? { bg: '#ECFDF5', border: '#A7F3D0', fg: '#059669', label: 'ótimo' } :
-    nps >= 0  ? { bg: '#F5F3FF', border: '#DDD6FE', fg: '#5746AF', label: 'razoável' } :
+    nps >= 0  ? { bg: '#F5F3FF', border: '#DDD6FE', fg: '#0F1B33', label: 'razoável' } :
     nps >= -50 ? { bg: '#FFFBEB', border: '#FDE68A', fg: '#B45309', label: 'precisa atenção' } :
                  { bg: '#FEF2F2', border: '#FECACA', fg: '#B91C1C', label: 'crítico' };
 

@@ -11,19 +11,19 @@
     --card-foreground: 224 71% 4%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 71% 4%;
-    --primary: 258 100% 65%;
+    --primary: 220 54% 13%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 258 40% 97%;
-    --secondary-foreground: 258 72% 40%;
+    --secondary: 220 40% 97%;
+    --secondary-foreground: 220 54% 13%;
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
-    --accent: 258 40% 97%;
-    --accent-foreground: 258 72% 40%;
+    --accent: 220 40% 97%;
+    --accent-foreground: 220 54% 13%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 258 100% 65%;
+    --ring: 220 54% 13%;
     --radius: 0.75rem;
   }
 }
@@ -46,8 +46,9 @@
 }
 
 /* ─── Painel root ── */
+/* Brand Luxury Modular Intelligence v1.0: background sand (#F4EFE6). */
 .painel-root {
-  background-color: #FAFAF7;
+  background-color: #F4EFE6;
   min-height: 100vh;
 }
 .dark .painel-root {
@@ -119,43 +120,43 @@
 
 /* ─── Page Background ──────────────────────────────── */
 .gradient-bg {
-  background-color: #F6F5FF;
+  background-color: #F5F7FA;
   background-image:
-    radial-gradient(ellipse 90% 60% at 50% -10%, rgba(109, 78, 255, 0.09) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 40% at 95% 85%, rgba(109, 78, 255, 0.05) 0%, transparent 60%);
+    radial-gradient(ellipse 90% 60% at 50% -10%, rgba(15, 27, 51, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 95% 85%, rgba(15, 27, 51, 0.04) 0%, transparent 60%);
 }
 
 /* ─── Cards ─────────────────────────────────────────── */
 .glass-card {
   background: #ffffff;
-  border: 1px solid rgba(109, 78, 255, 0.1);
+  border: 1px solid rgba(15, 27, 51, 0.1);
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.04),
-    0 4px 20px rgba(109, 78, 255, 0.07);
+    0 4px 20px rgba(15, 27, 51, 0.07);
 }
 
 .glass {
   background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(109, 78, 255, 0.12);
-  box-shadow: 0 2px 8px rgba(109, 78, 255, 0.06);
+  border: 1px solid rgba(15, 27, 51, 0.12);
+  box-shadow: 0 2px 8px rgba(15, 27, 51, 0.06);
 }
 
 .feature-card {
   background: #ffffff;
-  border: 1px solid #E8E7F0;
+  border: 1px solid #E5E8EF;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .feature-card:hover {
-  border-color: rgba(109, 78, 255, 0.28);
-  box-shadow: 0 4px 16px rgba(109, 78, 255, 0.09);
+  border-color: rgba(15, 27, 51, 0.28);
+  box-shadow: 0 4px 16px rgba(15, 27, 51, 0.09);
   transform: none;
 }
 
 /* ─── Progress Bar ──────────────────────────────────── */
 .progress-gradient {
-  background: linear-gradient(90deg, #6D4EFF 0%, #8B70FF 100%);
+  background: linear-gradient(90deg, #0F1B33 0%, #1E3464 100%);
 }
 
 /* ─── Trust Signals ─────────────────────────────────── */
@@ -172,9 +173,9 @@
 }
 
 .stats-counter {
-  background: #EEF0FF;
-  color: #4F46E5;
-  border: 1px solid #C7D2FE;
+  background: #E8EDF5;
+  color: #0F1B33;
+  border: 1px solid #B8C5D9;
   font-weight: 500;
 }
 
@@ -184,14 +185,14 @@
 
 /* ─── CTA Buttons ───────────────────────────────────── */
 .cta-primary {
-  background: #6D4EFF;
-  box-shadow: 0 1px 3px rgba(109, 78, 255, 0.25), 0 4px 14px rgba(109, 78, 255, 0.18);
+  background: #0F1B33;
+  box-shadow: 0 1px 3px rgba(15, 27, 51, 0.25), 0 4px 14px rgba(15, 27, 51, 0.18);
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .cta-primary:hover:not(:disabled) {
-  background: #5A3FE8;
-  box-shadow: 0 2px 6px rgba(109, 78, 255, 0.3), 0 8px 24px rgba(109, 78, 255, 0.22);
+  background: #1a2d4a;
+  box-shadow: 0 2px 6px rgba(15, 27, 51, 0.3), 0 8px 24px rgba(15, 27, 51, 0.22);
 }
 
 .cta-secondary {
@@ -202,9 +203,9 @@
 }
 
 .cta-secondary:hover:not(:disabled) {
-  border-color: #6D4EFF;
-  color: #6D4EFF;
-  background: #F5F4FF;
+  border-color: #0F1B33;
+  color: #0F1B33;
+  background: #EDF1F8;
 }
 
 /* ─── Selection Buttons (Qualifications) ────────────── */
@@ -216,14 +217,14 @@
 }
 
 .selection-button:hover {
-  border-color: #6D4EFF;
-  background: #F5F4FF;
+  border-color: #0F1B33;
+  background: #EDF1F8;
 }
 
 .selection-button.selected {
-  background: #F0EEFF;
-  border-color: #6D4EFF;
-  box-shadow: 0 0 0 3px rgba(109, 78, 255, 0.1);
+  background: #EDF1F8;
+  border-color: #0F1B33;
+  box-shadow: 0 0 0 3px rgba(15, 27, 51, 0.1);
 }
 
 /* ─── Animations ─────────────────────────────────────── */

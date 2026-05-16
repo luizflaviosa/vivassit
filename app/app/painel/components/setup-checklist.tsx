@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Sparkles, Check, ChevronRight, X, AlertCircle } from 'lucide-react';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 const STORAGE_KEY = 'singulare_setup_dismissed_v1';
 
@@ -112,7 +112,7 @@ export default function SetupChecklist() {
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/60 via-white to-white p-5 sm:p-6 mb-6"
+        className="rounded-2xl border border-slate-200/70 bg-gradient-to-br from-slate-50/60 via-white to-white p-5 sm:p-6 mb-6"
       >
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-start gap-3">
@@ -177,7 +177,7 @@ export default function SetupChecklist() {
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
               className="overflow-hidden"
             >
-              <div className="mt-4 space-y-1 border-t border-violet-100 pt-3">
+              <div className="mt-4 space-y-1 border-t border-slate-100 pt-3">
                 {items.map((item) => (
                   <Link
                     key={item.key}
@@ -203,7 +203,7 @@ export default function SetupChecklist() {
                       )}
                     </div>
                     {!item.done && (
-                      <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-violet-500 mt-0.5 transition-colors" />
+                      <ChevronRight className="w-4 h-4 text-zinc-300 group-hover:text-slate-500 mt-0.5 transition-colors" />
                     )}
                   </Link>
                 ))}

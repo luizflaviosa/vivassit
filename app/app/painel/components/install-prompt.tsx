@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Smartphone, X, Share, Plus } from 'lucide-react';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const STORAGE_KEY = 'singulare_install_dismissed_v1';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -88,7 +88,7 @@ export default function InstallPrompt() {
           transition={{ type: 'spring', stiffness: 280, damping: 26 }}
           className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm z-40"
         >
-          <div className="rounded-2xl border border-violet-200/60 bg-white shadow-[0_18px_50px_-12px_rgba(110,86,207,0.32)] overflow-hidden">
+          <div className="rounded-2xl border border-slate-200/60 bg-white shadow-[0_18px_50px_-12px_rgba(110,86,207,0.32)] overflow-hidden">
             <div className="p-5">
               <div className="flex items-start gap-3">
                 <div

@@ -56,8 +56,8 @@ import {
 // Design tokens (inline so this file is self-contained)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const ACCENT = '#6E56CF';        // primary violet (refined)
-const ACCENT_DEEP = '#5746AF';   // text-on-light accent
+const ACCENT = '#0F1B33';        // primary violet (refined)
+const ACCENT_DEEP = '#0F1B33';   // text-on-light accent
 const ACCENT_SOFT = '#F5F3FF';   // tinted surface
 
 type DayInterval = { start: string; end: string };
@@ -1276,7 +1276,7 @@ function OnboardingPageInner() {
                                 <button
                                   type="button"
                                   onClick={() => setWorkingHour(d.key, serializeDayIntervals([...intervals, { start: '14:00', end: '18:00' }]))}
-                                  className="inline-flex items-center gap-1 text-[12px] font-medium text-violet-700 hover:text-violet-900 transition-colors"
+                                  className="inline-flex items-center gap-1 text-[12px] font-medium text-slate-700 hover:text-slate-900 transition-colors"
                                 >
                                   <Plus className="w-3 h-3" /> intervalo
                                 </button>

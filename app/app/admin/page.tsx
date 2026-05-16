@@ -10,7 +10,7 @@ import {
   Users, TrendingUp, AlertCircle, RefreshCw, ExternalLink,
 } from 'lucide-react';
 
-const ACCENT_DEEP = '#5746AF';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 interface TenantUsage {
@@ -288,7 +288,7 @@ function StatCard({
   accent?: 'violet' | 'amber';
 }) {
   const colors = accent === 'violet'
-    ? { bg: '#F5F3FF', fg: '#5746AF' }
+    ? { bg: '#F5F3FF', fg: '#0F1B33' }
     : accent === 'amber'
       ? { bg: '#FFFBEB', fg: '#B45309' }
       : { bg: '#F4F4F5', fg: '#52525B' };

@@ -11,8 +11,8 @@ import {
 import { useMe } from '@/lib/painel-context';
 import BackToChecklist from '../components/back-to-checklist';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 interface Tenant {
@@ -396,7 +396,7 @@ function ConfigInner() {
                   {predictions.length === 0 ? (
                     <div className="px-3 py-3 text-[12px] text-zinc-500">
                       Nenhum resultado. Tente outro termo ou{' '}
-                      <a href="https://business.google.com/create" target="_blank" rel="noopener noreferrer" className="text-violet-700 hover:underline">
+                      <a href="https://business.google.com/create" target="_blank" rel="noopener noreferrer" className="text-slate-700 hover:underline">
                         criar perfil em business.google.com
                       </a>.
                     </div>
@@ -406,7 +406,7 @@ function ConfigInner() {
                         key={p.place_id}
                         type="button"
                         onClick={() => selectPrediction(p)}
-                        className="w-full text-left px-3 py-2.5 hover:bg-violet-50/60 border-b border-black/[0.04] last:border-b-0 transition-colors"
+                        className="w-full text-left px-3 py-2.5 hover:bg-slate-50/60 border-b border-black/[0.04] last:border-b-0 transition-colors"
                       >
                         <div className="text-[13px] font-medium text-zinc-900">{p.main_text}</div>
                         {p.secondary_text && (
@@ -444,7 +444,7 @@ function ConfigInner() {
 
           <p className="text-[11px] text-zinc-400 leading-relaxed">
             Sem Place ID o card "Reviews Google" no painel Performance fica vazio. Não tem perfil ainda?{' '}
-            <a href="https://business.google.com/create" target="_blank" rel="noopener noreferrer" className="text-violet-700 hover:underline">
+            <a href="https://business.google.com/create" target="_blank" rel="noopener noreferrer" className="text-slate-700 hover:underline">
               Crie em 5min em business.google.com
             </a>{' '}
             (Google verifica em 5-7 dias por carta postal).
@@ -624,7 +624,7 @@ function statusBadge(status: string | null | undefined): { label: string; dot: s
   if (s === 'active' || s === 'paid' || s === 'received' || s === 'confirmed') {
     return { label: 'Ativa', dot: 'bg-emerald-500', fg: 'text-emerald-700' };
   }
-  if (s.includes('trial')) return { label: 'Em teste', dot: 'bg-violet-500', fg: 'text-violet-700' };
+  if (s.includes('trial')) return { label: 'Em teste', dot: 'bg-slate-500', fg: 'text-slate-700' };
   if (s === 'pending' || s === 'awaiting_risk_analysis') return { label: 'Aguardando pagamento', dot: 'bg-amber-500', fg: 'text-amber-700' };
   if (s === 'overdue' || s === 'expired') return { label: 'Em atraso', dot: 'bg-rose-500', fg: 'text-rose-700' };
   if (s === 'cancelled' || s === 'canceled' || s === 'inactive') return { label: 'Cancelada', dot: 'bg-zinc-400', fg: 'text-zinc-600' };
@@ -806,8 +806,8 @@ function SubscriptionInfoCard() {
 
       {/* Empty state — onboarding inline */}
       {!hasSub && (
-        <div className="rounded-xl bg-violet-50/40 border border-violet-200/50 p-4 mb-6">
-          <p className="text-[13px] text-violet-900 leading-relaxed">
+        <div className="rounded-xl bg-slate-50/40 border border-slate-200/50 p-4 mb-6">
+          <p className="text-[13px] text-slate-900 leading-relaxed">
             Você ainda não tem assinatura. Comece com <strong>7 dias grátis</strong> em qualquer plano — sem cartão necessário.
           </p>
         </div>
@@ -827,12 +827,12 @@ function SubscriptionInfoCard() {
                 key={plan.key}
                 className={`relative rounded-xl border p-4 flex flex-col ${
                   isCurrent
-                    ? 'border-violet-300 bg-violet-50/30 ring-1 ring-violet-200/60'
+                    ? 'border-slate-300 bg-slate-50/30 ring-1 ring-slate-200/60'
                     : 'border-black/[0.07] bg-white hover:border-black/[0.12] transition-colors'
                 }`}
               >
                 {isCurrent && (
-                  <span className="absolute -top-2 left-4 px-2 py-0.5 rounded-full bg-violet-600 text-white text-[10px] font-semibold uppercase tracking-wider">
+                  <span className="absolute -top-2 left-4 px-2 py-0.5 rounded-full bg-slate-600 text-white text-[10px] font-semibold uppercase tracking-wider">
                     Atual
                   </span>
                 )}
@@ -869,7 +869,7 @@ function SubscriptionInfoCard() {
                       disabled={busy !== null}
                       className={`w-full h-9 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
                         plan.highlight && !isCurrent
-                          ? 'bg-violet-600 text-white hover:bg-violet-700'
+                          ? 'bg-slate-600 text-white hover:bg-slate-700'
                           : 'border border-black/[0.12] text-zinc-900 hover:bg-zinc-50'
                       }`}
                     >

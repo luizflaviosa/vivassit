@@ -9,8 +9,8 @@ import {
 import { useMe } from '@/lib/painel-context';
 import { PatientRowSkeleton } from '@/lib/painel-skeleton';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 const ACCENT_SOFT = '#F5F3FF';
 
 interface AppointmentLite {
@@ -299,7 +299,7 @@ function PacientesInner() {
                 key={p.id}
                 type="button"
                 onClick={() => setSelectedId(p.id)}
-                className="w-full text-left px-5 py-4 grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 items-center hover:bg-violet-50/30 transition-colors group">
+                className="w-full text-left px-5 py-4 grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 items-center hover:bg-slate-50/30 transition-colors group">
                 <div className="col-span-4 min-w-0">
                   <p className="text-[14px] font-semibold text-zinc-900 truncate">{p.name ?? 'Sem nome'}</p>
                   <p className="text-[12px] text-zinc-500 sm:hidden mt-1">{p.phone}</p>
@@ -325,7 +325,7 @@ function PacientesInner() {
                 </div>
                 <div className="col-span-1 text-right text-[14px] font-semibold text-zinc-900 inline-flex items-center justify-end gap-1">
                   {p.total_consultations ?? 0}
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-violet-500 transition-colors" />
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-slate-500 transition-colors" />
                 </div>
               </button>
             ))}
@@ -545,7 +545,7 @@ function PacientesInner() {
                       </button>
                     </div>
                     <p className="text-[10px] text-zinc-400 mb-3 px-1 leading-relaxed">
-                      <span className="font-medium text-violet-700">WhatsApp:</span> envia link de 1 clique pra paciente instalar Rook Extraction App (Apple Saúde sincroniza automaticamente). {' '}
+                      <span className="font-medium text-slate-700">WhatsApp:</span> envia link de 1 clique pra paciente instalar Rook Extraction App (Apple Saúde sincroniza automaticamente). {' '}
                       <span className="font-medium text-zinc-500">Link manual:</span> form web pra digitar vitais. {' '}
                       <span className="font-medium text-zinc-500">Atalho iOS:</span> tutorial pra criar Apple Shortcut.
                     </p>

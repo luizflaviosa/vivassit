@@ -4,8 +4,8 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 
-const ACCENT = '#6E56CF';
-const ACCENT_DEEP = '#5746AF';
+const ACCENT = '#0F1B33';
+const ACCENT_DEEP = '#0F1B33';
 
 interface Variant {
   id: 'a' | 'b' | 'c';
@@ -87,7 +87,7 @@ export default function LogosPage() {
                 key={v.id}
                 className={`group rounded-2xl border bg-white overflow-hidden transition-all ${
                   isPicked
-                    ? 'border-violet-300 shadow-[0_0_0_4px_rgba(110,86,207,0.10)]'
+                    ? 'border-slate-300 shadow-[0_0_0_4px_rgba(110,86,207,0.10)]'
                     : 'border-black/[0.07] shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:border-black/[0.12]'
                 }`}
               >
@@ -182,7 +182,7 @@ export default function LogosPage() {
         </div>
 
         {picked && (
-          <div className="mt-8 rounded-xl border border-violet-200 bg-violet-50/40 p-5">
+          <div className="mt-8 rounded-xl border border-slate-200 bg-slate-50/40 p-5">
             <p className="text-[14px] text-zinc-700 leading-relaxed">
               <strong>Variant {picked.toUpperCase()}</strong> escolhida. Me avisa no chat e eu
               substituo o logo da CDN antiga em todas as telas (landing, painel, login,
