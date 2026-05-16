@@ -194,6 +194,13 @@ export default function EbookVisibilidadeDigital() {
         }
       `}</style>
 
+      <link
+        rel="alternate"
+        type="text/html"
+        href="https://singulare.org/guias/visibilidade-digital-clinicas"
+        title="Versão longa (HTML) para leitura web"
+      />
+
       <article className="bg-[#FAFAF7] text-zinc-900 selection:bg-zinc-900 selection:text-white">
         {/* ============================================================
             PÁGINA 1 — CAPA

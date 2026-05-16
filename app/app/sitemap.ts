@@ -61,16 +61,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .eq('status', 'active')
       .not('city', 'is', null);
 
-    const cities = Array.from(
+    // Dedupe pelo slug, não pelo nome humano — evita "São Paulo" e "São Paulo "
+    // virarem duas entradas idênticas no sitemap após slugificação.
+    const citySlugs = Array.from(
       new Set(
         (tenants ?? [])
           .map((t) => (t.city as string | null)?.trim())
-          .filter((c): c is string => !!c),
+          .filter((c): c is string => !!c)
+          .map(toCitySlug),
       ),
     );
 
-    const cityPages: MetadataRoute.Sitemap = cities.map((city) => ({
-      url: `${BASE_URL}/profissionais/${toCitySlug(city)}`,
+    const cityPages: MetadataRoute.Sitemap = citySlugs.map((slug) => ({
+      url: `${BASE_URL}/profissionais/${slug}`,
       lastModified,
       changeFrequency: 'weekly' as const,
       priority: 0.7,

@@ -127,6 +127,41 @@ function FaqSchema() {
   );
 }
 
+function BreadcrumbSchema() {
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Início', item: 'https://singulare.org' },
+      { '@type': 'ListItem', position: 2, name: 'Guias', item: 'https://singulare.org/guias' },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: 'Visibilidade digital para clínicas',
+        item: URL_CANONICA,
+      },
+    ],
+  };
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  );
+}
+
+function AlternateLink() {
+  return (
+    <link
+      rel="alternate"
+      type="text/html"
+      media="print"
+      href="https://singulare.org/ebook/visibilidade-digital"
+      title="Versão imprimível"
+    />
+  );
+}
+
 function Eyebrow({ children, color = ACCENT_DEEP }: { children: React.ReactNode; color?: string }) {
   return (
     <p
@@ -370,6 +405,8 @@ export default function GuiaVisibilidadeDigital() {
     <>
       <ArticleSchema />
       <FaqSchema />
+      <BreadcrumbSchema />
+      <AlternateLink />
 
       <article className="bg-[#FAFAF7] text-zinc-900 selection:bg-zinc-900 selection:text-white">
         {/* HEADER ===================================== */}
