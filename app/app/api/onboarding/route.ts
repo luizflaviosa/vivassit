@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { supabaseAdmin, SAAS_PLAN_AMOUNTS, ADDON_HUMAN_SUPPORT_PRICE, TRIAL_DAYS } from '@/lib/supabase';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import {
+  slugifyVitrine,
+  parseAddressForVitrine,
+  normalizeProfessionalType,
+  ensureUniqueVitrineSlug,
+} from '@/lib/vitrine-onboarding';
 
 const E164_REGEX = /^\+\d{10,15}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -309,6 +315,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── Persistencia: vitrine_profiles (pagina publica /p/[slug], unpublished) ─
+    // Cria entry sem publicar — medico opta-in explicito no painel/vitrine.
+    // Sob Medida pula (clinica grande define isso na proposta comercial).
+    let vitrineSlug: string | null = null;
+    if (!isSobMedida) {
+      try {
+        const profType = normalizeProfessionalType(professionalType);
+        const { city, state } = parseAddressForVitrine(body?.address);
+        const slugBase = slugifyVitrine(
+          [body.doctor_name, body.speciality, city].filter(Boolean).join(' ')
+        );
+        const finalSlug = await ensureUniqueVitrineSlug(supabase, slugBase);
+
+        const { error: vitrineErr } = await supabase
+          .from('vitrine_profiles')
+          .insert({
+            tenant_id: tenantId,
+            slug: finalSlug,
+            display_name: body.doctor_name,
+            professional_type: profType,
+            specialty: body.speciality,
+            city: city || 'Sao Paulo',
+            state: state || 'SP',
+            bio: null,
+            photo_url: null,
+            consultation_value: consultationValue,
+            published: false,
+          });
+
+        if (vitrineErr) {
+          console.error('[onboarding] erro ao criar vitrine_profile:', vitrineErr);
+          // Nao bloqueia — medico pode criar manual depois pelo painel
+        } else {
+          vitrineSlug = finalSlug;
+          console.log('[onboarding] vitrine_profile criado (unpublished):', finalSlug);
+        }
+      } catch (err) {
+        console.error('[onboarding] exception ao criar vitrine_profile:', err);
+      }
+    }
+
     // ── Magic link de primeiro acesso (passa para N8N enviar via email) ───────
     // Estrategia:
     //   1. Cria user no auth (idempotente; se ja existe, ignora)
@@ -426,6 +473,8 @@ export async function POST(request: NextRequest) {
       // Magic link de primeiro acesso - inserir como CTA principal do email N8N
       magic_link_url: magicLinkUrl,
       panel_url: `${request.nextUrl.origin || 'https://app.singulare.org'}/painel`,
+      vitrine_edit_url: `${request.nextUrl.origin || 'https://app.singulare.org'}/painel/vitrine`,
+      vitrine_slug: vitrineSlug,
       checkout_url: orderId
         ? `${request.nextUrl.origin || 'https://app.singulare.org'}/checkout/${externalReference}`
         : null,
@@ -556,6 +605,8 @@ export async function POST(request: NextRequest) {
         // Sob Medida: SEM checkout_url. UI mostra tela de "obrigado, equipe vai contatar"
         checkout_url: !isSobMedida && orderId ? `/checkout/${externalReference}` : null,
         magic_link_url: magicLinkUrl,
+        vitrine_slug: vitrineSlug,
+        vitrine_edit_url: `${request.nextUrl.origin || 'https://app.singulare.org'}/painel/vitrine`,
         // Dados de provisionamento N8N (se disponiveis)
         calendar_link: n8nSummary?.calendar_access_link ?? null,
         telegram_link: n8nSummary?.telegram_bot_link ?? null,
