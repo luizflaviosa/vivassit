@@ -56,6 +56,14 @@ interface AgendaEvent {
   meet_link: string | null;
   color_id: string | null;
   color_hex: string | null;
+  // Campos opcionais do JOIN com doctor_bookings (presentes só em eventos vindos do DB cache)
+  booking_id?: string | null;
+  patient_phone?: string | null;
+  source?: string | null;
+  booking_status?: string | null;
+  proposed_slot_start?: string | null;
+  proposed_slot_end?: string | null;
+  confirmation_expires_at?: string | null;
 }
 
 interface DoctorOption {
@@ -215,6 +223,10 @@ function AgendaInner() {
   } | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Propor novo horário ao paciente (status pending_confirmation, TTL 24h)
+  const [proposing, setProposing] = useState(false);
+  const [proposeForm, setProposeForm] = useState<{ newStart: Date; newEnd: Date } | null>(null);
+  const [proposeSaving, setProposeSaving] = useState(false);
 
   // Carrega lista de profissionais
   useEffect(() => {
@@ -282,6 +294,8 @@ function AgendaInner() {
     setSelected(ev.raw);
     setEditing(false);
     setEditForm(null);
+    setProposing(false);
+    setProposeForm(null);
   }, []);
 
   const startEdit = useCallback(() => {
@@ -334,6 +348,58 @@ function AgendaInner() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, editForm, activeDoctor]);
+
+  const startPropose = useCallback(() => {
+    if (!selected) return;
+    const currentStart = selected.start ? new Date(selected.start) : new Date();
+    const currentEnd = selected.end ? new Date(selected.end) : new Date(currentStart.getTime() + 60 * 60 * 1000);
+    // Default: mesmo dia, +1h depois — só sugestão pra editar
+    const defaultNewStart = new Date(currentStart.getTime() + 60 * 60 * 1000);
+    const durationMs = currentEnd.getTime() - currentStart.getTime();
+    const defaultNewEnd = new Date(defaultNewStart.getTime() + durationMs);
+    setProposeForm({ newStart: defaultNewStart, newEnd: defaultNewEnd });
+    setProposing(true);
+  }, [selected]);
+
+  const handleProposeSubmit = useCallback(async () => {
+    if (!selected || !proposeForm) return;
+    if (proposeForm.newEnd <= proposeForm.newStart) {
+      toast.error('Horário de fim deve ser depois do início');
+      return;
+    }
+    if (proposeForm.newStart < new Date()) {
+      toast.error('Novo horário não pode estar no passado');
+      return;
+    }
+    setProposeSaving(true);
+    try {
+      const res = await fetch(`/api/painel/agenda/events/${selected.id}/propose-reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          newStart: proposeForm.newStart.toISOString(),
+          newEnd: proposeForm.newEnd.toISOString(),
+        }),
+      });
+      const json = await res.json().catch(() => ({ success: false, message: 'Erro' }));
+      if (!json.success) {
+        toast.error('Não foi possível enviar a proposta', { description: json.message });
+        return;
+      }
+      toast.success('Proposta enviada ao paciente', {
+        description: 'Ele tem 24h pra responder. Se não responder, o horário volta a ficar disponível.',
+      });
+      setProposing(false);
+      setProposeForm(null);
+      setSelected(null);
+      void fetchEvents(true);
+    } catch (e) {
+      toast.error('Erro de conexão', { description: (e as Error).message });
+    } finally {
+      setProposeSaving(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, proposeForm]);
 
   const handleDelete = useCallback(async () => {
     if (!selected) return;
@@ -976,7 +1042,7 @@ function AgendaInner() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => !editSaving && !deleting && setSelected(null)}
+              onClick={() => !editSaving && !deleting && !proposeSaving && setSelected(null)}
             />
             <motion.div
               className="fixed z-50 bg-white overflow-y-auto shadow-[0_-12px_40px_-8px_rgba(0,0,0,0.18)] sm:shadow-none
@@ -1012,11 +1078,16 @@ function AgendaInner() {
                 </button>
               </div>
 
-              {!editing ? (
+              {!editing && !proposing ? (
                 <>
                   <h2 className="text-[22px] font-medium tracking-[-0.02em] text-zinc-900 mb-1.5 leading-snug">
                     {selected.title}
                   </h2>
+                  {selected.booking_status === 'pending_confirmation' && selected.confirmation_expires_at && (
+                    <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900 leading-relaxed">
+                      <strong>Aguardando confirmação do paciente.</strong> Proposta válida até {new Date(selected.confirmation_expires_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}. Se não responder, o horário volta a ficar disponível.
+                    </div>
+                  )}
                   <p className="text-[13px] text-zinc-500 mb-5">
                     {selected.start && (
                       <>
@@ -1074,6 +1145,18 @@ function AgendaInner() {
                     >
                       Editar
                     </button>
+                    {selected.booking_id &&
+                      selected.booking_status !== 'cancelled' &&
+                      selected.booking_status !== 'pending_confirmation' &&
+                      selected.booking_status !== 'completed' && (
+                        <button
+                          type="button"
+                          onClick={startPropose}
+                          className="h-11 px-4 rounded-lg border border-violet-200 bg-violet-50 text-violet-900 text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-violet-100 transition-all"
+                        >
+                          Sugerir novo horário ao paciente
+                        </button>
+                      )}
                     <button
                       type="button"
                       onClick={handleDelete}
@@ -1112,7 +1195,7 @@ function AgendaInner() {
                     )}
                   </div>
                 </>
-              ) : (
+              ) : editing ? (
                 <>
                   <h2 className="text-[22px] font-medium tracking-[-0.02em] text-zinc-900 mb-5 leading-snug">
                     Editar evento
@@ -1221,6 +1304,99 @@ function AgendaInner() {
                       className="h-11 px-4 rounded-lg border border-zinc-300 text-zinc-700 text-[14px] font-semibold inline-flex items-center justify-center hover:border-zinc-900 transition-all disabled:opacity-50"
                     >
                       Cancelar edição
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* Branch: proposing — sugerir novo horário ao paciente */
+                <>
+                  <h2 className="text-[22px] font-medium tracking-[-0.02em] text-zinc-900 mb-1 leading-snug">
+                    Sugerir novo horário
+                  </h2>
+                  <p className="text-[13px] text-zinc-500 mb-5">
+                    O paciente recebe a proposta pelo WhatsApp e tem 24h pra responder. Se aceitar, a consulta passa para o novo horário automaticamente. Se não responder ou recusar, o horário volta a ficar disponível.
+                  </p>
+
+                  {selected.start && (
+                    <div className="mb-4 px-3 py-2.5 rounded-lg bg-zinc-50 border border-zinc-200 text-[13px] text-zinc-700">
+                      <div className="text-[11px] uppercase tracking-[0.08em] text-zinc-400 mb-1">Horário atual</div>
+                      {new Date(selected.start).toLocaleDateString('pt-BR', {
+                        weekday: 'long',
+                        day: '2-digit',
+                        month: 'long',
+                      })}{' '}
+                      · {fmtTime(new Date(selected.start))}
+                      {selected.end ? ' – ' + fmtTime(new Date(selected.end)) : ''}
+                    </div>
+                  )}
+
+                  {proposeForm && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-[0.08em] mb-1.5">
+                          Novo início
+                        </label>
+                        <input
+                          type="datetime-local"
+                          autoFocus
+                          value={toLocalInputValue(proposeForm.newStart)}
+                          onChange={(e) =>
+                            setProposeForm((f) =>
+                              f ? { ...f, newStart: fromLocalInputValue(e.target.value) } : f,
+                            )
+                          }
+                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-[0.08em] mb-1.5">
+                          Novo fim
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={toLocalInputValue(proposeForm.newEnd)}
+                          onChange={(e) =>
+                            setProposeForm((f) =>
+                              f ? { ...f, newEnd: fromLocalInputValue(e.target.value) } : f,
+                            )
+                          }
+                          className="w-full h-11 px-3 text-[14px] border border-zinc-300 rounded-lg focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                        />
+                      </div>
+
+                      <div className="px-3 py-3 rounded-lg bg-violet-50 border border-violet-200 text-[12px] text-violet-900 leading-relaxed">
+                        <div className="font-semibold mb-1">Mensagem que será enviada ao paciente:</div>
+                        Olá! A profissional precisou reorganizar a agenda e gostaríamos de sugerir um novo horário pra sua consulta: <strong>{proposeForm.newStart.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} às {fmtTime(proposeForm.newStart)}</strong>. Esse horário funciona pra você?
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2 mt-6">
+                    <button
+                      type="button"
+                      onClick={handleProposeSubmit}
+                      disabled={proposeSaving}
+                      className="h-11 px-4 rounded-lg text-white text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ background: ACCENT }}
+                    >
+                      {proposeSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" /> Enviando proposta...
+                        </>
+                      ) : (
+                        'Enviar proposta ao paciente'
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProposing(false);
+                        setProposeForm(null);
+                      }}
+                      disabled={proposeSaving}
+                      className="h-11 px-4 rounded-lg border border-zinc-300 text-zinc-700 text-[14px] font-semibold inline-flex items-center justify-center hover:border-zinc-900 transition-all disabled:opacity-50"
+                    >
+                      Cancelar
                     </button>
                   </div>
                 </>

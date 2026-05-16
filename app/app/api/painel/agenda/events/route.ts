@@ -29,6 +29,9 @@ interface EventRow {
     patient_name: string | null;
     patient_phone: string | null;
     status: string;
+    proposed_slot_start: string | null;
+    proposed_slot_end: string | null;
+    confirmation_expires_at: string | null;
   } | null;
 }
 
@@ -82,7 +85,7 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase
       .from('tenant_calendar_events')
       .select(
-        'event_id, summary, description, event_start, event_end, source, booking_id, calendar_id, doctor_bookings(id, patient_name, patient_phone, status)',
+        'event_id, summary, description, event_start, event_end, source, booking_id, calendar_id, doctor_bookings(id, patient_name, patient_phone, status, proposed_slot_start, proposed_slot_end, confirmation_expires_at)',
       )
       .eq('doctor_id', doctor.id)
       .gte('event_end', timeMin)
@@ -95,6 +98,7 @@ export async function GET(req: NextRequest) {
       const events = data.map((ev) => {
         const booking = ev.doctor_bookings;
         const isCancelled = booking?.status === 'cancelled';
+        const isPending = booking?.status === 'pending_confirmation';
         return {
           id: ev.event_id,
           title: ev.summary ?? '(sem título)',
@@ -108,11 +112,16 @@ export async function GET(req: NextRequest) {
           link: `https://calendar.google.com/calendar/event?eid=${ev.event_id}`,
           meet_link: null,
           color_id: null,
-          color_hex: booking ? '#5746AF' /* roxo Singulare pra consultas */ : null,
+          // Pending fica âmbar pra destacar visualmente; booking normal roxo Singulare; bloco avulso null
+          color_hex: isPending ? '#D97706' : booking ? '#5746AF' : null,
           // Extras: úteis pro UI distinguir consulta vs bloco
           booking_id: ev.booking_id,
           patient_phone: booking?.patient_phone ?? null,
           source: ev.source,
+          booking_status: booking?.status ?? null,
+          proposed_slot_start: booking?.proposed_slot_start ?? null,
+          proposed_slot_end: booking?.proposed_slot_end ?? null,
+          confirmation_expires_at: booking?.confirmation_expires_at ?? null,
         };
       });
 
