@@ -24,6 +24,8 @@ const PILARES = [
     nome: 'Google Meu Negócio',
     peso: 30,
     desc: 'Onde 78% das buscas por clínica acontecem. Inclui Maps, Knowledge Panel e reviews.',
+    dor: 'O paciente abre o Maps, vê três clínicas próximas, escolhe uma. Se você não está ali, simplesmente não existe pra essa busca — não importa quanto você seja bom.',
+    resolve: 'Perfil completo, fotos boas, horário sempre atualizado, reviews recentes e respondidos colocam você no top 3 da sua região. É a vitrine que mais converte busca em agendamento real.',
     metricas: ['Impressões em busca e mapa', 'Cliques de chamada', 'Pedidos de rota', 'Reviews e rating'],
   },
   {
@@ -31,6 +33,8 @@ const PILARES = [
     nome: 'Doctoralia',
     peso: 15,
     desc: 'Diretório de saúde mais relevante do Brasil. Marketplace ativo de busca por especialidade.',
+    dor: 'Quando o paciente já decidiu pela especialidade mas não sabe quem procurar, ele compara opções no Doctoralia como compara hotel no Booking. Sem perfil verificado, você fica fora da shortlist antes mesmo de competir.',
+    resolve: 'Perfil verificado, rating cuidado e agendamento online ativo capturam o lead exatamente no momento da decisão — sem precisar levar o paciente pra outro canal e perder ele no caminho.',
     metricas: ['Presença e perfil verificado', 'Rating e reviews', 'Agendamento online ativo'],
   },
   {
@@ -38,6 +42,8 @@ const PILARES = [
     nome: 'Redes sociais',
     peso: 20,
     desc: 'Instagram e Facebook ativos. Não é vaidade — é prova social pré-consulta.',
+    dor: 'Um amigo te indicou. O paciente abre seu Instagram pra confirmar que você existe. Última publicação 8 meses atrás. A indicação evapora antes mesmo de virar primeira mensagem.',
+    resolve: 'Conteúdo recente (mesmo simples), link de agendamento na bio, depoimentos e respostas a dúvidas frequentes viram prova social que reduz a fricção entre a indicação que chega e a consulta marcada.',
     metricas: ['Seguidores e engajamento', 'Posts nos últimos 30 dias', 'Link de agendamento na bio'],
   },
   {
@@ -45,6 +51,8 @@ const PILARES = [
     nome: 'SEO e site',
     peso: 20,
     desc: 'Site rápido, mobile-first, com SSL. Ranking nas 10 primeiras posições orgânicas.',
+    dor: 'Site que demora 5 segundos pra abrir no celular, sem SSL, com layout quebrado, é dinheiro evaporando. Cada segundo de delay no carregamento derruba cerca de 7% das conversões — silenciosamente.',
+    resolve: 'Mobile-first, performance score acima de 80, SSL ativo e palavras-chave da sua especialidade bem trabalhadas colocam você nas 10 primeiras posições orgânicas. É um ativo digital que trabalha 24h sem custo marginal por paciente.',
     metricas: ['Performance e mobile score', 'Posição em busca orgânica', 'SSL e domínio próprio'],
   },
   {
@@ -52,6 +60,8 @@ const PILARES = [
     nome: 'Operacional',
     peso: 15,
     desc: 'NPS, taxa de conversão e tempo de resposta. O marketing que continua depois do clique.',
+    dor: 'Você investiu R$ 2.000 em anúncio. 100 pessoas clicaram, 60 mandaram mensagem. Mas só 12 marcaram, porque a resposta demorou 4 horas. O marketing virou furo no balde — e nem percebeu.',
+    resolve: 'Resposta abaixo de 15 minutos, NPS acima de 70 e processo de confirmação claro fazem o paciente atraído virar agendamento real — e geram o boca-a-boca que sustenta o crescimento orgânico de longo prazo.',
     metricas: ['NPS médio', 'Taxa de agendamento', 'Tempo médio de resposta', 'Recorrência'],
   },
 ];
@@ -312,8 +322,25 @@ export default function EbookVisibilidadeDigital() {
                     </span>
                   </div>
                 </div>
-                <p className="text-[14px] text-zinc-600 leading-relaxed mb-2">{p.desc}</p>
-                <p className="text-[12px] text-zinc-400">
+                <p className="text-[14px] text-zinc-600 leading-relaxed mb-4">{p.desc}</p>
+                <div className="space-y-3 mb-4">
+                  <div className="flex gap-3">
+                    <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-zinc-500 pt-[3px] shrink-0 w-[58px]">
+                      Dor
+                    </span>
+                    <p className="text-[13px] text-zinc-700 leading-[1.55] flex-1">{p.dor}</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span
+                      className="text-[10px] uppercase tracking-[0.14em] font-semibold pt-[3px] shrink-0 w-[58px]"
+                      style={{ color: ACCENT_DEEP }}
+                    >
+                      Resolve
+                    </span>
+                    <p className="text-[13px] text-zinc-700 leading-[1.55] flex-1">{p.resolve}</p>
+                  </div>
+                </div>
+                <p className="text-[12px] text-zinc-400 pt-3 border-t border-black/[0.05]">
                   {p.metricas.join(' · ')}
                 </p>
               </div>
