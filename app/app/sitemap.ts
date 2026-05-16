@@ -29,6 +29,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/onboarding`, lastModified, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE_URL}/empresa`, lastModified, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE_URL}/profissionais`, lastModified, changeFrequency: 'weekly', priority: 0.6 },
+    { url: `${BASE_URL}/guias/visibilidade-digital-clinicas`, lastModified, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/ebook/visibilidade-digital`, lastModified, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE_URL}/termos`, lastModified, changeFrequency: 'yearly', priority: 0.2 },
     { url: `${BASE_URL}/privacidade`, lastModified, changeFrequency: 'yearly', priority: 0.2 },
   ];
