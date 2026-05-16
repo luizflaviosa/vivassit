@@ -215,6 +215,10 @@ export async function PATCH(request: NextRequest) {
       }
     }
     updates.published = body.published;
+    // Ao re-publicar, limpa o motivo da despublicacao automatica anterior
+    if (body.published) {
+      updates.unpublished_reason = null;
+    }
     if (body.published && !current.lgpd_consent_at) {
       updates.lgpd_consent_at = new Date().toISOString();
       updates.lgpd_consent_ip =

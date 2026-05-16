@@ -38,7 +38,26 @@ interface VitrineProfile {
   review_count: number;
   faqs?: VitrineFaq[];
   ai_generated_at?: string | null;
+  unpublished_reason?: string | null;
 }
+
+const UNPUBLISH_REASON_COPY: Record<string, { title: string; cta: string; href: string }> = {
+  subscription_canceled: {
+    title: 'Sua pagina foi despublicada porque a assinatura foi cancelada.',
+    cta: 'Reativar assinatura',
+    href: '/painel/planos',
+  },
+  addon_removed: {
+    title: 'Sua pagina foi despublicada porque o add-on de Marketing foi removido.',
+    cta: 'Reativar add-on',
+    href: '/painel/planos',
+  },
+  downgrade: {
+    title: 'Sua pagina foi despublicada porque o plano foi alterado e nao inclui mais Marketing.',
+    cta: 'Ajustar plano',
+    href: '/painel/planos',
+  },
+};
 
 function VitrinePageInner() {
   const me = useMe();
@@ -293,8 +312,32 @@ function VitrinePageInner() {
     );
   }
 
+  const unpublishedBanner =
+    !profile.published && profile.unpublished_reason
+      ? UNPUBLISH_REASON_COPY[profile.unpublished_reason] ?? {
+          title: 'Sua pagina foi despublicada automaticamente.',
+          cta: 'Ver planos',
+          href: '/painel/planos',
+        }
+      : null;
+
   return (
     <div className="space-y-6">
+      {unpublishedBanner && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[13px] text-amber-900 leading-relaxed">
+            {unpublishedBanner.title} Reative pra voltar ao ar.
+          </p>
+          <a
+            href={unpublishedBanner.href}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[13px] font-medium text-white"
+            style={{ background: ACCENT }}
+          >
+            {unpublishedBanner.cta}
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[12px] uppercase tracking-[0.12em] font-semibold mb-2" style={{ color: ACCENT_DEEP }}>
