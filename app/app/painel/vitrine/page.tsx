@@ -1,12 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState, Suspense } from 'react';
-import { Loader2, ExternalLink, Save, Eye, EyeOff, Globe } from 'lucide-react';
+import { Loader2, ExternalLink, Save, Eye, EyeOff, Globe, Sparkles, Plus, Trash2 } from 'lucide-react';
 import { PROFESSIONAL_TYPES } from '@/lib/types';
 import { useMe } from '@/lib/painel-context';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
+
+interface VitrineFaq {
+  q: string;
+  a: string;
+}
 
 interface VitrineProfile {
   id: number;
@@ -24,6 +29,8 @@ interface VitrineProfile {
   lgpd_consent_at: string | null;
   avg_nps: number | null;
   review_count: number;
+  faqs?: VitrineFaq[];
+  ai_generated_at?: string | null;
 }
 
 function VitrinePageInner() {
@@ -45,6 +52,8 @@ function VitrinePageInner() {
     city: '',
     state: 'SP',
   });
+  const [faqs, setFaqs] = useState<VitrineFaq[]>([]);
+  const [regenerating, setRegenerating] = useState<'bio' | 'faqs' | null>(null);
   const [confirmPublish, setConfirmPublish] = useState(false);
 
   useEffect(() => {
@@ -64,6 +73,7 @@ function VitrinePageInner() {
             city: json.profile.city ?? '',
             state: json.profile.state ?? 'SP',
           });
+          setFaqs(Array.isArray(json.profile.faqs) ? json.profile.faqs : []);
         } else {
           setError(json.message || 'Nao foi possivel carregar a pagina publica.');
         }
@@ -111,7 +121,49 @@ function VitrinePageInner() {
 
   const onSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    await save(form as Partial<VitrineProfile>);
+    await save({ ...form, faqs } as Partial<VitrineProfile>);
+  };
+
+  const regenerate = async (kind: 'bio' | 'faqs') => {
+    setRegenerating(kind);
+    setError(null);
+    setSaved(false);
+    try {
+      const res = await fetch('/api/painel/vitrine/regenerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success && json.profile) {
+        setProfile(json.profile);
+        if (kind === 'bio' && typeof json.profile.bio === 'string') {
+          setForm((f) => ({ ...f, bio: json.profile.bio }));
+        }
+        if (kind === 'faqs' && Array.isArray(json.profile.faqs)) {
+          setFaqs(json.profile.faqs);
+        }
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      } else {
+        setError(json.message || 'Erro ao regenerar com IA.');
+      }
+    } catch {
+      setError('Erro de rede ao regenerar.');
+    } finally {
+      setRegenerating(null);
+    }
+  };
+
+  const addFaq = () => {
+    if (faqs.length >= 10) return;
+    setFaqs([...faqs, { q: '', a: '' }]);
+  };
+  const updateFaq = (i: number, patch: Partial<VitrineFaq>) => {
+    setFaqs(faqs.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
+  };
+  const removeFaq = (i: number) => {
+    setFaqs(faqs.filter((_, idx) => idx !== i));
   };
 
   const onTogglePublish = async () => {
@@ -195,9 +247,21 @@ function VitrinePageInner() {
           </div>
 
           <div>
-            <label className="block text-[12px] uppercase tracking-[0.08em] font-semibold text-zinc-500 mb-1.5">
-              Bio (max 500 caracteres)
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[12px] uppercase tracking-[0.08em] font-semibold text-zinc-500">
+                Bio (max 500 caracteres)
+              </label>
+              <button
+                type="button"
+                onClick={() => regenerate('bio')}
+                disabled={regenerating !== null || saving}
+                className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-medium border border-black/[0.08] text-zinc-700 hover:bg-black/[0.03] disabled:opacity-50"
+                title="Gerar uma nova versao da bio com IA"
+              >
+                {regenerating === 'bio' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" style={{ color: ACCENT_DEEP }} />}
+                Regenerar com IA
+              </button>
+            </div>
             <textarea
               value={form.bio}
               onChange={(e) => setForm({ ...form, bio: e.target.value })}
@@ -207,6 +271,11 @@ function VitrinePageInner() {
               className="w-full px-3 py-2 rounded-lg border border-black/[0.08] text-[14px] text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#6E56CF]/30 resize-y"
             />
             <p className="text-[11px] text-zinc-400 mt-1">{form.bio.length}/500</p>
+            {profile.ai_generated_at && (
+              <p className="text-[11px] mt-1" style={{ color: ACCENT_DEEP }}>
+                Conteudo gerado por IA em {new Date(profile.ai_generated_at).toLocaleString('pt-BR')} — revise antes de publicar.
+              </p>
+            )}
           </div>
 
           <div>
@@ -278,6 +347,74 @@ function VitrinePageInner() {
                 className="w-full h-10 px-3 rounded-lg border border-black/[0.08] text-[14px] text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#6E56CF]/30 uppercase"
               />
             </div>
+          </div>
+
+          <div className="pt-2 border-t border-black/[0.06]">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <label className="block text-[12px] uppercase tracking-[0.08em] font-semibold text-zinc-500">
+                  Perguntas frequentes (FAQs)
+                </label>
+                <p className="text-[11px] text-zinc-400 mt-0.5">Ate 10 perguntas. Aparecem na sua pagina publica.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => regenerate('faqs')}
+                disabled={regenerating !== null || saving}
+                className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[11px] font-medium border border-black/[0.08] text-zinc-700 hover:bg-black/[0.03] disabled:opacity-50"
+                title="Gerar 5 FAQs novas com IA"
+              >
+                {regenerating === 'faqs' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" style={{ color: ACCENT_DEEP }} />}
+                Regenerar com IA
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {faqs.length === 0 && (
+                <p className="text-[12.5px] text-zinc-500 italic">Nenhuma FAQ ainda. Clique em &quot;Regenerar com IA&quot; ou adicione manualmente.</p>
+              )}
+              {faqs.map((f, i) => (
+                <div key={i} className="rounded-lg border border-black/[0.06] bg-[#FAFAF7] p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="text"
+                      value={f.q}
+                      onChange={(e) => updateFaq(i, { q: e.target.value })}
+                      placeholder="Pergunta"
+                      maxLength={200}
+                      className="flex-1 h-9 px-2.5 rounded-md border border-black/[0.08] bg-white text-[13.5px] text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#6E56CF]/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeFaq(i)}
+                      className="h-9 w-9 rounded-md border border-black/[0.08] text-zinc-500 hover:bg-red-50 hover:text-red-700 inline-flex items-center justify-center"
+                      title="Remover esta FAQ"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <textarea
+                    value={f.a}
+                    onChange={(e) => updateFaq(i, { a: e.target.value })}
+                    placeholder="Resposta"
+                    maxLength={600}
+                    rows={2}
+                    className="w-full px-2.5 py-2 rounded-md border border-black/[0.08] bg-white text-[13.5px] text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#6E56CF]/30 resize-y"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {faqs.length < 10 && (
+              <button
+                type="button"
+                onClick={addFaq}
+                className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-medium border border-dashed border-black/[0.12] text-zinc-700 hover:bg-black/[0.03]"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Adicionar FAQ
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-3 pt-2">

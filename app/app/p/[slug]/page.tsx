@@ -40,9 +40,18 @@ export default async function VitrineProfilePage({ params }: Props) {
 
   const profLabel = PROFESSIONAL_TYPES[profile.professional_type as keyof typeof PROFESSIONAL_TYPES] ?? profile.professional_type;
   const npsDisplay = profile.avg_nps ? profile.avg_nps.toFixed(1) : null;
+  const faqsRaw = (profile as { faqs?: unknown }).faqs;
+  const faqs: Array<{ q: string; a: string }> = Array.isArray(faqsRaw)
+    ? (faqsRaw as Array<{ q?: unknown; a?: unknown }>)
+        .map((it) => ({
+          q: typeof it?.q === 'string' ? it.q : '',
+          a: typeof it?.a === 'string' ? it.a : '',
+        }))
+        .filter((it) => it.q && it.a)
+    : [];
 
   // JSON-LD structured data
-  const jsonLd = {
+  const jsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Physician',
     name: profile.display_name,
@@ -64,12 +73,31 @@ export default async function VitrineProfilePage({ params }: Props) {
     ...(profile.photo_url ? { image: profile.photo_url } : {}),
   };
 
+  // FAQPage schema separado (Google entende quando 2 @graph entries num so script)
+  const faqJsonLd = faqs.length
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: faqs.map((f) => ({
+          '@type': 'Question',
+          name: f.q,
+          acceptedAnswer: { '@type': 'Answer', text: f.a },
+        })),
+      }
+    : null;
+
   return (
     <main className="min-h-screen bg-[#FAFAF7]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
       <div className="max-w-2xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="bg-white rounded-2xl border border-black/[0.06] p-8 mb-6">
@@ -129,6 +157,25 @@ export default async function VitrineProfilePage({ params }: Props) {
           >
             Agendar via WhatsApp
           </a>
+        )}
+
+        {faqs.length > 0 && (
+          <section className="mt-8 bg-white rounded-2xl border border-black/[0.06] p-8">
+            <h2 className="text-lg font-semibold text-zinc-900 tracking-tight mb-4">
+              Perguntas frequentes
+            </h2>
+            <div className="divide-y divide-black/[0.06]">
+              {faqs.map((f, i) => (
+                <details key={i} className="group py-4 first:pt-0 last:pb-0">
+                  <summary className="cursor-pointer list-none flex items-start justify-between gap-3 text-[15px] font-medium text-zinc-900">
+                    <span>{f.q}</span>
+                    <span className="text-zinc-400 group-open:rotate-180 transition-transform text-xs mt-0.5">▼</span>
+                  </summary>
+                  <p className="mt-2 text-[14px] text-zinc-600 leading-relaxed">{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </section>
         )}
 
         <p className="text-center text-xs text-zinc-400 mt-8">

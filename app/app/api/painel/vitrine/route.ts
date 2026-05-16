@@ -18,6 +18,23 @@ import {
 const MAX_BIO_LENGTH = 500;
 const MAX_DISPLAY_NAME_LENGTH = 120;
 const MAX_CITY_LENGTH = 80;
+const MAX_FAQS = 10;
+const MAX_FAQ_Q_LENGTH = 200;
+const MAX_FAQ_A_LENGTH = 600;
+
+function sanitizeFaqs(input: unknown): { ok: true; faqs: Array<{ q: string; a: string }> } | { ok: false; error: string } {
+  if (!Array.isArray(input)) return { ok: false, error: 'FAQs deve ser uma lista.' };
+  if (input.length > MAX_FAQS) return { ok: false, error: `Maximo de ${MAX_FAQS} FAQs.` };
+  const cleaned: Array<{ q: string; a: string }> = [];
+  for (const item of input) {
+    if (!item || typeof item !== 'object') continue;
+    const obj = item as Record<string, unknown>;
+    const q = typeof obj.q === 'string' ? obj.q.trim().slice(0, MAX_FAQ_Q_LENGTH) : '';
+    const a = typeof obj.a === 'string' ? obj.a.trim().slice(0, MAX_FAQ_A_LENGTH) : '';
+    if (q && a) cleaned.push({ q, a });
+  }
+  return { ok: true, faqs: cleaned };
+}
 
 export async function GET() {
   const auth = await requireTenant();
@@ -144,6 +161,13 @@ export async function PATCH(request: NextRequest) {
   if (typeof body.state === 'string') {
     const v = body.state.trim().toUpperCase().slice(0, 2);
     if (v.length === 2) updates.state = v;
+  }
+
+  // FAQs editaveis. Aceita array vazio (limpar).
+  if ('faqs' in body) {
+    const r = sanitizeFaqs(body.faqs);
+    if (!r.ok) return NextResponse.json({ success: false, message: r.error }, { status: 400 });
+    updates.faqs = r.faqs;
   }
 
   // Publish toggle: opt-in explicito. Grava consent_at na primeira publicacao.

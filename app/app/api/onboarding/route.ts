@@ -8,6 +8,7 @@ import {
   normalizeProfessionalType,
   ensureUniqueVitrineSlug,
 } from '@/lib/vitrine-onboarding';
+import { generateVitrineBio, generateVitrineFaqs, aiAvailable } from '@/lib/vitrine-ai';
 
 const E164_REGEX = /^\+\d{10,15}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -350,6 +351,61 @@ export async function POST(request: NextRequest) {
         } else {
           vitrineSlug = finalSlug;
           console.log('[onboarding] vitrine_profile criado (unpublished):', finalSlug);
+
+          // ── Gera bio + FAQs em background (nao bloqueia response) ────────
+          // O onboarding responde rapido; bio/FAQs aparecem no painel dentro
+          // de poucos segundos. Profissional revisa e edita antes de publicar.
+          if (aiAvailable()) {
+            const { city: aiCity, state: aiState } = parseAddressForVitrine(body?.address);
+            const aiInput = {
+              doctor_name: body.doctor_name,
+              specialty: body.speciality,
+              professional_type: profType,
+              city: aiCity || 'Sao Paulo',
+              state: aiState || 'SP',
+              establishment_type: establishmentType,
+            };
+            // Fire-and-forget. Promise.allSettled garante que nem
+            // bio nem FAQs derrubam o background se um falhar.
+            void Promise.allSettled([
+              generateVitrineBio(aiInput),
+              generateVitrineFaqs(aiInput),
+            ]).then(async ([bioRes, faqsRes]) => {
+              const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+              let anyOk = false;
+              if (bioRes.status === 'fulfilled' && bioRes.value.data) {
+                updates.bio = bioRes.value.data;
+                anyOk = true;
+              }
+              if (faqsRes.status === 'fulfilled' && faqsRes.value.data) {
+                updates.faqs = faqsRes.value.data;
+                anyOk = true;
+              }
+              if (!anyOk) {
+                console.warn('[onboarding] vitrine AI background: bio + faqs falharam');
+                return;
+              }
+              updates.ai_generated_at = new Date().toISOString();
+              const { error: aiUpdErr } = await supabase
+                .from('vitrine_profiles')
+                .update(updates)
+                .eq('tenant_id', tenantId)
+                .eq('slug', finalSlug);
+              if (aiUpdErr) {
+                console.error('[onboarding] erro ao gravar bio/FAQs IA:', aiUpdErr);
+              } else {
+                console.log('[onboarding] vitrine AI background concluido:', {
+                  slug: finalSlug,
+                  bio: !!updates.bio,
+                  faqs: Array.isArray(updates.faqs) ? (updates.faqs as unknown[]).length : 0,
+                });
+              }
+            }).catch((err) => {
+              console.error('[onboarding] vitrine AI background exception:', err);
+            });
+          } else {
+            console.warn('[onboarding] AI keys ausentes (ANTHROPIC_API_KEY / OPENAI_API_KEY): pulando bio/FAQs IA');
+          }
         }
       } catch (err) {
         console.error('[onboarding] exception ao criar vitrine_profile:', err);
