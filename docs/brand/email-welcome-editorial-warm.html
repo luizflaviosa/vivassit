@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="x-apple-disable-message-reformatting" />
+<title>Singulare — Bem-vindo (Editorial Warm v1)</title>
+<!--
+  Preservação do template de email welcome v1 — sistema visual "Editorial Warm".
+  Esta versão é arquivo de referência. O template ativo em produção (n8n) usa
+  o sistema oficial Luxury Modular Intelligence v1.0.
+
+  Placeholders [doctor_name] e [clinic_name] foram mantidos como texto fixo,
+  não como variáveis n8n — este arquivo não é um template ativo.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  body, table, td, p, a, h1, h2, h3 { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+  table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; border-collapse:collapse; }
+  img { -ms-interpolation-mode:bicubic; border:0; outline:none; text-decoration:none; }
+  body { margin:0; padding:0; width:100%; background:#E8DEC4; font-family:'Poppins', Arial, sans-serif; color:#1F1F1F; }
+  a { color:#B85C3A; text-decoration:underline; }
+  .display { font-family:'Space Grotesk', Georgia, serif; letter-spacing:-0.01em; }
+  .eyebrow { font-family:'Poppins', Arial, sans-serif; font-weight:500; font-size:11px; letter-spacing:0.2em; text-transform:uppercase; }
+
+  /* tokens */
+  /* navy   #1F3D4D
+     terra  #B85C3A
+     sand   #ECE2CB
+     off    #F8F4EB
+     slate  #6B7077
+     graphite #1F1F1F
+     hairline rgba(31,61,77,0.16)
+  */
+
+  .wrap { width:100%; background:#E8DEC4; padding:32px 0; }
+  .frame { width:600px; max-width:100%; margin:0 auto; background:#F8F4EB; }
+  .hero { background:#1F3D4D; padding:40px; color:#F8F4EB; }
+  .hero-wordmark { font-family:'Space Grotesk', Georgia, serif; font-weight:500; font-size:15px; letter-spacing:0.5em; color:#ECE2CB; }
+  .hero-chip { font-family:'Poppins', Arial, sans-serif; font-weight:500; font-size:11px; letter-spacing:0.22em; color:#ECE2CB; opacity:0.7; text-transform:uppercase; }
+  .hero-tag { font-family:'Space Grotesk', Georgia, serif; font-weight:400; font-size:26px; line-height:1.28; color:#F8F4EB; letter-spacing:-0.01em; max-width:440px; margin:28px 0 0; }
+
+  .block { padding:44px 40px; }
+  .block-tight { padding:36px 40px; border-top:1px solid rgba(31,61,77,0.16); }
+  .block-help { padding:28px 40px; background:#ECE2CB; }
+  .footer { padding:28px 40px; background:#1F3D4D; color:#F8F4EB; }
+
+  .h1 { font-family:'Space Grotesk', Georgia, serif; font-weight:500; font-size:30px; line-height:1.22; color:#1F3D4D; letter-spacing:-0.01em; margin:14px 0 0; }
+  .h1 .muted { color:#6B7077; }
+  .lede { font-family:'Poppins', Arial, sans-serif; font-size:15px; line-height:1.65; color:#3F4A52; margin:20px 0 0; }
+  .micro { font-family:'Poppins', Arial, sans-serif; font-size:13px; line-height:1.6; color:#6B7077; margin:14px 0 0; }
+
+  .btn { display:inline-block; background:#B85C3A; color:#F8F4EB !important; padding:16px 28px; font-family:'Poppins', Arial, sans-serif; font-weight:500; font-size:15px; text-decoration:none; border-radius:2px; margin-top:24px; }
+
+  .num { font-family:'Space Grotesk', Georgia, serif; font-weight:500; font-size:20px; color:#B85C3A; min-width:34px; }
+  .row { display:table; width:100%; padding:12px 0; border-bottom:1px solid rgba(31,61,77,0.16); }
+  .row:last-child { border-bottom:0; }
+  .row .num-cell, .row .txt-cell { display:table-cell; vertical-align:top; }
+  .row .txt-cell { padding-left:14px; font-size:14px; line-height:1.55; color:#1F3D4D; }
+
+  .features { width:100%; border-collapse:collapse; margin-top:18px; }
+  .features td { width:50%; padding:0 12px 18px 0; vertical-align:top; }
+  .features td:last-child { padding-right:0; }
+  .feat-label { font-family:'Poppins', Arial, sans-serif; font-size:13px; font-weight:500; color:#1F3D4D; margin:0; }
+  .feat-desc  { font-family:'Poppins', Arial, sans-serif; font-size:13px; line-height:1.5; color:#6B7077; margin:4px 0 0; }
+
+  .help-eyebrow { font-family:'Poppins', Arial, sans-serif; font-weight:500; font-size:11px; letter-spacing:0.2em; color:#1F3D4D; text-transform:uppercase; }
+  .help-body { font-family:'Poppins', Arial, sans-serif; font-size:14px; color:#1F3D4D; line-height:1.55; margin:10px 0 0; }
+
+  .footer-sign { font-family:'Poppins', Arial, sans-serif; font-size:13px; line-height:1.5; color:#F8F4EB; margin:0; }
+  .footer-legal { font-family:'Poppins', Arial, sans-serif; font-size:10.5px; line-height:1.55; color:#F8F4EB; opacity:0.7; margin:14px 0 0; }
+
+  @media only screen and (max-width: 620px) {
+    .hero        { padding:28px 24px !important; }
+    .block       { padding:32px 24px !important; }
+    .block-tight { padding:28px 24px !important; }
+    .block-help  { padding:24px 24px !important; }
+    .footer      { padding:24px 24px !important; }
+    .hero-tag    { font-size:20px !important; line-height:1.3 !important; }
+    .h1          { font-size:24px !important; line-height:1.25 !important; }
+    .features td { display:block !important; width:100% !important; padding:0 0 16px 0 !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <table role="presentation" class="frame" cellpadding="0" cellspacing="0" border="0">
+    <!-- HERO -->
+    <tr>
+      <td class="hero">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td align="left" valign="middle">
+              <span class="hero-wordmark">SINGULARE</span>
+            </td>
+            <td align="right" valign="middle">
+              <span class="hero-chip">ATIVAÇÃO · PASSO 2 DE 3</span>
+            </td>
+          </tr>
+        </table>
+        <p class="hero-tag">Conexões que transformam o seu consultório.</p>
+      </td>
+    </tr>
+
+    <!-- MAIN BLOCK -->
+    <tr>
+      <td class="block">
+        <p class="eyebrow" style="color:#B85C3A; margin:0;">PRA COMEÇAR</p>
+        <h1 class="h1">
+          Sua secretária IA está pronta.<br/>
+          <span class="muted">Falta só conectar seu WhatsApp.</span>
+        </h1>
+        <p class="lede">
+          Olá, Dr(a). [doctor_name]. A [clinic_name] foi configurada.
+          A próxima ação leva menos de um minuto.
+        </p>
+        <a href="https://singulare.org/whatsapp-connect" class="btn">Conectar meu WhatsApp →</a>
+        <p class="micro">
+          Abre uma página com o QR pra você escanear no app do WhatsApp do chip da clínica.
+        </p>
+      </td>
+    </tr>
+
+    <!-- DEPOIS -->
+    <tr>
+      <td class="block-tight">
+        <p class="eyebrow" style="color:#B85C3A; margin:0;">O QUE VEM DEPOIS</p>
+        <div style="margin-top:18px;">
+          <div class="row">
+            <div class="num-cell"><span class="num">01</span></div>
+            <div class="txt-cell">Escaneia o QR e a IA fica online.</div>
+          </div>
+          <div class="row">
+            <div class="num-cell"><span class="num">02</span></div>
+            <div class="txt-cell">Primeira mensagem do paciente — a IA responde no seu tom, com base no que você cadastrou.</div>
+          </div>
+          <div class="row">
+            <div class="num-cell"><span class="num">03</span></div>
+            <div class="txt-cell">Agendamentos vão direto pra sua agenda Google.</div>
+          </div>
+        </div>
+      </td>
+    </tr>
+
+    <!-- FEATURES -->
+    <tr>
+      <td class="block-tight">
+        <p class="eyebrow" style="color:#B85C3A; margin:0;">O QUE A IA JÁ FAZ POR VOCÊ</p>
+        <table role="presentation" class="features" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td>
+              <p class="feat-label">Atendimento</p>
+              <p class="feat-desc">Responde 24/7 no tom da sua clínica.</p>
+            </td>
+            <td>
+              <p class="feat-label">Agenda</p>
+              <p class="feat-desc">Marca, remarca e cancela direto no Google.</p>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <p class="feat-label">Cobrança</p>
+              <p class="feat-desc">Pix com confirmação automática.</p>
+            </td>
+            <td>
+              <p class="feat-label">Nota fiscal</p>
+              <p class="feat-desc">Emite e envia pro paciente.</p>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <p class="feat-label">Documentos</p>
+              <p class="feat-desc">Atestado, recibo, receita em segundos.</p>
+            </td>
+            <td>
+              <p class="feat-label">Marketing</p>
+              <p class="feat-desc">Reativação, indicação, retorno.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- HELP -->
+    <tr>
+      <td class="block-help">
+        <p class="help-eyebrow">PRECISA DE AJUDA</p>
+        <p class="help-body">
+          WhatsApp <a href="https://wa.me/5511989390155" style="color:#1F3D4D; text-decoration:none;">(11) 98939-0155</a>
+          ou responda este email.
+        </p>
+        <p class="help-body">
+          12 dúvidas mais comuns: <a href="https://singulare.org/bem-vindo">singulare.org/bem-vindo</a>
+        </p>
+      </td>
+    </tr>
+
+    <!-- FOOTER -->
+    <tr>
+      <td class="footer">
+        <p class="footer-sign">Boas consultas,<br/>Equipe Singulare</p>
+        <p class="footer-legal">
+          Singulare é marca operada por MEDICAL SAO PAULO SERVICOS MEDICOS LTDA · CNPJ 20.247.908/0001-01 · Jundiaí, SP · CEP 13201-840 · (17) 3305-9030.
+        </p>
+      </td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>
