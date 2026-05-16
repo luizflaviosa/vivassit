@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState, Suspense } from 'react';
-import { Loader2, ExternalLink, Save, Eye, EyeOff, Globe, Sparkles, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, Suspense } from 'react';
+import { Loader2, ExternalLink, Save, Eye, EyeOff, Globe, Sparkles, Plus, Trash2, ImagePlus, X } from 'lucide-react';
 import { PROFESSIONAL_TYPES } from '@/lib/types';
 import { useMe } from '@/lib/painel-context';
 
@@ -55,6 +55,9 @@ function VitrinePageInner() {
   const [faqs, setFaqs] = useState<VitrineFaq[]>([]);
   const [regenerating, setRegenerating] = useState<'bio' | 'faqs' | null>(null);
   const [confirmPublish, setConfirmPublish] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -152,6 +155,90 @@ function VitrinePageInner() {
       setError('Erro de rede ao regenerar.');
     } finally {
       setRegenerating(null);
+    }
+  };
+
+  // Redimensiona client-side pra max 800x800, devolve Blob jpeg/png conforme original.
+  const resizeImage = (file: File, maxSide = 800): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Falha ao ler arquivo.'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Imagem invalida.'));
+        img.onload = () => {
+          const ratio = Math.min(1, maxSide / Math.max(img.width, img.height));
+          const w = Math.round(img.width * ratio);
+          const h = Math.round(img.height * ratio);
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Canvas indisponivel neste navegador.'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, w, h);
+          // mantem png so se transparencia importava; senao usa jpeg comprimido
+          const outType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) reject(new Error('Falha ao gerar imagem.'));
+              else resolve(blob);
+            },
+            outType,
+            outType === 'image/jpeg' ? 0.88 : undefined,
+          );
+        };
+        img.src = String(reader.result);
+      };
+      reader.readAsDataURL(file);
+    });
+
+  const onPickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoError(null);
+    setPhotoUploading(true);
+    try {
+      if (file.size > 2 * 1024 * 1024 && !file.type.startsWith('image/')) {
+        throw new Error('Use uma imagem JPG, PNG ou WEBP.');
+      }
+      const blob = await resizeImage(file, 800);
+      const fd = new FormData();
+      const filename = file.name.replace(/\.[^.]+$/, '') + (blob.type === 'image/png' ? '.png' : '.jpg');
+      fd.append('file', new File([blob], filename, { type: blob.type }));
+      const res = await fetch('/api/painel/vitrine/photo', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.profile) {
+        throw new Error(json.message || 'Erro ao subir foto.');
+      }
+      setProfile(json.profile);
+      setForm((f) => ({ ...f, photo_url: json.profile.photo_url ?? '' }));
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Erro ao subir foto.');
+    } finally {
+      setPhotoUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const onRemovePhoto = async () => {
+    if (!profile?.photo_url) return;
+    setPhotoError(null);
+    setPhotoUploading(true);
+    try {
+      const res = await fetch('/api/painel/vitrine/photo', { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok || !json.success || !json.profile) {
+        throw new Error(json.message || 'Erro ao remover foto.');
+      }
+      setProfile(json.profile);
+      setForm((f) => ({ ...f, photo_url: '' }));
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Erro ao remover foto.');
+    } finally {
+      setPhotoUploading(false);
     }
   };
 
@@ -280,18 +367,56 @@ function VitrinePageInner() {
 
           <div>
             <label className="block text-[12px] uppercase tracking-[0.08em] font-semibold text-zinc-500 mb-1.5">
-              URL da foto
+              Foto de perfil
             </label>
-            <input
-              type="url"
-              value={form.photo_url}
-              onChange={(e) => setForm({ ...form, photo_url: e.target.value })}
-              placeholder="https://..."
-              className="w-full h-10 px-3 rounded-lg border border-black/[0.08] text-[14px] text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#6E56CF]/30"
-            />
-            <p className="text-[11px] text-zinc-400 mt-1">
-              TODO: upload direto via Supabase Storage. Por enquanto, cole uma URL publica.
-            </p>
+            <div className="flex items-start gap-4">
+              {form.photo_url ? (
+                <img
+                  src={form.photo_url}
+                  alt="Foto atual"
+                  className="w-20 h-20 rounded-xl object-cover border border-black/[0.06]"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-xl border border-dashed border-black/[0.12] bg-[#FAFAF7] flex items-center justify-center text-zinc-300">
+                  <ImagePlus className="w-6 h-6" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={onPickPhoto}
+                  className="hidden"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={photoUploading}
+                    className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[13px] font-medium border border-black/[0.08] text-zinc-700 hover:bg-black/[0.03] disabled:opacity-60"
+                  >
+                    {photoUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />}
+                    {form.photo_url ? 'Trocar foto' : 'Enviar foto'}
+                  </button>
+                  {form.photo_url && (
+                    <button
+                      type="button"
+                      onClick={onRemovePhoto}
+                      disabled={photoUploading}
+                      className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[13px] font-medium border border-black/[0.08] text-zinc-700 hover:bg-red-50 hover:text-red-700 disabled:opacity-60"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Remover
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-zinc-400 mt-1.5">
+                  JPG, PNG ou WEBP, ate 2MB. Redimensionada automaticamente pra 800x800.
+                </p>
+                {photoError && <p className="text-[11px] text-red-700 mt-1">{photoError}</p>}
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
