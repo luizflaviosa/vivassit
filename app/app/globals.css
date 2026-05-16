@@ -46,8 +46,9 @@
 }
 
 /* ─── Painel root ── */
+/* Brand Luxury Modular Intelligence v1.0: background sand (#F4EFE6). */
 .painel-root {
-  background-color: #FAFAF7;
+  background-color: #F4EFE6;
   min-height: 100vh;
 }
 .dark .painel-root {

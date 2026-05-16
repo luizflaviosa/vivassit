@@ -3,7 +3,6 @@
 import { useState, useEffect, Suspense } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutGrid,
@@ -33,9 +32,13 @@ import ChatDrawer from './components/chat-drawer';
 import InstallPrompt from './components/install-prompt';
 import CommandPalette from './components/command-palette';
 import TenantSwitcher from './components/tenant-switcher';
+import { Logo3Squares } from '@/app/v3/_components/Logo3Squares';
+import { Wordmark } from '@/app/v3/_components/Wordmark';
 
-const ACCENT_DEEP = '#5746AF';
-const ACCENT_SOFT = '#F5F3FF';
+// Brand Luxury Modular Intelligence v1.0
+const BRAND_NAVY = '#0F1B33';
+const BRAND_GOLD = '#FFC62F';
+const BRAND_SAND = '#F4EFE6';
 
 type SectionGroup = 'default' | 'daily' | 'consultation' | 'clinic' | 'growth';
 
@@ -189,8 +192,11 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FAFAF7] flex items-center justify-center">
-        <Loader2 className="w-6 h-6 text-zinc-400 animate-spin" />
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: BRAND_SAND }}
+      >
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: BRAND_NAVY, opacity: 0.5 }} />
       </div>
     );
   }
@@ -206,8 +212,10 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
       const base = mobile
         ? `group flex items-center gap-3 px-3 py-3 rounded-lg text-[14px] font-medium transition-all min-h-[44px]`
         : `group flex items-center gap-2 px-2.5 h-7 rounded-md text-[12.5px] font-medium transition-colors`;
-      const defaultActiveBg = isDark ? 'rgba(87,70,175,0.22)' : '#EDE9FE';
-      const defaultActiveFg = isDark ? '#C4B5FD' : '#5746AF';
+      // Default (sem cor de grupo) — gold tint sobre sand/navy. Mantém legibilidade
+      // em ambos os modos sem competir com as cores funcionais dos grupos.
+      const defaultActiveBg = isDark ? 'rgba(255, 198, 47, 0.18)' : 'rgba(255, 198, 47, 0.28)';
+      const defaultActiveFg = isDark ? BRAND_GOLD : BRAND_NAVY;
       const activeBg = colors ? (isDark ? colors.darkActiveBg : colors.activeBg) : defaultActiveBg;
       const activeFg = colors ? (isDark ? colors.darkActiveFg : colors.activeFg) : defaultActiveFg;
       return item.enabled ? (
@@ -282,27 +290,40 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
   return (
     <MeContext.Provider value={me}>
       <div className="painel-root text-zinc-900" data-group={group}>
-        <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-white/80 dark:bg-zinc-950/90 dark:border-white/[0.06] backdrop-blur-xl">
+        <header
+          className="sticky top-0 z-30 backdrop-blur-xl"
+          style={{
+            background: BRAND_NAVY,
+            borderBottom: `1px solid rgba(255, 198, 47, 0.18)`,
+            color: BRAND_SAND,
+          }}
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-[68px] flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <button
                 type="button"
                 onClick={() => setMobileOpen(true)}
-                className="md:hidden h-9 w-9 -ml-2 inline-flex items-center justify-center rounded-md hover:bg-black/[0.04]"
+                className="md:hidden h-9 w-9 -ml-2 inline-flex items-center justify-center rounded-md hover:bg-white/[0.08]"
                 aria-label="Abrir menu"
+                style={{ color: BRAND_SAND }}
               >
-                <Menu className="w-5 h-5 text-zinc-700" />
+                <Menu className="w-5 h-5" />
               </button>
-              <Link href="/painel" className="flex items-center gap-2">
-                <Image
-                  src="/logos/singulare-a.svg"
-                  alt="Singulare"
-                  width={200}
-                  height={66}
-                  className="h-10 sm:h-12 w-auto"
-                  priority
-                />
-                <span className="hidden sm:inline text-[12px] uppercase tracking-[0.1em] font-semibold text-zinc-400">
+              <Link
+                href="/painel"
+                className="flex items-center gap-3"
+                aria-label="Singulare — Painel"
+              >
+                <Logo3Squares size={28} color={BRAND_GOLD} />
+                <Wordmark color={BRAND_SAND} size={13} />
+                <span
+                  className="hidden sm:inline text-[10px] uppercase font-bold ml-1 pl-3"
+                  style={{
+                    color: BRAND_GOLD,
+                    letterSpacing: '0.22em',
+                    borderLeft: `1px solid rgba(255, 198, 47, 0.3)`,
+                  }}
+                >
                   Painel
                 </span>
               </Link>
@@ -313,8 +334,9 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-                className="h-9 w-9 inline-flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-black/[0.04] dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+                className="h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-white/[0.08] transition-colors"
                 title={resolvedTheme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+                style={{ color: BRAND_SAND, opacity: 0.8 }}
               >
                 {resolvedTheme === 'dark'
                   ? <Sun className="w-4 h-4" />
@@ -324,7 +346,8 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="h-9 px-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-600 hover:text-zinc-900 hover:bg-black/[0.04] dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-white/[0.06] rounded-md transition-colors"
+                className="h-9 px-3 inline-flex items-center gap-1.5 text-[13px] font-medium hover:bg-white/[0.08] rounded-md transition-colors"
+                style={{ color: BRAND_SAND, opacity: 0.85 }}
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Sair</span>
@@ -358,13 +381,10 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
                   transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 >
                   <div className="flex items-center justify-between mb-6">
-                    <Image
-                      src="/logos/singulare-a.svg"
-                      alt="Singulare"
-                      width={120}
-                      height={40}
-                      className="h-10 w-auto"
-                    />
+                    <div className="flex items-center gap-2.5">
+                      <Logo3Squares size={26} color={BRAND_NAVY} />
+                      <Wordmark color={BRAND_NAVY} size={12} />
+                    </div>
                     <button
                       type="button"
                       onClick={() => setMobileOpen(false)}
