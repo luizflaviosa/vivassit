@@ -13,6 +13,13 @@ interface VitrineFaq {
   a: string;
 }
 
+interface VitrineBilling {
+  plan_type: string | null;
+  addon_marketing: boolean;
+  subscription_status: string | null;
+  can_publish: boolean;
+}
+
 interface VitrineProfile {
   id: number;
   tenant_id: string;
@@ -37,6 +44,7 @@ function VitrinePageInner() {
   const me = useMe();
   const tenantId = me?.tenant_id ?? '';
   const [profile, setProfile] = useState<VitrineProfile | null>(null);
+  const [billing, setBilling] = useState<VitrineBilling | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +85,7 @@ function VitrinePageInner() {
             state: json.profile.state ?? 'SP',
           });
           setFaqs(Array.isArray(json.profile.faqs) ? json.profile.faqs : []);
+          if (json.billing) setBilling(json.billing);
         } else {
           setError(json.message || 'Nao foi possivel carregar a pagina publica.');
         }
@@ -107,10 +116,15 @@ function VitrinePageInner() {
       const json = await res.json();
       if (res.ok && json.success) {
         setProfile(json.profile);
+        if (json.billing) setBilling(json.billing);
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
         return true;
       } else {
+        if (res.status === 402 && json?.error === 'addon_marketing_required') {
+          // Atualiza billing local pra UI mostrar upsell
+          setBilling((b) => (b ? { ...b, can_publish: false } : b));
+        }
         setError(json.message || 'Erro ao salvar.');
         return false;
       }
@@ -572,44 +586,66 @@ function VitrinePageInner() {
               </div>
             </div>
 
-            {!profile.published && (
-              <label className="flex items-start gap-2.5 mt-4 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={confirmPublish}
-                  onChange={(e) => setConfirmPublish(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-black/20"
-                />
-                <span className="text-[12.5px] text-zinc-600 leading-relaxed">
-                  Concordo que meu nome, foto, especialidade e cidade fiquem visiveis publicamente em
-                  <span className="font-mono"> singulare.org/p/{profile.slug}</span> e possam ser indexados em buscadores.
-                  Posso despublicar a qualquer momento.
-                </span>
-              </label>
-            )}
+            {billing && !billing.can_publish ? (
+              <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-[13px] text-amber-900 leading-relaxed">
+                  Pra publicar sua pagina e ranquear no Google, ative o add-on de
+                  <span className="font-semibold"> Marketing</span>.
+                </p>
+                <a
+                  href="/painel/planos"
+                  className="mt-3 inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-[13px] font-medium text-white"
+                  style={{ background: ACCENT }}
+                >
+                  Ativar add-on
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+                <p className="text-[11px] text-amber-800/80 mt-2">
+                  Voce pode editar bio, FAQs e foto agora — a publicacao fica liberada assim que o add-on for ativado.
+                </p>
+              </div>
+            ) : (
+              <>
+                {!profile.published && (
+                  <label className="flex items-start gap-2.5 mt-4 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={confirmPublish}
+                      onChange={(e) => setConfirmPublish(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-black/20"
+                    />
+                    <span className="text-[12.5px] text-zinc-600 leading-relaxed">
+                      Concordo que meu nome, foto, especialidade e cidade fiquem visiveis publicamente em
+                      <span className="font-mono"> singulare.org/p/{profile.slug}</span> e possam ser indexados em buscadores.
+                      Posso despublicar a qualquer momento.
+                    </span>
+                  </label>
+                )}
 
-            <button
-              type="button"
-              onClick={onTogglePublish}
-              disabled={saving || (!profile.published && !confirmPublish)}
-              className={`mt-4 w-full h-10 rounded-lg text-[14px] font-medium disabled:opacity-50 ${
-                profile.published
-                  ? 'border border-black/[0.08] text-zinc-700 hover:bg-black/[0.03]'
-                  : 'text-white'
-              }`}
-              style={profile.published ? undefined : { background: ACCENT }}
-            >
-              {saving
-                ? 'Salvando...'
-                : profile.published
-                  ? 'Despublicar pagina'
-                  : 'Publicar pagina'}
-            </button>
+                <button
+                  type="button"
+                  onClick={onTogglePublish}
+                  disabled={saving || (!profile.published && !confirmPublish)}
+                  className={`mt-4 w-full h-10 rounded-lg text-[14px] font-medium disabled:opacity-50 ${
+                    profile.published
+                      ? 'border border-black/[0.08] text-zinc-700 hover:bg-black/[0.03]'
+                      : 'text-white'
+                  }`}
+                  style={profile.published ? undefined : { background: ACCENT }}
+                >
+                  {saving
+                    ? 'Salvando...'
+                    : profile.published
+                      ? 'Despublicar pagina'
+                      : 'Publicar pagina'}
+                </button>
 
-            {profile.lgpd_consent_at && (
-              <p className="text-[11px] text-zinc-400 mt-3">
-                Consentimento LGPD registrado em {new Date(profile.lgpd_consent_at).toLocaleString('pt-BR')}
-              </p>
+                {profile.lgpd_consent_at && (
+                  <p className="text-[11px] text-zinc-400 mt-3">
+                    Consentimento LGPD registrado em {new Date(profile.lgpd_consent_at).toLocaleString('pt-BR')}
+                  </p>
+                )}
+              </>
             )}
           </div>
 

@@ -36,12 +36,35 @@ function sanitizeFaqs(input: unknown): { ok: true; faqs: Array<{ q: string; a: s
   return { ok: true, faqs: cleaned };
 }
 
+// Tenant pode publicar a vitrine se tem addon_marketing OU plan_type =
+// 'enterprise' (enterprise inclui marketing por padrao).
+function canPublishVitrine(tenant: { plan_type?: string | null; addon_marketing?: boolean | null }): boolean {
+  if (tenant?.addon_marketing === true) return true;
+  if (tenant?.plan_type === 'enterprise') return true;
+  return false;
+}
+
 export async function GET() {
   const auth = await requireTenant();
   if (!auth.ok) return auth.response;
   const tenantId = auth.ctx.tenant.tenant_id;
 
   const supabase = supabaseAdmin();
+
+  // Carrega flags de billing pra UI saber se pode publicar
+  const { data: tenantBilling } = await supabase
+    .from('tenants')
+    .select('plan_type, addon_marketing, subscription_status')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  const billing = {
+    plan_type: tenantBilling?.plan_type ?? null,
+    addon_marketing: tenantBilling?.addon_marketing ?? false,
+    subscription_status: tenantBilling?.subscription_status ?? null,
+    can_publish: canPublishVitrine(tenantBilling ?? {}),
+  };
+
   const { data: existing } = await supabase
     .from('vitrine_profiles')
     .select('*')
@@ -93,10 +116,10 @@ export async function GET() {
       return NextResponse.json({ success: false, message: 'Erro ao criar pagina publica.' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, profile: created });
+    return NextResponse.json({ success: true, profile: created, billing });
   }
 
-  return NextResponse.json({ success: true, profile: existing });
+  return NextResponse.json({ success: true, profile: existing, billing });
 }
 
 export async function PATCH(request: NextRequest) {
@@ -171,7 +194,26 @@ export async function PATCH(request: NextRequest) {
   }
 
   // Publish toggle: opt-in explicito. Grava consent_at na primeira publicacao.
+  // Gate: publicacao exige addon_marketing OU plan_type=enterprise.
   if (typeof body.published === 'boolean') {
+    if (body.published) {
+      const { data: tenantBilling } = await supabase
+        .from('tenants')
+        .select('plan_type, addon_marketing')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      if (!canPublishVitrine(tenantBilling ?? {})) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'addon_marketing_required',
+            message: 'Ative o add-on de Marketing pra publicar sua pagina e ranquear no Google.',
+            upsell_url: '/painel/planos',
+          },
+          { status: 402 },
+        );
+      }
+    }
     updates.published = body.published;
     if (body.published && !current.lgpd_consent_at) {
       updates.lgpd_consent_at = new Date().toISOString();
