@@ -3,9 +3,10 @@
 // Geracao de bio + FAQs pra pagina publica /p/[slug] da vitrine.
 //
 // Estrategia:
-//   1. Tenta Anthropic (claude-haiku via API REST) se ANTHROPIC_API_KEY setada.
-//   2. Senao tenta OpenAI (gpt-4o-mini) se OPENAI_API_KEY setada.
-//   3. Senao loga warning e devolve null — nao quebra o onboarding.
+//   1. Tenta Gemini (gemini-1.5-flash via API REST) se GEMINI_API_KEY/GOOGLE_* setada.
+//   2. Senao tenta Anthropic (claude-haiku via API REST) se ANTHROPIC_API_KEY setada.
+//   3. Senao tenta OpenAI (gpt-4o-mini) se OPENAI_API_KEY setada.
+//   4. Senao loga warning e devolve null — nao quebra o onboarding.
 //
 // Tudo via fetch direto (sem SDK) pra evitar peso de dependencia. Modelos
 // pequenos/baratos porque o output e curto.
@@ -26,10 +27,20 @@ export interface VitrineAiInput {
   establishment_type?: string | null;
 }
 
+type AiProvider = 'gemini' | 'anthropic' | 'openai';
+
 interface AiCallResult<T> {
   data: T | null;
-  provider: 'anthropic' | 'openai' | null;
+  provider: AiProvider | null;
   error: string | null;
+}
+
+function geminiApiKey(): string | undefined {
+  return (
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+    process.env.GOOGLE_API_KEY
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -79,6 +90,35 @@ function faqsPrompt(input: VitrineAiInput): string {
 // ──────────────────────────────────────────────────────────────────────────
 // Providers
 // ──────────────────────────────────────────────────────────────────────────
+
+async function callGemini(prompt: string, maxTokens: number): Promise<string> {
+  const apiKey = geminiApiKey()!;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens },
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`gemini ${res.status}: ${text.slice(0, 200)}`);
+    }
+    const json = (await res.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+    return text?.trim() ?? '';
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 async function callAnthropic(prompt: string, maxTokens: number): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY!;
@@ -141,11 +181,25 @@ async function callOpenAI(prompt: string, maxTokens: number): Promise<string> {
   }
 }
 
-async function callAi(prompt: string, maxTokens: number): Promise<{ text: string; provider: 'anthropic' | 'openai' } | null> {
+async function callAi(prompt: string, maxTokens: number): Promise<{ text: string; provider: AiProvider } | null> {
+  if (geminiApiKey()) {
+    try {
+      const text = await callGemini(prompt, maxTokens);
+      if (text) {
+        console.info('[vitrine-ai] using provider', 'gemini');
+        return { text, provider: 'gemini' };
+      }
+    } catch (err) {
+      console.warn('[vitrine-ai] gemini falhou, tentando anthropic:', err instanceof Error ? err.message : err);
+    }
+  }
   if (process.env.ANTHROPIC_API_KEY) {
     try {
       const text = await callAnthropic(prompt, maxTokens);
-      if (text) return { text, provider: 'anthropic' };
+      if (text) {
+        console.info('[vitrine-ai] using provider', 'anthropic');
+        return { text, provider: 'anthropic' };
+      }
     } catch (err) {
       console.warn('[vitrine-ai] anthropic falhou, tentando openai:', err instanceof Error ? err.message : err);
     }
@@ -153,11 +207,15 @@ async function callAi(prompt: string, maxTokens: number): Promise<{ text: string
   if (process.env.OPENAI_API_KEY) {
     try {
       const text = await callOpenAI(prompt, maxTokens);
-      if (text) return { text, provider: 'openai' };
+      if (text) {
+        console.info('[vitrine-ai] using provider', 'openai');
+        return { text, provider: 'openai' };
+      }
     } catch (err) {
       console.warn('[vitrine-ai] openai falhou:', err instanceof Error ? err.message : err);
     }
   }
+  console.warn('[vitrine-ai] no AI provider available');
   return null;
 }
 
@@ -200,7 +258,7 @@ function parseFaqsJson(raw: string): VitrineFaq[] {
 // ──────────────────────────────────────────────────────────────────────────
 
 export function aiAvailable(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY);
+  return Boolean(geminiApiKey() || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY);
 }
 
 export async function generateVitrineBio(input: VitrineAiInput): Promise<AiCallResult<string>> {
