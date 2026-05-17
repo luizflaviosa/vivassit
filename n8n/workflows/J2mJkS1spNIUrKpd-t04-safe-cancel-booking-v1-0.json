@@ -99,32 +99,28 @@
       ]
     },
     {
-      "parameters": {
-        "operation": "delete",
-        "calendar": {
-          "__rl": true,
-          "value": "=={{ $('Cancelar no DB').item.json.calendar_id }}",
-          "mode": "id"
-        },
-        "eventId": "={{ $('Cancelar no DB').item.json.calendar_event_id }}",
-        "options": {}
-      },
       "id": "d269e811-45b1-4f82-8507-1fc0514eae8d",
       "name": "Deletar no Google Calendar",
-      "type": "n8n-nodes-base.googleCalendar",
-      "typeVersion": 1.1,
       "position": [
         0,
         0
       ],
-      "credentials": {
-        "googleCalendarOAuth2Api": {
-          "id": "OkOV7izIvJcvD3wl",
-          "name": "Google Calendar account"
-        }
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Cancelar no DB').item.json.calendar_id) }}/events/{{ $('Cancelar no DB').item.json.calendar_event_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "options": {}
       },
-      "notes": "IMPORTANTE: Selecione sua credencial do Google Calendar aqui após importar.",
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "googleApi": {
+          "id": "co3SxRBKRqtJRGpa",
+          "name": "Google Service Account account"
+        }
+      }
     },
     {
       "parameters": {
@@ -296,8 +292,8 @@
     "templateCredsSetupCompleted": true
   },
   "pinData": {},
-  "activeVersionId": "93f665b5-fc70-4d77-ae89-9bda34349af4",
-  "versionCounter": 21,
+  "activeVersionId": "dab13437-4985-493e-afaa-dd5d6923e3e2",
+  "versionCounter": 24,
   "triggerCount": 0,
   "shared": [
     {
@@ -320,9 +316,9 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-05-07T12:41:10.732Z",
-    "createdAt": "2026-05-07T12:41:10.732Z",
-    "versionId": "93f665b5-fc70-4d77-ae89-9bda34349af4",
+    "updatedAt": "2026-05-17T19:42:11.042Z",
+    "createdAt": "2026-05-17T19:42:11.042Z",
+    "versionId": "dab13437-4985-493e-afaa-dd5d6923e3e2",
     "workflowId": "J2mJkS1spNIUrKpd",
     "nodes": [
       {
@@ -419,32 +415,28 @@
         ]
       },
       {
-        "parameters": {
-          "operation": "delete",
-          "calendar": {
-            "__rl": true,
-            "value": "=={{ $('Cancelar no DB').item.json.calendar_id }}",
-            "mode": "id"
-          },
-          "eventId": "={{ $('Cancelar no DB').item.json.calendar_event_id }}",
-          "options": {}
-        },
         "id": "d269e811-45b1-4f82-8507-1fc0514eae8d",
         "name": "Deletar no Google Calendar",
-        "type": "n8n-nodes-base.googleCalendar",
-        "typeVersion": 1.1,
         "position": [
           0,
           0
         ],
-        "credentials": {
-          "googleCalendarOAuth2Api": {
-            "id": "OkOV7izIvJcvD3wl",
-            "name": "Google Calendar account"
-          }
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "parameters": {
+          "method": "DELETE",
+          "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Cancelar no DB').item.json.calendar_id) }}/events/{{ $('Cancelar no DB').item.json.calendar_event_id }}",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "googleApi",
+          "options": {}
         },
-        "notes": "IMPORTANTE: Selecione sua credencial do Google Calendar aqui após importar.",
-        "onError": "continueRegularOutput"
+        "onError": "continueRegularOutput",
+        "credentials": {
+          "googleApi": {
+            "id": "co3SxRBKRqtJRGpa",
+            "name": "Google Service Account account"
+          }
+        }
       },
       {
         "parameters": {
@@ -613,34 +605,18 @@
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-05-07T12:41:10.776Z",
-        "id": 100,
+        "createdAt": "2026-05-17T19:42:11.075Z",
+        "id": 457,
         "workflowId": "J2mJkS1spNIUrKpd",
-        "versionId": "93f665b5-fc70-4d77-ae89-9bda34349af4",
+        "versionId": "dab13437-4985-493e-afaa-dd5d6923e3e2",
         "event": "deactivated",
         "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
       },
       {
-        "createdAt": "2026-05-07T12:41:10.808Z",
-        "id": 101,
+        "createdAt": "2026-05-17T19:42:11.089Z",
+        "id": 458,
         "workflowId": "J2mJkS1spNIUrKpd",
-        "versionId": "93f665b5-fc70-4d77-ae89-9bda34349af4",
-        "event": "activated",
-        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-      },
-      {
-        "createdAt": "2026-05-08T23:36:09.394Z",
-        "id": 194,
-        "workflowId": "J2mJkS1spNIUrKpd",
-        "versionId": "93f665b5-fc70-4d77-ae89-9bda34349af4",
-        "event": "deactivated",
-        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-      },
-      {
-        "createdAt": "2026-05-08T23:36:09.410Z",
-        "id": 195,
-        "workflowId": "J2mJkS1spNIUrKpd",
-        "versionId": "93f665b5-fc70-4d77-ae89-9bda34349af4",
+        "versionId": "dab13437-4985-493e-afaa-dd5d6923e3e2",
         "event": "activated",
         "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
       }

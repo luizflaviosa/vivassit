@@ -1,13 +1,19 @@
 {
+  "id": "0OaSsuuvGd2R1405",
   "name": "Alert Dispatch · Seguimento · v1.0",
+  "description": null,
   "active": false,
+  "isArchived": false,
   "nodes": [
     {
       "id": "alt-sched-01",
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "parameters": {
         "rule": {
           "interval": [
@@ -24,7 +30,10 @@
       "name": "Postgres — Query Pending Alerts",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [240, 0],
+      "position": [
+        240,
+        0
+      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "select\n  ae.id as alert_event_id,\n  ae.tenant_id,\n  ae.patient_id,\n  ae.severity,\n  ae.source,\n  ae.reason,\n  ae.created_at,\n  t.clinic_name,\n  t.admin_phone,\n  t.doctor_phone,\n  pat.first_name as patient_first_name,\n  pat.last_name as patient_last_name,\n  pat.phone as patient_phone,\n  case when pat.birthdate is not null\n       then extract(year from age(pat.birthdate))::int\n       else null end as patient_age\nfrom public.alert_events ae\njoin public.tenants t on t.tenant_id = ae.tenant_id\njoin public.patients pat on pat.id = ae.patient_id\nwhere ae.notified_doctor_whatsapp = false\n  and ae.severity in ('warning','critical')\n  and ae.created_at > now() - interval '24 hours'\norder by ae.severity = 'critical' desc, ae.created_at asc\nlimit 50;",
@@ -42,7 +51,10 @@
       "name": "SplitInBatches",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [480, 0],
+      "position": [
+        480,
+        0
+      ],
       "parameters": {
         "batchSize": 1,
         "options": {}
@@ -53,7 +65,10 @@
       "name": "Switch — Severity",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
-      "position": [720, 0],
+      "position": [
+        720,
+        0
+      ],
       "parameters": {
         "mode": "rules",
         "rules": {
@@ -118,7 +133,10 @@
       "name": "IF — Doctor Phone Present",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [960, -160],
+      "position": [
+        960,
+        -160
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -148,7 +166,10 @@
       "name": "Evolution — Critical to Doctor",
       "type": "n8n-nodes-evolution-api.evolutionApi",
       "typeVersion": 1,
-      "position": [1200, -280],
+      "position": [
+        1200,
+        -280
+      ],
       "parameters": {
         "resource": "messages-api",
         "operation": "send-text",
@@ -169,7 +190,10 @@
       "name": "Evolution — Critical to Admin",
       "type": "n8n-nodes-evolution-api.evolutionApi",
       "typeVersion": 1,
-      "position": [1200, -80],
+      "position": [
+        1200,
+        -80
+      ],
       "parameters": {
         "resource": "messages-api",
         "operation": "send-text",
@@ -190,7 +214,10 @@
       "name": "Evolution — Warning to Admin",
       "type": "n8n-nodes-evolution-api.evolutionApi",
       "typeVersion": 1,
-      "position": [960, 160],
+      "position": [
+        960,
+        160
+      ],
       "parameters": {
         "resource": "messages-api",
         "operation": "send-text",
@@ -211,7 +238,10 @@
       "name": "Postgres — Mark Dispatched (Crit Doctor)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1440, -280],
+      "position": [
+        1440,
+        -280
+      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $json.alert_event_id }}';",
@@ -229,7 +259,10 @@
       "name": "Postgres — Mark Dispatched (Crit Admin)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1440, -80],
+      "position": [
+        1440,
+        -80
+      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $json.alert_event_id }}';",
@@ -247,7 +280,10 @@
       "name": "Postgres — Mark Dispatched (Warn)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1200, 160],
+      "position": [
+        1200,
+        160
+      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $json.alert_event_id }}';",
@@ -265,36 +301,48 @@
       "name": "Wait 1s (A)",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1680, -280],
+      "position": [
+        1680,
+        -280
+      ],
       "parameters": {
         "resume": "timeInterval",
         "amount": 1,
         "unit": "seconds"
-      }
+      },
+      "webhookId": "f3c383ab-531e-483e-a863-a5eb4814bce9"
     },
     {
       "id": "alt-wait-crit-admin",
       "name": "Wait 1s (B)",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1680, -80],
+      "position": [
+        1680,
+        -80
+      ],
       "parameters": {
         "resume": "timeInterval",
         "amount": 1,
         "unit": "seconds"
-      }
+      },
+      "webhookId": "c5736749-ca6e-4b62-a438-644d6a35111c"
     },
     {
       "id": "alt-wait-warn",
       "name": "Wait 1s (C)",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1440, 160],
+      "position": [
+        1440,
+        160
+      ],
       "parameters": {
         "resume": "timeInterval",
         "amount": 1,
         "unit": "seconds"
-      }
+      },
+      "webhookId": "d9a6bb1a-229a-4f3e-81a1-038f93731bff"
     }
   ],
   "connections": {
@@ -479,5 +527,31 @@
     "callerPolicy": "workflowsFromSameOwner",
     "errorWorkflow": "rONCEa2neV3XyBBX"
   },
-  "tags": []
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-17T19:17:35.434Z",
+      "createdAt": "2026-05-17T19:17:35.434Z",
+      "role": "workflow:owner",
+      "workflowId": "0OaSsuuvGd2R1405",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
 }

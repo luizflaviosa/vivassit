@@ -85,34 +85,32 @@
       ]
     },
     {
-      "parameters": {
-        "operation": "update",
-        "calendar": {
-          "__rl": true,
-          "value": "={{ $('Remarcar no DB').item.json.calendar_id }}",
-          "mode": "id"
-        },
-        "eventId": "={{ $('Remarcar no DB').item.json.calendar_event_id }}",
-        "updateFields": {
-          "end": "={{ $('Remarcar no DB').item.json.new_slot_end }}",
-          "start": "={{ $('Remarcar no DB').item.json.new_slot_start }}"
-        }
-      },
       "id": "90deb99c-494c-43a7-a547-843b2bb2e95b",
       "name": "Atualizar no Google Calendar",
-      "type": "n8n-nodes-base.googleCalendar",
-      "typeVersion": 1.1,
       "position": [
         128,
         -48
       ],
-      "credentials": {
-        "googleCalendarOAuth2Api": {
-          "id": "OkOV7izIvJcvD3wl",
-          "name": "Google Calendar account"
-        }
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Remarcar no DB').item.json.calendar_id) }}/events/{{ $('Remarcar no DB').item.json.calendar_event_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ '{\"start\":' + JSON.stringify({dateTime: $('Remarcar no DB').item.json.new_slot_start, timeZone: 'America/Sao_Paulo'}) + ',\"end\":' + JSON.stringify({dateTime: $('Remarcar no DB').item.json.new_slot_end, timeZone: 'America/Sao_Paulo'}) + '}' }}",
+        "options": {}
       },
-      "notes": "IMPORTANTE: Selecione sua credencial do Google Calendar aqui após importar."
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "googleApi": {
+          "id": "co3SxRBKRqtJRGpa",
+          "name": "Google Service Account account"
+        }
+      }
     },
     {
       "parameters": {
@@ -195,8 +193,8 @@
     "templateCredsSetupCompleted": true
   },
   "pinData": {},
-  "activeVersionId": "8e15237d-aac4-4e05-8b3c-7faf69694ed7",
-  "versionCounter": 23,
+  "activeVersionId": "15a539cd-9e04-4fde-97c8-9c73a45924f8",
+  "versionCounter": 26,
   "triggerCount": 0,
   "shared": [
     {
@@ -219,9 +217,9 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-05-08T02:45:09.605Z",
-    "createdAt": "2026-05-08T02:45:09.605Z",
-    "versionId": "8e15237d-aac4-4e05-8b3c-7faf69694ed7",
+    "updatedAt": "2026-05-17T19:42:10.005Z",
+    "createdAt": "2026-05-17T19:42:10.005Z",
+    "versionId": "15a539cd-9e04-4fde-97c8-9c73a45924f8",
     "workflowId": "GPx7IZI4hziTp1h7",
     "nodes": [
       {
@@ -304,34 +302,32 @@
         ]
       },
       {
-        "parameters": {
-          "operation": "update",
-          "calendar": {
-            "__rl": true,
-            "value": "={{ $('Remarcar no DB').item.json.calendar_id }}",
-            "mode": "id"
-          },
-          "eventId": "={{ $('Remarcar no DB').item.json.calendar_event_id }}",
-          "updateFields": {
-            "end": "={{ $('Remarcar no DB').item.json.new_slot_end }}",
-            "start": "={{ $('Remarcar no DB').item.json.new_slot_start }}"
-          }
-        },
         "id": "90deb99c-494c-43a7-a547-843b2bb2e95b",
         "name": "Atualizar no Google Calendar",
-        "type": "n8n-nodes-base.googleCalendar",
-        "typeVersion": 1.1,
         "position": [
           128,
           -48
         ],
-        "credentials": {
-          "googleCalendarOAuth2Api": {
-            "id": "OkOV7izIvJcvD3wl",
-            "name": "Google Calendar account"
-          }
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "parameters": {
+          "method": "PATCH",
+          "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Remarcar no DB').item.json.calendar_id) }}/events/{{ $('Remarcar no DB').item.json.calendar_event_id }}",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "googleApi",
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ '{\"start\":' + JSON.stringify({dateTime: $('Remarcar no DB').item.json.new_slot_start, timeZone: 'America/Sao_Paulo'}) + ',\"end\":' + JSON.stringify({dateTime: $('Remarcar no DB').item.json.new_slot_end, timeZone: 'America/Sao_Paulo'}) + '}' }}",
+          "options": {}
         },
-        "notes": "IMPORTANTE: Selecione sua credencial do Google Calendar aqui após importar."
+        "onError": "continueRegularOutput",
+        "credentials": {
+          "googleApi": {
+            "id": "co3SxRBKRqtJRGpa",
+            "name": "Google Service Account account"
+          }
+        }
       },
       {
         "parameters": {
@@ -411,34 +407,18 @@
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-05-08T02:45:09.664Z",
-        "id": 151,
+        "createdAt": "2026-05-17T19:42:10.064Z",
+        "id": 455,
         "workflowId": "GPx7IZI4hziTp1h7",
-        "versionId": "8e15237d-aac4-4e05-8b3c-7faf69694ed7",
+        "versionId": "15a539cd-9e04-4fde-97c8-9c73a45924f8",
         "event": "deactivated",
         "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
       },
       {
-        "createdAt": "2026-05-08T02:45:09.687Z",
-        "id": 152,
+        "createdAt": "2026-05-17T19:42:10.084Z",
+        "id": 456,
         "workflowId": "GPx7IZI4hziTp1h7",
-        "versionId": "8e15237d-aac4-4e05-8b3c-7faf69694ed7",
-        "event": "activated",
-        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-      },
-      {
-        "createdAt": "2026-05-08T23:36:07.591Z",
-        "id": 192,
-        "workflowId": "GPx7IZI4hziTp1h7",
-        "versionId": "8e15237d-aac4-4e05-8b3c-7faf69694ed7",
-        "event": "deactivated",
-        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-      },
-      {
-        "createdAt": "2026-05-08T23:36:07.606Z",
-        "id": 193,
-        "workflowId": "GPx7IZI4hziTp1h7",
-        "versionId": "8e15237d-aac4-4e05-8b3c-7faf69694ed7",
+        "versionId": "15a539cd-9e04-4fde-97c8-9c73a45924f8",
         "event": "activated",
         "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
       }

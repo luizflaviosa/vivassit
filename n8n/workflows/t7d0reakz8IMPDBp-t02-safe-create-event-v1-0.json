@@ -175,37 +175,28 @@
     {
       "id": "a6bc2f0d-b927-4c27-ab3e-f2f2de831a52",
       "name": "Calendar Create",
-      "type": "n8n-nodes-base.googleCalendar",
-      "typeVersion": 1.3,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         1344,
         0
       ],
       "parameters": {
-        "resource": "event",
-        "operation": "create",
-        "calendar": {
-          "__rl": true,
-          "mode": "id",
-          "value": "={{ $('Parsear Resultado').item.json.result.calendar_id }}"
-        },
-        "start": "={{ $('Parsear Resultado').item.json.result.slot_start }}",
-        "end": "={{ $('Parsear Resultado').item.json.result.slot_end }}",
-        "additionalFields": {
-          "summary": "={{ $('When Called').item.json.summary || ('Consulta — ' + $('When Called').item.json.patient_name) }}",
-          "description": "=Telefone: {{ $('When Called').item.json.patient_phone }} | Nome Completo: {{ $('When Called').item.json.patient_name }}{{ $('When Called').item.json.patient_birth ? ' | Data de Nascimento: ' + $('When Called').item.json.patient_birth : '' }}{{ $('When Called').item.json.conversation_id ? ' | ID DA CONVERSA: ' + $('When Called').item.json.conversation_id : '' }} | Booking ID: {{ $('Parsear Resultado').item.json.result.booking_id }}",
-          "timeZone": {
-            "__rl": true,
-            "mode": "id",
-            "value": "America/Sao_Paulo"
-          }
-        }
+        "method": "POST",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Parsear Resultado').item.json.result.calendar_id) }}/events",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ '{' + '\"summary\":' + JSON.stringify($('When Called').item.json.summary || ('Consulta — ' + $('When Called').item.json.patient_name)) + ',\"description\":' + JSON.stringify('Telefone: ' + $('When Called').item.json.patient_phone + ' | Nome Completo: ' + $('When Called').item.json.patient_name + ($('When Called').item.json.patient_birth ? ' | Data de Nascimento: ' + $('When Called').item.json.patient_birth : '') + ($('When Called').item.json.conversation_id ? ' | ID DA CONVERSA: ' + $('When Called').item.json.conversation_id : '') + ' | Booking ID: ' + $('Parsear Resultado').item.json.result.booking_id) + ',\"start\":' + JSON.stringify({dateTime: $('Parsear Resultado').item.json.result.slot_start, timeZone: 'America/Sao_Paulo'}) + ',\"end\":' + JSON.stringify({dateTime: $('Parsear Resultado').item.json.result.slot_end, timeZone: 'America/Sao_Paulo'}) + '}' }}",
+        "options": {}
       },
-      "onError": "continueErrorOutput",
+      "onError": "continueRegularOutput",
       "credentials": {
-        "googleCalendarOAuth2Api": {
-          "id": "OkOV7izIvJcvD3wl",
-          "name": "Google Calendar account"
+        "googleApi": {
+          "id": "co3SxRBKRqtJRGpa",
+          "name": "Google Service Account account"
         }
       }
     },
@@ -525,8 +516,8 @@
     "builderVariant": "mcp"
   },
   "pinData": null,
-  "activeVersionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
-  "versionCounter": 53,
+  "activeVersionId": "5c4af25f-44cc-4125-99c4-dbb0c3474146",
+  "versionCounter": 62,
   "triggerCount": 0,
   "shared": [
     {
@@ -549,9 +540,9 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-05-08T02:40:59.389Z",
-    "createdAt": "2026-05-08T02:40:59.389Z",
-    "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
+    "updatedAt": "2026-05-17T19:41:14.488Z",
+    "createdAt": "2026-05-17T19:41:14.488Z",
+    "versionId": "5c4af25f-44cc-4125-99c4-dbb0c3474146",
     "workflowId": "t7d0reakz8IMPDBp",
     "nodes": [
       {
@@ -724,37 +715,28 @@
       {
         "id": "a6bc2f0d-b927-4c27-ab3e-f2f2de831a52",
         "name": "Calendar Create",
-        "type": "n8n-nodes-base.googleCalendar",
-        "typeVersion": 1.3,
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
         "position": [
           1344,
           0
         ],
         "parameters": {
-          "resource": "event",
-          "operation": "create",
-          "calendar": {
-            "__rl": true,
-            "mode": "id",
-            "value": "={{ $('Parsear Resultado').item.json.result.calendar_id }}"
-          },
-          "start": "={{ $('Parsear Resultado').item.json.result.slot_start }}",
-          "end": "={{ $('Parsear Resultado').item.json.result.slot_end }}",
-          "additionalFields": {
-            "summary": "={{ $('When Called').item.json.summary || ('Consulta — ' + $('When Called').item.json.patient_name) }}",
-            "description": "=Telefone: {{ $('When Called').item.json.patient_phone }} | Nome Completo: {{ $('When Called').item.json.patient_name }}{{ $('When Called').item.json.patient_birth ? ' | Data de Nascimento: ' + $('When Called').item.json.patient_birth : '' }}{{ $('When Called').item.json.conversation_id ? ' | ID DA CONVERSA: ' + $('When Called').item.json.conversation_id : '' }} | Booking ID: {{ $('Parsear Resultado').item.json.result.booking_id }}",
-            "timeZone": {
-              "__rl": true,
-              "mode": "id",
-              "value": "America/Sao_Paulo"
-            }
-          }
+          "method": "POST",
+          "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Parsear Resultado').item.json.result.calendar_id) }}/events",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "googleApi",
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={{ '{' + '\"summary\":' + JSON.stringify($('When Called').item.json.summary || ('Consulta — ' + $('When Called').item.json.patient_name)) + ',\"description\":' + JSON.stringify('Telefone: ' + $('When Called').item.json.patient_phone + ' | Nome Completo: ' + $('When Called').item.json.patient_name + ($('When Called').item.json.patient_birth ? ' | Data de Nascimento: ' + $('When Called').item.json.patient_birth : '') + ($('When Called').item.json.conversation_id ? ' | ID DA CONVERSA: ' + $('When Called').item.json.conversation_id : '') + ' | Booking ID: ' + $('Parsear Resultado').item.json.result.booking_id) + ',\"start\":' + JSON.stringify({dateTime: $('Parsear Resultado').item.json.result.slot_start, timeZone: 'America/Sao_Paulo'}) + ',\"end\":' + JSON.stringify({dateTime: $('Parsear Resultado').item.json.result.slot_end, timeZone: 'America/Sao_Paulo'}) + '}' }}",
+          "options": {}
         },
-        "onError": "continueErrorOutput",
+        "onError": "continueRegularOutput",
         "credentials": {
-          "googleCalendarOAuth2Api": {
-            "id": "OkOV7izIvJcvD3wl",
-            "name": "Google Calendar account"
+          "googleApi": {
+            "id": "co3SxRBKRqtJRGpa",
+            "name": "Google Service Account account"
           }
         }
       },
@@ -1069,50 +1051,18 @@
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-05-08T02:40:59.436Z",
-        "id": 149,
+        "createdAt": "2026-05-17T19:41:14.527Z",
+        "id": 453,
         "workflowId": "t7d0reakz8IMPDBp",
-        "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
+        "versionId": "5c4af25f-44cc-4125-99c4-dbb0c3474146",
         "event": "deactivated",
         "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
       },
       {
-        "createdAt": "2026-05-08T02:40:59.455Z",
-        "id": 150,
+        "createdAt": "2026-05-17T19:41:14.547Z",
+        "id": 454,
         "workflowId": "t7d0reakz8IMPDBp",
-        "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
-        "event": "activated",
-        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-      },
-      {
-        "createdAt": "2026-05-17T14:04:51.049Z",
-        "id": 383,
-        "workflowId": "t7d0reakz8IMPDBp",
-        "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
-        "event": "deactivated",
-        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-      },
-      {
-        "createdAt": "2026-05-17T14:04:51.065Z",
-        "id": 384,
-        "workflowId": "t7d0reakz8IMPDBp",
-        "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
-        "event": "activated",
-        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-      },
-      {
-        "createdAt": "2026-05-17T14:27:02.553Z",
-        "id": 420,
-        "workflowId": "t7d0reakz8IMPDBp",
-        "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
-        "event": "deactivated",
-        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-      },
-      {
-        "createdAt": "2026-05-17T14:27:02.586Z",
-        "id": 421,
-        "workflowId": "t7d0reakz8IMPDBp",
-        "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
+        "versionId": "5c4af25f-44cc-4125-99c4-dbb0c3474146",
         "event": "activated",
         "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
       }
