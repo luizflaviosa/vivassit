@@ -4,6 +4,19 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: { unoptimized: true },
+
+  // Rewrite raiz pra /v8.html (HTML estatico ja otimizado).
+  // Substitui o `redirect('/v8.html')` que existia em app/app/page.tsx
+  // — elimina 1 round-trip HTTP 307, reduzindo TTFB em ~100-200ms.
+  // beforeFiles roda ANTES do filesystem, entao app/app/page.tsx
+  // fica como dead code reversivel (nao apagar pra facilitar rollback).
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { source: '/', destination: '/v8.html' },
+      ],
+    };
+  },
 };
 
 module.exports = nextConfig;
