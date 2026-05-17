@@ -1,8 +1,10 @@
 {
+  "updatedAt": "2026-05-17T20:33:49.314Z",
+  "createdAt": "2026-05-17T19:17:35.218Z",
   "id": "1X4C4X3wsog9WIkh",
   "name": "P04 — Seguimento · Dispatch Semanal · v1.0",
   "description": null,
-  "active": false,
+  "active": true,
   "isArchived": false,
   "nodes": [
     {
@@ -10,10 +12,7 @@
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
-      "position": [
-        0,
-        0
-      ],
+      "position": [0, 0],
       "parameters": {
         "rule": {
           "interval": [
@@ -30,13 +29,10 @@
       "name": "Postgres — Query Due Patients",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [
-        240,
-        0
-      ],
+      "position": [240, 0],
       "parameters": {
         "operation": "executeQuery",
-        "query": "with due as (\n  select pp.id as patient_protocol_id,\n         pp.patient_id,\n         pp.tenant_id,\n         pp.protocol_id,\n         pp.started_at,\n         pp.last_dispatched_at,\n         floor(extract(epoch from (now() - pp.started_at)) / 86400 / 7)::int as week_index\n  from public.patient_protocols pp\n  where pp.status = 'active'\n    and (pp.last_dispatched_at is null\n         or pp.last_dispatched_at < now() - interval '6 days 12 hours')\n),\nquestion_counts as (\n  select protocol_id, count(*) as num_questions\n  from public.protocol_questions\n  where is_active = true\n  group by protocol_id\n),\nchosen as (\n  select d.*,\n         qc.num_questions,\n         (d.week_index % greatest(qc.num_questions, 1)) + 1 as chosen_ordering\n  from due d\n  join question_counts qc on qc.protocol_id = d.protocol_id\n)\nselect\n  c.patient_protocol_id,\n  c.patient_id,\n  c.tenant_id,\n  pq.id as protocol_question_id,\n  pq.ordering,\n  pq.kind,\n  pq.prompt_pt,\n  t.clinic_name,\n  pat.phone as patient_phone,\n  pat.first_name as patient_first_name,\n  pat.health_collection_token\nfrom chosen c\njoin public.protocol_questions pq\n  on pq.protocol_id = c.protocol_id\n  and pq.ordering = c.chosen_ordering\n  and pq.is_active = true\njoin public.tenants t on t.tenant_id = c.tenant_id\njoin public.patients pat on pat.id = c.patient_id\nwhere pat.phone is not null\norder by c.patient_protocol_id;",
+        "query": "with due as (\n  select pp.id as patient_protocol_id,\n         pp.patient_id,\n         pp.tenant_id,\n         pp.protocol_id,\n         pp.started_at,\n         pp.last_dispatched_at,\n         floor(extract(epoch from (now() - pp.started_at)) / 86400 / 7)::int as week_index\n  from public.patient_protocols pp\n  where pp.status = 'active'\n    and (pp.last_dispatched_at is null\n         or pp.last_dispatched_at < now() - interval '6 days 12 hours')\n),\nquestion_counts as (\n  select protocol_id, count(*) as num_questions\n  from public.protocol_questions\n  where is_active = true\n  group by protocol_id\n),\nchosen as (\n  select d.*,\n         qc.num_questions,\n         (d.week_index % greatest(qc.num_questions, 1)) + 1 as chosen_ordering\n  from due d\n  join question_counts qc on qc.protocol_id = d.protocol_id\n)\nselect\n  c.patient_protocol_id,\n  c.patient_id,\n  c.tenant_id,\n  pq.id as protocol_question_id,\n  pq.ordering,\n  pq.kind,\n  pq.prompt_pt,\n  t.clinic_name,\n  pat.phone as patient_phone,\n  pat.name as patient_name,\n  pat.health_collection_token\nfrom chosen c\njoin public.protocol_questions pq\n  on pq.protocol_id = c.protocol_id\n  and pq.ordering = c.chosen_ordering\n  and pq.is_active = true\njoin public.tenants t on t.tenant_id = c.tenant_id\njoin public.patients pat on pat.id = c.patient_id\nwhere pat.phone is not null\norder by c.patient_protocol_id;",
         "options": {}
       },
       "credentials": {
@@ -51,10 +47,7 @@
       "name": "SplitInBatches",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [
-        480,
-        0
-      ],
+      "position": [480, 0],
       "parameters": {
         "batchSize": 1,
         "options": {}
@@ -65,16 +58,13 @@
       "name": "Evolution — Send WhatsApp",
       "type": "n8n-nodes-evolution-api.evolutionApi",
       "typeVersion": 1,
-      "position": [
-        720,
-        0
-      ],
+      "position": [720, 0],
       "parameters": {
         "resource": "messages-api",
         "operation": "send-text",
         "instanceName": "singulare-admin",
         "remoteJid": "={{ $json.patient_phone.replace(/\\D/g, '') }}@s.whatsapp.net",
-        "messageText": "=Oi, {{ $json.patient_first_name }}! Aqui e a {{ $json.clinic_name }}. Hora do seu check-in semanal.\n\n{{ $json.prompt_pt }}\n\nPode responder por aqui mesmo ou pelo link:\nhttps://singulare.org/saude/{{ $json.health_collection_token }}"
+        "messageText": "=Oi, {{ $json.patient_name.split(' ')[0] }}! Aqui e a {{ $json.clinic_name }}. Hora do seu check-in semanal.\n\n{{ $json.prompt_pt }}\n\nPode responder por aqui mesmo ou pelo link:\nhttps://singulare.org/saude/{{ $json.health_collection_token }}"
       },
       "onError": "continueRegularOutput",
       "credentials": {
@@ -89,10 +79,7 @@
       "name": "Postgres — Update last_dispatched_at",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [
-        960,
-        0
-      ],
+      "position": [960, 0],
       "parameters": {
         "operation": "executeQuery",
         "query": "=update public.patient_protocols\n   set last_dispatched_at = now(),\n       updated_at = now()\n where id = '{{ $json.patient_protocol_id }}';",
@@ -110,10 +97,7 @@
       "name": "Wait 3s",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [
-        1200,
-        0
-      ],
+      "position": [1200, 0],
       "parameters": {
         "resume": "timeInterval",
         "amount": 3,
@@ -125,69 +109,32 @@
   "connections": {
     "Schedule Trigger": {
       "main": [
-        [
-          {
-            "node": "Postgres — Query Due Patients",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Postgres — Query Due Patients", "type": "main", "index": 0 }]
       ]
     },
     "Postgres — Query Due Patients": {
       "main": [
-        [
-          {
-            "node": "SplitInBatches",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "SplitInBatches", "type": "main", "index": 0 }]
       ]
     },
     "SplitInBatches": {
       "main": [
-        [
-          {
-            "node": "Evolution — Send WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
+        [{ "node": "Evolution — Send WhatsApp", "type": "main", "index": 0 }]
       ]
     },
     "Evolution — Send WhatsApp": {
       "main": [
-        [
-          {
-            "node": "Postgres — Update last_dispatched_at",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Postgres — Update last_dispatched_at", "type": "main", "index": 0 }]
       ]
     },
     "Postgres — Update last_dispatched_at": {
       "main": [
-        [
-          {
-            "node": "Wait 3s",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Wait 3s", "type": "main", "index": 0 }]
       ]
     },
     "Wait 3s": {
       "main": [
-        [
-          {
-            "node": "SplitInBatches",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "SplitInBatches", "type": "main", "index": 0 }]
       ]
     }
   },
@@ -197,31 +144,13 @@
     "callerPolicy": "workflowsFromSameOwner",
     "errorWorkflow": "rONCEa2neV3XyBBX"
   },
-  "staticData": null,
+  "staticData": {
+    "node:Schedule Trigger": {
+      "recurrenceRules": []
+    }
+  },
   "meta": null,
   "pinData": null,
-  "activeVersionId": null,
-  "versionCounter": 2,
-  "triggerCount": 0,
-  "shared": [
-    {
-      "updatedAt": "2026-05-17T19:17:35.218Z",
-      "createdAt": "2026-05-17T19:17:35.218Z",
-      "role": "workflow:owner",
-      "workflowId": "1X4C4X3wsog9WIkh",
-      "projectId": "2cGyYwvKw4dDUUz9",
-      "project": {
-        "updatedAt": "2026-05-04T21:21:30.902Z",
-        "createdAt": "2026-05-04T21:15:25.493Z",
-        "id": "2cGyYwvKw4dDUUz9",
-        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
-        "type": "personal",
-        "icon": null,
-        "description": null,
-        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
-      }
-    }
-  ],
-  "tags": [],
-  "activeVersion": null
+  "versionId": "fd4d233e-89eb-4e63-b2cc-687cd6cf640b",
+  "tags": []
 }
