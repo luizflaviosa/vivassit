@@ -105,8 +105,12 @@ interface IncomingVital {
   effective_time?: string; // ISO; default = now
   effective_period_end?: string | null;
   metric_type?: 'sdnn' | 'rmssd' | null; // pra HRV: distingue qual algoritmo
-  source?: string | null; // 'apple_health' | 'health_connect' | 'web_manual_link'
+  source?: string | null; // 'apple_health' | 'health_connect' | 'web_manual_link' | 'whatsapp_active' | 'web_protocol'
   sample_uuid?: string | null; // pra dedup persistente entre sessoes
+  // coleta ATIVA via protocolo de seguimento:
+  protocol_question_id?: number | null;
+  confidence?: number | null; // 0..1, baixo => marca data_quality_tag='noisy'
+  raw_text?: string | null;   // resposta original do paciente (pre-NLU)
 }
 
 interface IngestBody {
@@ -119,7 +123,18 @@ interface IngestBody {
   };
 }
 
+interface ProtocolQuestionRow {
+  id: number;
+  protocol_id: number;
+  loinc_code: string;
+  kind: string;
+}
+
 // POST publico: aceita vitals via token. Sem JWT. Limit 500/batch.
+// Suporta 2 modos:
+//   (a) passivo/manual: observation com LOINC do mapping conhecido -> categoria automatica
+//   (b) ativo de protocolo: observation com protocol_question_id -> categoria 'patient-reported',
+//       provenance enriquecido com protocol_id/question_id/confidence/raw_text.
 export async function POST(req: Request, { params }: RouteContext) {
   const token = params.token;
   if (!token || !/^[0-9a-f-]{36}$/i.test(token)) {
@@ -146,31 +161,102 @@ export async function POST(req: Request, { params }: RouteContext) {
     return NextResponse.json({ success: false, error: 'invalid_token' }, { status: 404 });
   }
 
+  // Pre-carrega perguntas de protocolo referenciadas no batch (modo ativo).
+  const protocolQuestionIds = Array.from(new Set(
+    body.observations
+      .map((o) => o.protocol_question_id)
+      .filter((v): v is number => typeof v === 'number' && v > 0)
+  ));
+
+  const protocolQuestions = new Map<number, ProtocolQuestionRow>();
+  const activeProtocolIds = new Set<number>();
+
+  if (protocolQuestionIds.length > 0) {
+    const { data: pqs, error: pqErr } = await supabase
+      .from('protocol_questions')
+      .select('id, protocol_id, loinc_code, kind')
+      .in('id', protocolQuestionIds);
+    if (pqErr) {
+      return NextResponse.json({ success: false, error: 'protocol_lookup_failed', detail: pqErr.message }, { status: 500 });
+    }
+    pqs?.forEach((q) => protocolQuestions.set(q.id, q as ProtocolQuestionRow));
+
+    // So aceita coleta ativa de protocolo que o paciente esta ativamente seguindo.
+    const { data: pps, error: ppErr } = await supabase
+      .from('patient_protocols')
+      .select('protocol_id')
+      .eq('patient_id', patient.id)
+      .eq('status', 'active');
+    if (ppErr) {
+      return NextResponse.json({ success: false, error: 'patient_protocol_lookup_failed', detail: ppErr.message }, { status: 500 });
+    }
+    pps?.forEach((p) => activeProtocolIds.add(p.protocol_id));
+  }
+
   const batchId = randomUUID();
   const nowIso = new Date().toISOString();
   const deviceMeta = body.device ?? null;
 
   const rows = body.observations
-    .filter((o) => (typeof o.value === 'number' && isFinite(o.value) || typeof o.value_text === 'string') && LOINC_CATEGORY[o.loinc_code])
+    .filter((o) => {
+      const hasNum = typeof o.value === 'number' && isFinite(o.value);
+      const hasText = typeof o.value_text === 'string' && o.value_text.length > 0;
+      if (!hasNum && !hasText) return false;
+
+      // Modo ativo: protocol_question_id presente -> precisa pergunta valida + protocolo ativo
+      if (typeof o.protocol_question_id === 'number') {
+        const pq = protocolQuestions.get(o.protocol_question_id);
+        if (!pq) return false;
+        return activeProtocolIds.has(pq.protocol_id);
+      }
+      // Modo passivo/manual: precisa LOINC conhecido
+      return !!LOINC_CATEGORY[o.loinc_code];
+    })
     .map((o) => {
       const isNumeric = typeof o.value === 'number' && isFinite(o.value);
-      const quality = isNumeric ? classify(o.loinc_code, o.value) : 'clean';
-      const sourceTag = o.source ?? (deviceMeta?.platform === 'ios' ? 'apple_health'
-        : deviceMeta?.platform === 'android' ? 'health_connect'
-        : 'web_manual_link');
+      const isActiveProtocol = typeof o.protocol_question_id === 'number';
+      const pq = isActiveProtocol ? protocolQuestions.get(o.protocol_question_id as number) : undefined;
+
+      // Quality: ativo segue confidence; passivo usa faixa fisiologica.
+      let quality: 'clean' | 'outlier' | 'rejected' | 'noisy';
+      if (isActiveProtocol) {
+        quality = (typeof o.confidence === 'number' && o.confidence < 0.6) ? 'noisy' : 'clean';
+      } else {
+        quality = isNumeric ? classify(o.loinc_code, o.value) : 'clean';
+      }
+
+      const category = isActiveProtocol
+        ? 'patient-reported'
+        : LOINC_CATEGORY[o.loinc_code];
+
+      const sourceTag = o.source ?? (
+        isActiveProtocol ? 'whatsapp_active'
+          : deviceMeta?.platform === 'ios' ? 'apple_health'
+          : deviceMeta?.platform === 'android' ? 'health_connect'
+          : 'web_manual_link'
+      );
+
       const provenance: Record<string, unknown> = { source: sourceTag };
       if (deviceMeta) {
-        provenance.platform = deviceMeta.platform;
-        provenance.os_version = deviceMeta.os_version;
-        provenance.app_version = deviceMeta.app_version;
-        provenance.device_model = deviceMeta.device_model;
+        if (deviceMeta.platform) provenance.platform = deviceMeta.platform;
+        if (deviceMeta.os_version) provenance.os_version = deviceMeta.os_version;
+        if (deviceMeta.app_version) provenance.app_version = deviceMeta.app_version;
+        if (deviceMeta.device_model) provenance.device_model = deviceMeta.device_model;
       }
       if (o.metric_type) provenance.metric_type = o.metric_type;
       if (o.sample_uuid) provenance.sample_uuid = o.sample_uuid;
+      if (isActiveProtocol && pq) {
+        provenance.protocol_id = pq.protocol_id;
+        provenance.protocol_question_id = pq.id;
+        provenance.question_kind = pq.kind;
+        if (typeof o.confidence === 'number') provenance.confidence = o.confidence;
+        if (typeof o.raw_text === 'string' && o.raw_text.length > 0) provenance.raw_text = o.raw_text;
+      }
+
       return {
         patient_id: patient.id,
         tenant_id: patient.tenant_id,
-        category: LOINC_CATEGORY[o.loinc_code],
+        category,
         loinc_code: o.loinc_code,
         display_name: LOINC_DISPLAY[o.loinc_code] ?? o.loinc_code,
         value_numeric: isNumeric ? o.value : null,
@@ -202,6 +288,8 @@ export async function POST(req: Request, { params }: RouteContext) {
   const accepted = count ?? rows.length;
   const rejected = rows.filter((r) => r.data_quality_tag === 'rejected').length;
   const outliers = rows.filter((r) => r.data_quality_tag === 'outlier').length;
+  const noisy = rows.filter((r) => r.data_quality_tag === 'noisy').length;
+  const patient_reported = rows.filter((r) => r.category === 'patient-reported').length;
 
   return NextResponse.json({
     success: true,
@@ -210,5 +298,7 @@ export async function POST(req: Request, { params }: RouteContext) {
     accepted,
     rejected,
     outliers,
+    noisy,
+    patient_reported,
   });
 }
