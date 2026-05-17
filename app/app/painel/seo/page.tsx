@@ -1,5 +1,8 @@
 import { Suspense } from 'react';
+import { redirect } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { isAdminEmail } from '@/lib/admin-auth';
 import { ExternalLink, RefreshCw, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -143,6 +146,14 @@ function ErrorBanner({ error }: { error: string }) {
 }
 
 export default async function SeoPage() {
+  // Admin-only: rastreia o domínio singulare.org (Search Console da plataforma),
+  // não SEO de clientes individuais. Não-admins redirecionam pro painel.
+  const supabase = createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || !isAdminEmail(user.email)) {
+    redirect('/painel');
+  }
+
   const snapshots = await fetchSnapshots();
   const current = snapshots[0];
   const previous = snapshots[1];

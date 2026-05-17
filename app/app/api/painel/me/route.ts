@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { ACTIVE_TENANT_COOKIE } from '@/lib/auth-tenant';
+import { isAdminEmail } from '@/lib/admin-auth';
 
 // Retorna o tenant ATIVO do usuario autenticado.
 // Resolução em ordem:
@@ -117,9 +118,12 @@ export async function GET() {
 
   // Fallback drift de schema: leitores no frontend usam chatwoot_url; tenants
   // antigos podem ter apenas chatwoot_domain preenchido.
+  // is_admin: flag de admin de plataforma (lista hardcoded em lib/admin-auth)
+  // usado pra mostrar/esconder grupo "Administração" no menu lateral.
   const tenantOut = {
     ...tenant,
     chatwoot_url: tenant.chatwoot_url ?? tenant.chatwoot_domain ?? null,
+    is_admin: isAdminEmail(user.email),
   };
 
   return NextResponse.json({

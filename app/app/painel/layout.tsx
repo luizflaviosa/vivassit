@@ -18,6 +18,7 @@ import {
   Star,
   Megaphone,
   Search,
+  ShieldCheck,
   Menu,
   X,
   ChevronRight,
@@ -38,7 +39,7 @@ import TenantSwitcher from './components/tenant-switcher';
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
 
-type SectionGroup = 'default' | 'daily' | 'consultation' | 'clinic' | 'growth';
+type SectionGroup = 'default' | 'daily' | 'consultation' | 'clinic' | 'growth' | 'admin';
 
 interface NavItem {
   href: string;
@@ -76,7 +77,7 @@ const ROUTE_GROUP: Array<[string, SectionGroup]> = [
   ['/painel/performance', 'growth'],
   ['/painel/feedback', 'growth'],
   ['/painel/marketing', 'growth'],
-  ['/painel/seo', 'growth'],
+  ['/painel/seo', 'admin'],
 ];
 
 function resolveGroup(pathname: string): SectionGroup {
@@ -178,9 +179,27 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
         { href: '/painel/performance', label: 'Performance', icon: <Activity className="w-4 h-4" />, enabled: true },
         { href: '/painel/feedback', label: 'NPS / feedback', icon: <Star className="w-4 h-4" />, enabled: true },
         { href: '/painel/marketing', label: 'Marketing', icon: <Megaphone className="w-4 h-4" />, enabled: true },
-        { href: '/painel/seo', label: 'SEO', icon: <Search className="w-4 h-4" />, enabled: true },
       ],
     },
+    // Grupo Administração — só renderizado pra admins de plataforma
+    // (emails em lib/admin-auth.ts). Inclui dashboard de uso/custo e SEO
+    // da plataforma. Outros usuários nem veem o grupo no menu.
+    ...(me?.is_admin
+      ? [
+          {
+            group: 'admin' as const,
+            label: 'Administração',
+            colors: {
+              bg: '#F1F5F9', label: '#475569', activeBg: '#E2E8F0', activeFg: '#0F172A',
+              darkBg: 'rgba(71,85,105,0.16)', darkLabel: '#94A3B8', darkActiveBg: 'rgba(71,85,105,0.32)', darkActiveFg: '#E2E8F0',
+            },
+            items: [
+              { href: '/admin', label: 'Visão da plataforma', icon: <ShieldCheck className="w-4 h-4" />, enabled: true },
+              { href: '/painel/seo', label: 'SEO (Search Console)', icon: <Search className="w-4 h-4" />, enabled: true },
+            ],
+          },
+        ]
+      : []),
     {
       group: 'default',
       label: null,

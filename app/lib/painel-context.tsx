@@ -10,6 +10,9 @@ export interface MeData {
   admin_email: string;
   chatwoot_url?: string | null;
   chatwoot_account_id?: string | number | null;
+  // Admin de plataforma (lista hardcoded em lib/admin-auth.ts). Usado pra
+  // mostrar grupo "Administração" no menu lateral.
+  is_admin?: boolean;
 }
 
 export const MeContext = createContext<MeData | null>(null);
