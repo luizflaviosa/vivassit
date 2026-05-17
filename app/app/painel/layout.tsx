@@ -19,6 +19,7 @@ import {
   Megaphone,
   Search,
   ShieldCheck,
+  Wrench,
   Menu,
   X,
   ChevronRight,
@@ -78,6 +79,7 @@ const ROUTE_GROUP: Array<[string, SectionGroup]> = [
   ['/painel/feedback', 'growth'],
   ['/painel/marketing', 'growth'],
   ['/painel/seo', 'admin'],
+  ['/painel/admin', 'admin'],
 ];
 
 function resolveGroup(pathname: string): SectionGroup {
@@ -181,21 +183,23 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
         { href: '/painel/marketing', label: 'Marketing', icon: <Megaphone className="w-4 h-4" />, enabled: true },
       ],
     },
-    // Grupo Administração — só renderizado pra admins de plataforma
-    // (emails em lib/admin-auth.ts). Inclui dashboard de uso/custo e SEO
-    // da plataforma. Outros usuários nem veem o grupo no menu.
+    // Grupo "Plataforma" — só pra admins de plataforma (lista em
+    // lib/admin-auth.ts). NÃO confundir com admin de clínica (tenant_members
+    // .role = 'admin'), que tem acesso ao painel do próprio tenant.
+    // Cliente normal nem vê esse grupo.
     ...(me?.is_admin
       ? [
           {
             group: 'admin' as const,
-            label: 'Administração',
+            label: 'Plataforma',
             colors: {
               bg: '#F1F5F9', label: '#475569', activeBg: '#E2E8F0', activeFg: '#0F172A',
               darkBg: 'rgba(71,85,105,0.16)', darkLabel: '#94A3B8', darkActiveBg: 'rgba(71,85,105,0.32)', darkActiveFg: '#E2E8F0',
             },
             items: [
-              { href: '/admin', label: 'Visão da plataforma', icon: <ShieldCheck className="w-4 h-4" />, enabled: true },
+              { href: '/admin', label: 'Visão geral', icon: <ShieldCheck className="w-4 h-4" />, enabled: true },
               { href: '/painel/seo', label: 'SEO (Search Console)', icon: <Search className="w-4 h-4" />, enabled: true },
+              { href: '/painel/admin/operacoes', label: 'Operações', icon: <Wrench className="w-4 h-4" />, enabled: true },
             ],
           },
         ]
