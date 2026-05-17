@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -440,15 +441,15 @@ export default function GuiaVisibilidadeDigital() {
             </p>
           </div>
 
-          {/* Hero image */}
+          {/* Hero image (LCP candidate — priority + sizes responsive) */}
           <div className="mt-12 relative w-full aspect-[21/9] overflow-hidden rounded-3xl bg-zinc-100">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=2000&q=80&auto=format&fit=crop"
               alt="Profissional de saúde em ambiente clínico moderno, iluminação suave, atmosfera de cuidado"
-              className="w-full h-full object-cover"
-              loading="eager"
-              fetchPriority="high"
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 80vw, 1280px"
+              className="object-cover"
             />
             <div
               className="absolute inset-0"
