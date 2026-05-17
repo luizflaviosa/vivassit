@@ -203,6 +203,7 @@ export const cobrancasPaciente: Handler = async (params, ctx) => {
       days_open: daysOpen,
       payment_url: p.payment_url,
       doctor_name: p.doctor_name,
+      patient_name: p.patient_name,
     };
   });
 
