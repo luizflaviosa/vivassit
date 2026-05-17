@@ -17,6 +17,7 @@ import {
   FileText,
   Star,
   Megaphone,
+  Search,
   Menu,
   X,
   ChevronRight,
@@ -75,6 +76,7 @@ const ROUTE_GROUP: Array<[string, SectionGroup]> = [
   ['/painel/performance', 'growth'],
   ['/painel/feedback', 'growth'],
   ['/painel/marketing', 'growth'],
+  ['/painel/seo', 'growth'],
 ];
 
 function resolveGroup(pathname: string): SectionGroup {
@@ -176,6 +178,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
         { href: '/painel/performance', label: 'Performance', icon: <Activity className="w-4 h-4" />, enabled: true },
         { href: '/painel/feedback', label: 'NPS / feedback', icon: <Star className="w-4 h-4" />, enabled: true },
         { href: '/painel/marketing', label: 'Marketing', icon: <Megaphone className="w-4 h-4" />, enabled: true },
+        { href: '/painel/seo', label: 'SEO', icon: <Search className="w-4 h-4" />, enabled: true },
       ],
     },
     {
