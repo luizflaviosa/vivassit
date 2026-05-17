@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useMe } from '@/lib/painel-context';
 import { PatientRowSkeleton } from '@/lib/painel-skeleton';
+import { SeguimentoSection } from './SeguimentoSection';
 
 const ACCENT = '#6E56CF';
 const ACCENT_DEEP = '#5746AF';
@@ -604,6 +605,9 @@ function PacientesInner({ initialPatients }: PacientesViewProps) {
                       </>
                     )}
                   </section>
+
+                  {/* Seguimento de tratamento */}
+                  <SeguimentoSection patientId={detail.patient.id} />
 
                   {/* Notes */}
                   {detail.patient.notes && (
