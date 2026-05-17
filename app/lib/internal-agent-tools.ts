@@ -131,6 +131,19 @@ export const TOOL_CATALOG: ToolDef[] = [
       include_overdue_only: { type: 'boolean', default: false, description: 'Se true, só retorna vencidos (>3 dias)' },
     },
   },
+  {
+    name: 'cobrancas_paciente',
+    description: 'Extrato financeiro de UM paciente. Identifica via patient_id, patient_name (busca fuzzy) ou patient_phone (E.164). Retorna pagas/pendentes/vencidas com totais. Use pra "cobranças da Maria", "quanto X me deve", "status financeiro do paciente Y". Se nome ambiguo devolve lista pra desambiguar; se 0 matches retorna erro semantico.',
+    mode: 'read',
+    min_role: 'doctor',
+    params: {
+      patient_id:    { type: 'string', description: 'ID do paciente (preferencial se já souber)' },
+      patient_name:  { type: 'string', description: 'Nome do paciente (busca ilike, fuzzy)' },
+      patient_phone: { type: 'string', description: 'Telefone E.164 (+5511999999999) — match canonico em tenant_payments' },
+      since:         { type: 'date',   description: 'Data inicial (default: 90 dias atras)' },
+      status:        { type: 'enum', enum: ['paid','pending','overdue','all'], default: 'all', description: 'Filtra por classificação' },
+    },
+  },
 
   // ── READ — Reputação ──
   {
@@ -282,6 +295,7 @@ const PARAM_ALIASES: Record<string, Record<string, string>> = {
   nps_resumo:        { desde: 'since' },
   pacientes_proximos:{ semanas: 'weeks_ahead', proximas_semanas: 'weeks_ahead' },
   pagamentos_pendentes: { apenas_vencidos: 'include_overdue_only', somente_vencidos: 'include_overdue_only' },
+  cobrancas_paciente:{ paciente_id: 'patient_id', paciente: 'patient_name', nome: 'patient_name', telefone: 'patient_phone', desde: 'since' },
   consulta_reagendar:{ nova_data: 'new_date', data_nova: 'new_date' },
   consulta_marcar:   { paciente_id: 'patient_id', paciente: 'patient_name', nome: 'patient_name', telefone: 'patient_phone', inicio: 'slot_start', duracao: 'duration_minutes', notas: 'notes' },
   consulta_cancelar: { motivo: 'reason' },
