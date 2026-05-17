@@ -34,10 +34,11 @@ export async function GET() {
     chatwoot_url: string | null;
     chatwoot_domain: string | null;
     chatwoot_account_id: string | number | null;
+    addon_rpm: boolean | null;
   };
   let tenant: T | null = null;
 
-  const TENANT_FIELDS = 'tenant_id, clinic_name, plan_type, subscription_status, admin_email, chatwoot_url, chatwoot_domain, chatwoot_account_id';
+  const TENANT_FIELDS = 'tenant_id, clinic_name, plan_type, subscription_status, admin_email, chatwoot_url, chatwoot_domain, chatwoot_account_id, addon_rpm';
 
   // 1. Cookie de tenant ativo (verifica autorização)
   if (preferredTenantId) {

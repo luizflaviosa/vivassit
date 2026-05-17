@@ -29,6 +29,7 @@ import {
   Sun,
   Moon,
   Activity,
+  HeartPulse,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { MeContext, type MeData } from '@/lib/painel-context';
@@ -78,6 +79,7 @@ const ROUTE_GROUP: Array<[string, SectionGroup]> = [
   ['/painel/pacientes', 'daily'],
   ['/painel/mensagens', 'daily'],
   ['/painel/atendimento', 'daily'],
+  ['/painel/seguimento', 'daily'],
   ['/painel/docs', 'consultation'],
   ['/painel/cobrancas', 'consultation'],
   ['/painel/nf', 'consultation'],
@@ -151,6 +153,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
         { href: '/painel/pacientes', label: 'Pacientes', icon: <UserPlus className="w-4 h-4" />, enabled: true },
         { href: '/painel/mensagens', label: 'Mensagens', icon: <MessageCircle className="w-4 h-4" />, enabled: true },
         { href: '/painel/atendimento', label: 'Atendimento', icon: <Headphones className="w-4 h-4" />, enabled: true, onNavigate: () => window.dispatchEvent(new CustomEvent('singulare:atendimento-focus')) },
+        { href: '/painel/seguimento', label: 'Seguimento', icon: <HeartPulse className="w-4 h-4" />, enabled: !!me?.addon_rpm, hint: 'Modulo RPM em rollout controlado — peca acesso ao time' },
       ],
     },
     {
