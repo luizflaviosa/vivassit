@@ -55,7 +55,7 @@ export default async function BriefingPage({ params, searchParams }: PageProps) 
       id, patient_id, tenant_id, protocol_id, started_at, ends_at,
       next_consultation_at, status, notes,
       protocol:treatment_protocols(slug, name, description, duration_weeks),
-      patient:patients(id, first_name, last_name, birth_date, phone)
+      patient:patients(id, name, birthdate, phone)
     `)
     .eq("id", ppId)
     .eq("tenant_id", tenantId)
@@ -96,9 +96,8 @@ export default async function BriefingPage({ params, searchParams }: PageProps) 
     patient_protocol_id: pp.id,
     patient: {
       id: patientRow.id,
-      first_name: patientRow.first_name ?? null,
-      last_name: patientRow.last_name ?? null,
-      birth_date: patientRow.birth_date ?? null,
+      name: patientRow.name ?? null,
+      birth_date: patientRow.birthdate ?? null,
       phone: patientRow.phone ?? null,
     },
     protocol: {
@@ -139,7 +138,7 @@ function flagLabel(f: BriefingData["flag"]): string {
 }
 
 function BriefingReport({ data }: { data: BriefingData }) {
-  const fullName = [data.patient.first_name, data.patient.last_name].filter(Boolean).join(" ") || "(sem nome)";
+  const fullName = data.patient.name || "(sem nome)";
   return (
     <div className="min-h-screen bg-white text-zinc-900">
       <style>{`

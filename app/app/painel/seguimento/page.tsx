@@ -15,8 +15,7 @@ export const runtime = 'nodejs';
 
 interface PatientLite {
   id: number;
-  first_name: string | null;
-  last_name: string | null;
+  name: string | null;
 }
 interface ProtocolLite {
   slug: string;
@@ -67,7 +66,7 @@ export default async function SeguimentoIndexPage() {
     .select(`
       id, status, started_at, next_consultation_at, last_dispatched_at, notes,
       protocol:treatment_protocols(slug, name, specialty),
-      patient:patients(id, first_name, last_name)
+      patient:patients(id, name)
     `)
     .eq('tenant_id', tenantId)
     .order('status', { ascending: true })
@@ -139,7 +138,7 @@ export default async function SeguimentoIndexPage() {
 function ProtocolRow({ pp }: { pp: PatientProtocolRow }) {
   const patient = Array.isArray(pp.patient) ? pp.patient[0] : pp.patient;
   const protocol = Array.isArray(pp.protocol) ? pp.protocol[0] : pp.protocol;
-  const fullName = [patient?.first_name, patient?.last_name].filter(Boolean).join(' ') || 'Paciente sem nome';
+  const fullName = patient?.name || 'Paciente sem nome';
   const next = pp.next_consultation_at
     ? new Date(pp.next_consultation_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
     : null;

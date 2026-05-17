@@ -22,8 +22,7 @@ export type Severity = "info" | "warning" | "critical";
 
 export interface BriefingPatient {
   id: number;
-  first_name: string | null;
-  last_name: string | null;
+  name: string | null;
   birth_date: string | null;
   phone: string | null;
 }
