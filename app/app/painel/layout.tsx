@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutGrid,
@@ -31,11 +32,19 @@ import {
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { MeContext, type MeData } from '@/lib/painel-context';
-import WelcomeTour from './components/welcome-tour';
-import ChatDrawer from './components/chat-drawer';
-import InstallPrompt from './components/install-prompt';
-import CommandPalette from './components/command-palette';
 import TenantSwitcher from './components/tenant-switcher';
+
+// Lazy-load componentes nao-criticos do first paint do painel.
+// Cada um vira chunk JS separado, baixado sob demanda:
+// - WelcomeTour: aparece so na primeira visita (state 'show_tour')
+// - ChatDrawer: aparece quando user clica no Assistente
+// - InstallPrompt: aparece em browsers compativeis com PWA install
+// - CommandPalette: aparece com Cmd+K
+// Resultado: -30 a -80kb do bundle inicial do /painel.
+const WelcomeTour = dynamic(() => import('./components/welcome-tour'), { ssr: false });
+const ChatDrawer = dynamic(() => import('./components/chat-drawer'), { ssr: false });
+const InstallPrompt = dynamic(() => import('./components/install-prompt'), { ssr: false });
+const CommandPalette = dynamic(() => import('./components/command-palette'), { ssr: false });
 
 const ACCENT_DEEP = '#5746AF';
 const ACCENT_SOFT = '#F5F3FF';
