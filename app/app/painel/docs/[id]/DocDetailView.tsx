@@ -33,6 +33,7 @@ import {
   type MedicalDocument,
 } from '@/lib/docs-types';
 import { DocPreviewAptidao } from '@/lib/components/doc-preview-aptidao';
+import { DocPreviewMarkdown } from '../_components/DocPreviewMarkdown';
 
 const ACCENT_DEEP = '#5746AF';
 
@@ -322,7 +323,11 @@ export default function DocDetailView({ docId, initialData }: DocDetailViewProps
   const form = doc.form_data as unknown as AptidaoFisicaForm;
   const status = doc.status as DocStatus;
 
-  const canEdit = status === 'draft';
+  // Editor inline só implementado pra aptidao_fisica por enquanto. Pros 4
+  // tipos novos (afastamento, LME, vacina, TISS) a edição direta exige
+  // re-criar via /novo (delete + create), porque o modal de edição usa
+  // fields hardcoded da aptidao.
+  const canEdit = status === 'draft' && doc.doc_type === 'aptidao_fisica';
   const canSign = status === 'draft' || status === 'pending';
   const canSend = status === 'signed';
   const canCancel = status !== 'cancelled' && status !== 'sent';
@@ -376,6 +381,14 @@ export default function DocDetailView({ docId, initialData }: DocDetailViewProps
       {/* ── Preview visual do documento (replica o layout do PDF) ── */}
       {doc.doc_type === 'aptidao_fisica' && form && (
         <DocPreviewAptidao form={form} clinicName={me?.clinic_name ?? undefined} />
+      )}
+      {doc.doc_type !== 'aptidao_fisica' && (
+        <UniversalPreview
+          docType={doc.doc_type}
+          patientId={doc.patient_id}
+          doctorId={doc.doctor_id}
+          formData={doc.form_data as Record<string, unknown>}
+        />
       )}
 
       {/* Timeline */}
@@ -552,6 +565,16 @@ export default function DocDetailView({ docId, initialData }: DocDetailViewProps
                   </p>
                   {doc.doc_type === 'aptidao_fisica' && form && (
                     <DocPreviewAptidao form={form} clinicName={me?.clinic_name ?? undefined} compact />
+                  )}
+                  {doc.doc_type !== 'aptidao_fisica' && (
+                    <div className="max-h-[480px] overflow-y-auto rounded-lg bg-zinc-50 p-2">
+                      <UniversalPreview
+                        docType={doc.doc_type}
+                        patientId={doc.patient_id}
+                        doctorId={doc.doctor_id}
+                        formData={doc.form_data as Record<string, unknown>}
+                      />
+                    </div>
                   )}
                 </div>
 
@@ -982,4 +1005,63 @@ export default function DocDetailView({ docId, initialData }: DocDetailViewProps
       )}
     </div>
   );
+}
+
+// ─────────────────────────────────────────────────────────────
+// UniversalPreview — fetch markdown via /api/painel/docs/render-preview
+// e renderiza via DocPreviewMarkdown. Usado pros 4 tipos novos (não-aptidão).
+// ─────────────────────────────────────────────────────────────
+
+function UniversalPreview({
+  docType,
+  patientId,
+  doctorId,
+  formData,
+}: {
+  docType: string;
+  patientId: number;
+  doctorId: string | null;
+  formData: Record<string, unknown>;
+}) {
+  const [markdown, setMarkdown] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch('/api/painel/docs/render-preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        doc_type: docType,
+        patient_id: patientId,
+        doctor_id: doctorId,
+        form_data: formData,
+      }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        if (j.success) setMarkdown(j.markdown);
+        else setErr(j.message ?? 'Erro ao gerar preview');
+      })
+      .catch((e) => !cancelled && setErr(String(e)))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [docType, patientId, doctorId, formData]);
+
+  if (loading)
+    return (
+      <div className="flex items-center justify-center py-16 text-zinc-400 text-[13px]">
+        <Loader2 className="w-4 h-4 animate-spin mr-2" /> Renderizando preview...
+      </div>
+    );
+  if (err)
+    return (
+      <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-700">{err}</div>
+    );
+  return <DocPreviewMarkdown markdown={markdown} />;
 }

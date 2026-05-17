@@ -120,3 +120,108 @@ export function clinicHeaderBlock(ctx: TemplateContext): string {
 export function placeOfIssue(ctx: TemplateContext): string {
   return `${ctx.city}, ${formatDateLong(ctx.issue_date)}`;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Form field descriptors — usados pelo DynamicDocForm pra
+// renderizar o formulario do template sem hardcode no front.
+// ─────────────────────────────────────────────────────────────
+
+export type FieldType =
+  | 'text'         // <input type=text>
+  | 'textarea'     // <textarea>
+  | 'date'         // <input type=date>
+  | 'time'         // <input type=time>
+  | 'number'       // <input type=number>
+  | 'select'       // <select> com options
+  | 'radio'        // grupo de botoes radio (vertical/horizontal)
+  | 'checkbox'     // boolean
+  | 'tag-list'     // multi-select via tags (string[])
+  | 'cid-search'   // autocomplete CID-10 (preenche code + description)
+  | 'tuss-search'  // autocomplete TUSS
+  | 'array'        // lista de subforms (medications, procedimentos)
+  | 'group';       // agrupa visualmente
+
+export interface BaseField {
+  type: FieldType;
+  name: string;             // nome da chave no form_data
+  label: string;            // label visivel
+  hint?: string;            // texto auxiliar embaixo
+  required?: boolean;
+  show?: (form: Record<string, unknown>) => boolean; // condicional
+  placeholder?: string;
+}
+
+export interface TextField extends BaseField {
+  type: 'text';
+}
+export interface TextareaField extends BaseField {
+  type: 'textarea';
+  rows?: number;
+}
+export interface DateField extends BaseField {
+  type: 'date';
+}
+export interface TimeField extends BaseField {
+  type: 'time';
+}
+export interface NumberField extends BaseField {
+  type: 'number';
+  min?: number;
+  max?: number;
+  step?: number;
+}
+export interface SelectField extends BaseField {
+  type: 'select';
+  options: ReadonlyArray<{ value: string; label: string }>;
+}
+export interface RadioField extends BaseField {
+  type: 'radio';
+  options: ReadonlyArray<{ value: string; label: string }>;
+  orientation?: 'horizontal' | 'vertical';
+}
+export interface CheckboxField extends BaseField {
+  type: 'checkbox';
+}
+export interface TagListField extends BaseField {
+  type: 'tag-list';
+  options: ReadonlyArray<string>; // sugestoes pre-definidas
+  allowCustom?: boolean;
+}
+export interface CidSearchField extends BaseField {
+  type: 'cid-search';
+  descriptionField: string;   // nome do campo onde guarda a description (auto-preench)
+}
+export interface TussSearchField extends BaseField {
+  type: 'tuss-search';
+  descriptionField: string;
+}
+export interface ArrayField extends BaseField {
+  type: 'array';
+  itemLabel: string;          // ex: "Medicamento"
+  itemDefault: Record<string, unknown>;
+  itemFields: FormField[];
+  minItems?: number;
+  maxItems?: number;
+}
+export interface GroupField {
+  type: 'group';
+  label: string;
+  fields: FormField[];
+  show?: (form: Record<string, unknown>) => boolean;
+}
+
+export type FormField =
+  | TextField
+  | TextareaField
+  | DateField
+  | TimeField
+  | NumberField
+  | SelectField
+  | RadioField
+  | CheckboxField
+  | TagListField
+  | CidSearchField
+  | TussSearchField
+  | ArrayField
+  | GroupField;
+

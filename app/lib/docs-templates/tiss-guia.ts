@@ -20,6 +20,7 @@ import {
   placeOfIssue,
   clinicHeaderBlock,
   formatCouncil,
+  type FormField,
 } from './_shared';
 
 export type TissGuiaType = 'consulta' | 'sp_sadt';
@@ -237,6 +238,69 @@ ${professionalSignatureBlock(ctx)}
 `.trim();
 }
 
+// MVP: form so cobre tipo "Consulta" (mais usado). SP/SADT fica pra fase 2
+// (requer array de procedimentos + via_acesso + tecnica + valor_unitario, mais complexo).
+const TISS_FORM_FIELDS: FormField[] = [
+  {
+    type: 'group',
+    label: 'Identificação da guia',
+    fields: [
+      { type: 'text', name: 'numero_guia_prestador', label: 'Nº guia prestador', required: true, placeholder: 'Ex.: SING-2026-00012' },
+      { type: 'text', name: 'numero_guia_operadora', label: 'Nº guia operadora (após autorização)' },
+    ],
+  },
+  {
+    type: 'group',
+    label: 'Atendimento',
+    fields: [
+      { type: 'date', name: 'data_atendimento', label: 'Data', required: true },
+      { type: 'time', name: 'hora_inicio', label: 'Hora início', required: true },
+      { type: 'time', name: 'hora_fim', label: 'Hora fim (opcional)' },
+    ],
+  },
+  {
+    type: 'radio',
+    name: 'tipo_consulta',
+    label: 'Tipo de consulta',
+    required: true,
+    orientation: 'vertical',
+    options: [
+      { value: '1', label: '1 — Primeira consulta' },
+      { value: '2', label: '2 — Retorno' },
+      { value: '3', label: '3 — Pré-natal' },
+      { value: '4', label: '4 — Por encaminhamento' },
+    ],
+  },
+  {
+    type: 'radio',
+    name: 'cobertura',
+    label: 'Cobertura',
+    required: true,
+    orientation: 'horizontal',
+    options: [
+      { value: '1', label: 'Saúde' },
+      { value: '2', label: 'Odontológica' },
+      { value: '3', label: 'Co-participação' },
+      { value: '4', label: 'Outras' },
+    ],
+  },
+  {
+    type: 'tuss-search',
+    name: 'procedimento_tuss',
+    label: 'Procedimento TUSS',
+    required: true,
+    descriptionField: 'procedimento_descricao',
+    hint: 'Padrão: 10101012 — Consulta em consultório.',
+  },
+  {
+    type: 'cid-search',
+    name: 'cid10_principal',
+    label: 'CID-10 principal (opcional)',
+    descriptionField: 'cid10_principal_description',
+  },
+  { type: 'textarea', name: 'observacoes', label: 'Observações', rows: 2 },
+];
+
 export const TISS_GUIA_TEMPLATE = {
   doc_type: 'tiss_guia' as const,
   display_name: 'Guia TISS (Consulta / SP-SADT)',
@@ -244,4 +308,5 @@ export const TISS_GUIA_TEMPLATE = {
   defaults_sadt: TISS_SADT_DEFAULTS,
   render: renderTissGuia,
   required_fields: ['numero_guia_prestador', 'data_atendimento', 'procedimento_tuss'] as const,
+  form_fields: TISS_FORM_FIELDS,
 };

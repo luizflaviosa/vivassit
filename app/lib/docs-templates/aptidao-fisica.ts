@@ -17,6 +17,7 @@ import {
   professionalSignatureBlock,
   placeOfIssue,
   clinicHeaderBlock,
+  type FormField,
 } from './_shared';
 
 export const ACTIVITY_TYPES = [
@@ -112,10 +113,70 @@ ${professionalSignatureBlock(ctx)}
 `.trim();
 }
 
+const APTIDAO_FORM_FIELDS: FormField[] = [
+  {
+    type: 'select',
+    name: 'activity_type',
+    label: 'Tipo de atividade',
+    required: true,
+    options: ACTIVITY_TYPES.map((a) => ({ value: a, label: a })),
+  },
+  {
+    type: 'radio',
+    name: 'result',
+    label: 'Resultado da avaliação',
+    required: true,
+    orientation: 'horizontal',
+    options: [
+      { value: 'apto', label: 'Apto' },
+      { value: 'inapto', label: 'Inapto' },
+      { value: 'apto_restricoes', label: 'Apto com restrições' },
+    ],
+  },
+  {
+    type: 'textarea',
+    name: 'restrictions',
+    label: 'Restrições / orientações',
+    rows: 3,
+    placeholder: 'Ex.: evitar carga axial elevada por 90 dias...',
+    show: (f) => f.result === 'apto_restricoes',
+  },
+  {
+    type: 'tag-list',
+    name: 'exams_performed',
+    label: 'Exames realizados',
+    allowCustom: true,
+    options: [
+      'Anamnese dirigida',
+      'Exame físico geral',
+      'Aferição de PA e FC',
+      'ECG de repouso 12 derivações',
+      'Teste ergométrico',
+      'Espirometria',
+    ],
+  },
+  {
+    type: 'textarea',
+    name: 'observations',
+    label: 'Observações',
+    rows: 2,
+    placeholder: 'Texto livre opcional',
+  },
+  {
+    type: 'number',
+    name: 'validity_months',
+    label: 'Validade (meses)',
+    min: 1,
+    max: 24,
+    step: 1,
+  },
+];
+
 export const APTIDAO_FISICA_TEMPLATE = {
   doc_type: 'aptidao_fisica' as const,
   display_name: 'Atestado de Aptidão Física',
   defaults: APTIDAO_DEFAULTS,
   render: renderAptidaoFisica,
   required_fields: ['activity_type', 'result'] as const,
+  form_fields: APTIDAO_FORM_FIELDS,
 };

@@ -21,6 +21,7 @@ import {
   professionalSignatureBlock,
   placeOfIssue,
   clinicHeaderBlock,
+  type FormField,
 } from './_shared';
 
 export interface AfastamentoInssForm {
@@ -132,10 +133,72 @@ function numberToWord(n: number): string {
   return String(n);
 }
 
+const AFASTAMENTO_FORM_FIELDS: FormField[] = [
+  {
+    type: 'group',
+    label: 'Diagnóstico (CID-10)',
+    fields: [
+      {
+        type: 'cid-search',
+        name: 'cid_primary',
+        label: 'CID-10 principal',
+        required: true,
+        descriptionField: 'cid_primary_description',
+      },
+      {
+        type: 'cid-search',
+        name: 'cid_secondary',
+        label: 'CID-10 secundário (opcional)',
+        descriptionField: 'cid_secondary_description',
+      },
+    ],
+  },
+  {
+    type: 'textarea',
+    name: 'clinical_history',
+    label: 'Quadro clínico',
+    rows: 4,
+    required: true,
+    placeholder: 'História da doença atual, sintomas, evolução...',
+  },
+  {
+    type: 'textarea',
+    name: 'exam_findings',
+    label: 'Achados de exame físico',
+    rows: 3,
+    placeholder: 'Inspeção, palpação, manobras especiais, sinais clínicos...',
+  },
+  {
+    type: 'textarea',
+    name: 'treatment_plan',
+    label: 'Conduta proposta',
+    rows: 3,
+    placeholder: 'Medicações, exames complementares, encaminhamentos, reavaliação...',
+  },
+  {
+    type: 'group',
+    label: 'Afastamento',
+    fields: [
+      { type: 'number', name: 'days_off', label: 'Dias de afastamento', required: true, min: 1, max: 365, step: 1, hint: 'Atestmed cobre até 90 dias sem perícia presencial.' },
+      { type: 'date', name: 'rest_start_date', label: 'Data de início do repouso', required: true },
+      { type: 'checkbox', name: 'is_retroactive', label: 'Atestado retroativo (início anterior à emissão)' },
+    ],
+  },
+  {
+    type: 'group',
+    label: 'Dados adicionais (opcionais)',
+    fields: [
+      { type: 'text', name: 'occupation', label: 'Ocupação do segurado' },
+      { type: 'text', name: 'cnis_number', label: 'NIT / PIS' },
+    ],
+  },
+];
+
 export const AFASTAMENTO_INSS_TEMPLATE = {
   doc_type: 'afastamento_inss' as const,
   display_name: 'Relatório Médico — Afastamento INSS',
   defaults: AFASTAMENTO_DEFAULTS,
   render: renderAfastamentoInss,
   required_fields: ['cid_primary', 'clinical_history', 'days_off', 'rest_start_date'] as const,
+  form_fields: AFASTAMENTO_FORM_FIELDS,
 };

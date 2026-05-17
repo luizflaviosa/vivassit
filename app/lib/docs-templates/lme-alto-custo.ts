@@ -17,6 +17,7 @@ import {
   professionalSignatureBlock,
   placeOfIssue,
   clinicHeaderBlock,
+  type FormField,
 } from './_shared';
 
 export interface LmeAltoCustoForm {
@@ -180,6 +181,62 @@ function pregnancyLabel(s: LmeAltoCustoForm['pregnancy_status']): string {
   }
 }
 
+const LME_FORM_FIELDS: FormField[] = [
+  {
+    type: 'cid-search',
+    name: 'cid10',
+    label: 'CID-10 do agravo',
+    required: true,
+    descriptionField: 'cid10_description',
+  },
+  { type: 'textarea', name: 'anamnesis', label: 'Anamnese (campo 2)', rows: 4, required: true },
+  { type: 'textarea', name: 'exam_findings', label: 'Exame físico (campo 3)', rows: 3, required: true },
+  { type: 'textarea', name: 'diagnostic_exams', label: 'Exames complementares (campo 4)', rows: 3 },
+  { type: 'textarea', name: 'previous_treatments', label: 'Tratamentos prévios e resposta (campo 5)', rows: 4, required: true, hint: 'PCDT exige documentar uso anterior de DMARDs/medicações de 1ª linha.' },
+  {
+    type: 'group',
+    label: 'Antropometria',
+    fields: [
+      { type: 'number', name: 'weight_kg', label: 'Peso (kg)', min: 1, max: 300, step: 0.1 },
+      { type: 'number', name: 'height_cm', label: 'Altura (cm)', min: 30, max: 250, step: 1 },
+    ],
+  },
+  {
+    type: 'array',
+    name: 'medications',
+    label: 'Medicamentos solicitados (campos 8–10)',
+    itemLabel: 'Medicamento',
+    minItems: 1,
+    maxItems: 5,
+    itemDefault: { generic_name: '', dosage: '', posology: '', quantity_monthly: '', treatment_duration_months: 6 },
+    itemFields: [
+      { type: 'text', name: 'generic_name', label: 'Nome genérico', required: true, placeholder: 'Ex.: Adalimumabe' },
+      { type: 'text', name: 'dosage', label: 'Apresentação', placeholder: 'Ex.: 40 mg/0,4 mL (seringa preenchida)' },
+      { type: 'text', name: 'posology', label: 'Posologia', placeholder: 'Ex.: 40 mg SC a cada 14 dias' },
+      { type: 'text', name: 'quantity_monthly', label: 'Quantidade mensal', placeholder: 'Ex.: 2 seringas/mês' },
+      { type: 'number', name: 'treatment_duration_months', label: 'Duração (meses)', min: 1, max: 60, step: 1 },
+    ],
+  },
+  { type: 'checkbox', name: 'is_continuous_use', label: 'Uso contínuo (campo 11)' },
+  { type: 'checkbox', name: 'pcdt_compliance_declared', label: 'Em conformidade com o PCDT vigente (campo 12)' },
+  {
+    type: 'radio',
+    name: 'pregnancy_status',
+    label: 'Condição gestacional (campo 13)',
+    orientation: 'horizontal',
+    options: [
+      { value: 'na', label: 'Não se aplica' },
+      { value: 'pregnant', label: 'Gestante' },
+      { value: 'breastfeeding', label: 'Lactante' },
+      { value: 'not_pregnant', label: 'Não gestante (idade fértil)' },
+    ],
+  },
+  { type: 'number', name: 'hospitalizations_last_12mo', label: 'Internações nos últimos 12 meses (campo 14)', min: 0, max: 50, step: 1 },
+  { type: 'textarea', name: 'expected_outcome', label: 'Desfecho clínico esperado (campo 15)', rows: 3, placeholder: 'Ex.: Redução de DAS28 para faixa de remissão em 6 meses.' },
+  { type: 'textarea', name: 'clinical_justification', label: 'Justificativa clínica (campo 16)', rows: 4, required: true, hint: 'Explique por que o paciente atende critérios de inclusão do PCDT.' },
+  { type: 'text', name: 'cnes_unit', label: 'CNES da unidade prescritora (campo 17, opcional)' },
+];
+
 export const LME_ALTO_CUSTO_TEMPLATE = {
   doc_type: 'lme_alto_custo' as const,
   display_name: 'LME — Componente Especializado (Alto Custo)',
@@ -189,4 +246,5 @@ export const LME_ALTO_CUSTO_TEMPLATE = {
     'cid10', 'anamnesis', 'exam_findings', 'previous_treatments',
     'medications', 'clinical_justification',
   ] as const,
+  form_fields: LME_FORM_FIELDS,
 };

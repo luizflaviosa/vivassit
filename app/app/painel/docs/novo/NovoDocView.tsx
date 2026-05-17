@@ -13,12 +13,11 @@ import { useMe } from '@/lib/painel-context';
 import {
   DOC_TYPES,
   ENABLED_DOC_TYPES,
-  ACTIVITY_TYPES,
-  FITNESS_RESULTS,
   type DocTypeKey,
-  type FitnessResult,
-  type AptidaoFisicaForm,
 } from '@/lib/docs-types';
+import { DOC_TEMPLATES } from '@/lib/docs-templates';
+import { DynamicDocForm } from '../_components/DynamicDocForm';
+import { DocPreviewMarkdown } from '../_components/DocPreviewMarkdown';
 
 const ACCENT_DEEP = '#5746AF';
 
@@ -68,10 +67,43 @@ export default function NovoDocView({ initialPatients, initialDoctors }: NovoDoc
   // Pula primeiro mount se Server entregou ambos.
   const firstMount = useRef(initialPatients !== null && initialDoctors !== null);
 
-  // Aptidão Física form
-  const [activityType, setActivityType] = useState('');
-  const [result, setResult] = useState<FitnessResult>('apto');
-  const [restrictions, setRestrictions] = useState('');
+  // Form genérico — defaults vêm do template, paciente preenche/edita.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [formData, setFormData] = useState<Record<string, unknown>>(DOC_TEMPLATES[docType].defaults as any);
+  const [previewMd, setPreviewMd] = useState<string>('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Re-init form quando troca docType (step 1 → 2)
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setFormData(DOC_TEMPLATES[docType].defaults as any);
+    setPreviewMd('');
+  }, [docType]);
+
+  // Debounced preview live (350ms)
+  useEffect(() => {
+    if (step !== 3 || !selectedPatient || !selectedDoctor) return;
+    const t = setTimeout(() => {
+      setPreviewLoading(true);
+      fetch('/api/painel/docs/render-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doc_type: docType,
+          patient_id: selectedPatient.id,
+          doctor_id: selectedDoctor.id,
+          form_data: formData,
+        }),
+      })
+        .then((r) => r.json())
+        .then((j) => {
+          if (j.success) setPreviewMd(j.markdown);
+        })
+        .catch(() => {})
+        .finally(() => setPreviewLoading(false));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [step, docType, selectedPatient, selectedDoctor, formData]);
 
   const [saving, setSaving] = useState(false);
 
@@ -112,26 +144,21 @@ export default function NovoDocView({ initialPatients, initialDoctors }: NovoDoc
   });
 
   const handleSave = useCallback(async () => {
-    if (!selectedPatient || !selectedDoctor || !activityType) return;
+    if (!selectedPatient || !selectedDoctor) return;
+
+    // Valida required_fields do template
+    const tpl = DOC_TEMPLATES[docType];
+    const missing = tpl.required_fields.filter((k) => {
+      const v = (formData as Record<string, unknown>)[k];
+      if (Array.isArray(v)) return v.length === 0;
+      return v === undefined || v === null || v === '';
+    });
+    if (missing.length > 0) {
+      alert(`Campos obrigatórios faltando: ${missing.join(', ')}`);
+      return;
+    }
+
     setSaving(true);
-
-    const now = new Date();
-    const validityDate = new Date(now);
-    validityDate.setFullYear(validityDate.getFullYear() + 1);
-
-    const formData: AptidaoFisicaForm = {
-      patient_name: selectedPatient.name ?? 'Sem nome',
-      patient_cpf: clinical?.cpf ?? '',
-      patient_birthdate: selectedPatient.birthdate ?? '',
-      activity_type: activityType,
-      result,
-      restrictions: result === 'apto_restricoes' ? restrictions : '',
-      validity_date: validityDate.toISOString(),
-      professional_name: selectedDoctor.doctor_name,
-      professional_council: selectedDoctor.doctor_crm,
-      issue_date: now.toISOString(),
-    };
-
     try {
       const res = await fetch('/api/painel/docs', {
         method: 'POST',
@@ -155,7 +182,7 @@ export default function NovoDocView({ initialPatients, initialDoctors }: NovoDoc
     } finally {
       setSaving(false);
     }
-  }, [selectedPatient, selectedDoctor, activityType, result, restrictions, clinical, docType, router]);
+  }, [selectedPatient, selectedDoctor, formData, docType, router]);
 
   if (!me?.tenant_id) return null;
 
@@ -257,110 +284,88 @@ export default function NovoDocView({ initialPatients, initialDoctors }: NovoDoc
         </div>
       )}
 
-      {/* Step 3: Form (Aptidão Física) */}
+      {/* Step 3: Form dinâmico (5 doc types) + preview live */}
       {step === 3 && selectedPatient && (
-        <div className="space-y-6">
-          <h2 className="text-[22px] font-medium tracking-[-0.02em] text-zinc-900">
-            {DOC_TYPES[docType]}
-          </h2>
-
-          {/* Patient summary */}
-          <div className="rounded-xl bg-zinc-50 p-4 space-y-1">
-            <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Paciente</p>
-            <p className="text-[15px] font-semibold text-zinc-900">{selectedPatient.name ?? 'Sem nome'}</p>
-            <p className="text-[12px] text-zinc-500">
-              {selectedPatient.phone}
-              {clinical?.cpf && ` · CPF: ${clinical.cpf}`}
+        <div className="space-y-6 max-w-none -mx-4 lg:mx-0">
+          <div className="px-4 lg:px-0">
+            <h2 className="text-[22px] font-medium tracking-[-0.02em] text-zinc-900 mb-1">
+              {DOC_TYPES[docType]}
+            </h2>
+            <p className="text-[13px] text-zinc-500">
+              Preencha os campos à esquerda. O documento à direita atualiza automaticamente.
             </p>
           </div>
 
-          {/* Doctor select (if >1) */}
-          {doctors.length > 1 && (
-            <div>
-              <label className="block text-[13px] font-medium text-zinc-700 mb-2">Profissional responsável</label>
-              <select
-                value={selectedDoctor?.id ?? ''}
-                onChange={(e) => setSelectedDoctor(doctors.find((d) => d.id === e.target.value) ?? null)}
-                className="w-full h-11 px-3 bg-white text-[15px] rounded-lg border border-black/10 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06]"
-              >
-                <option value="">Selecionar...</option>
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.doctor_name} — {d.specialty}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Coluna esquerda: form */}
+            <div className="space-y-5 px-4 lg:px-0">
+              {/* Patient summary */}
+              <div className="rounded-xl bg-zinc-50 p-4 space-y-1">
+                <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Paciente</p>
+                <p className="text-[15px] font-semibold text-zinc-900">{selectedPatient.name ?? 'Sem nome'}</p>
+                <p className="text-[12px] text-zinc-500">
+                  {selectedPatient.phone}
+                  {clinical?.cpf && ` · CPF: ${clinical.cpf}`}
+                </p>
+              </div>
 
-          {/* Activity type */}
-          <div>
-            <label className="block text-[13px] font-medium text-zinc-700 mb-2">Tipo de atividade</label>
-            <div className="flex flex-wrap gap-2">
-              {ACTIVITY_TYPES.map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  onClick={() => setActivityType(a)}
-                  className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-all ${
-                    activityType === a
-                      ? 'bg-violet-100 text-violet-800 border border-violet-300'
-                      : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
-                  }`}
-                >
-                  {a}
-                </button>
-              ))}
-            </div>
-          </div>
+              {/* Doctor select (if >1) */}
+              {doctors.length > 1 && (
+                <div>
+                  <label className="block text-[13px] font-medium text-zinc-700 mb-1.5">Profissional responsável</label>
+                  <select
+                    value={selectedDoctor?.id ?? ''}
+                    onChange={(e) => setSelectedDoctor(doctors.find((d) => d.id === e.target.value) ?? null)}
+                    className="w-full h-11 px-3 bg-white text-[14px] rounded-lg border border-black/10 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400"
+                  >
+                    <option value="">Selecionar...</option>
+                    {doctors.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.doctor_name} — {d.specialty}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-          {/* Result */}
-          <div>
-            <label className="block text-[13px] font-medium text-zinc-700 mb-2">Resultado</label>
-            <div className="flex gap-2">
-              {FITNESS_RESULTS.map((r) => (
-                <button
-                  key={r.value}
-                  type="button"
-                  onClick={() => setResult(r.value as FitnessResult)}
-                  className={`flex-1 px-4 py-3 rounded-lg text-[13px] font-medium transition-all text-center ${
-                    result === r.value
-                      ? 'bg-violet-100 text-violet-800 border border-violet-300'
-                      : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
-                  }`}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Restrictions (conditional) */}
-          {result === 'apto_restricoes' && (
-            <div>
-              <label className="block text-[13px] font-medium text-zinc-700 mb-2">Restrições</label>
-              <textarea
-                value={restrictions}
-                onChange={(e) => setRestrictions(e.target.value)}
-                placeholder="Descreva as restrições..."
-                rows={3}
-                className="w-full px-4 py-3 bg-white text-[15px] rounded-lg border border-black/10 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] resize-none"
+              {/* Form dinâmico vindo do template */}
+              <DynamicDocForm
+                fields={DOC_TEMPLATES[docType].form_fields}
+                value={formData}
+                onChange={setFormData}
               />
-            </div>
-          )}
 
-          {/* Save */}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !activityType || !selectedDoctor}
-            className="w-full h-12 rounded-xl text-white text-[15px] font-semibold disabled:opacity-40 transition-all hover:brightness-110"
-            style={{ background: ACCENT_DEEP }}
-          >
-            {saving ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Criar documento'}
-          </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving || !selectedDoctor}
+                className="w-full h-12 rounded-xl text-white text-[15px] font-semibold disabled:opacity-40 transition-all hover:brightness-110"
+                style={{ background: ACCENT_DEEP }}
+              >
+                {saving ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Criar documento'}
+              </button>
+            </div>
+
+            {/* Coluna direita: preview */}
+            <div className="lg:sticky lg:top-4 lg:h-fit space-y-2 px-4 lg:px-0">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Pré-visualização</p>
+                {previewLoading && <Loader2 className="w-3.5 h-3.5 text-zinc-400 animate-spin" />}
+              </div>
+              {previewMd ? (
+                <div className="max-h-[700px] overflow-y-auto rounded-xl bg-zinc-100/40 p-2">
+                  <DocPreviewMarkdown markdown={previewMd} />
+                </div>
+              ) : (
+                <div className="text-[12px] text-zinc-400 text-center py-12 rounded-xl bg-zinc-50 border border-dashed border-zinc-200">
+                  Preview aparecerá conforme você preenche.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
+
     </div>
   );
 }
