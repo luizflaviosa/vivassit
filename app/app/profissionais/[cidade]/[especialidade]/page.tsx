@@ -9,6 +9,7 @@
 
 import { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ChevronRight } from 'lucide-react';
 import { getPublishedVitrineProfiles } from '@/lib/marketing-queries';
 import { PROFESSIONAL_TYPES } from '@/lib/types';
@@ -160,7 +161,14 @@ export default async function CitySpecialtyPage({ params }: Props) {
             >
               <div className="flex items-center gap-4">
                 {p.photo_url ? (
-                  <img src={p.photo_url} alt={`Foto de ${p.display_name}, ${p.specialty}`} className="w-14 h-14 rounded-xl object-cover" />
+                  <Image
+                    src={p.photo_url}
+                    alt={`Foto de ${p.display_name}, ${p.specialty}`}
+                    width={56}
+                    height={56}
+                    className="w-14 h-14 rounded-xl object-cover"
+                    sizes="56px"
+                  />
                 ) : (
                   <div className="w-14 h-14 rounded-xl bg-[#F5F3FF] flex items-center justify-center text-xl font-medium text-[#6E56CF]" aria-hidden="true">
                     {p.display_name.charAt(0)}

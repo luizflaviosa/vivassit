@@ -3,7 +3,19 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  images: { unoptimized: true },
+  // Image Optimization habilitado (AVIF/WebP, responsive sizes, CDN cache).
+  // Cada novo dominio remoto precisa ser declarado em remotePatterns.
+  images: {
+    remotePatterns: [
+      // Stock photos (guia /guias/visibilidade-digital-clinicas)
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      // Supabase Storage (photo_url da vitrine, logos custom)
+      { protocol: 'https', hostname: '*.supabase.co' },
+      { protocol: 'https', hostname: 'qwyxacfgoqlskidwzdxe.supabase.co' },
+    ],
+    // Formatos modernos primeiro (Vercel serve via content negotiation)
+    formats: ['image/avif', 'image/webp'],
+  },
 
   // Rewrite raiz pra /v8.html (HTML estatico ja otimizado).
   // Substitui o `redirect('/v8.html')` que existia em app/app/page.tsx
