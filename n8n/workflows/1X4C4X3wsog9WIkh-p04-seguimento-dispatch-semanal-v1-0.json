@@ -1,11 +1,8 @@
 {
-  "updatedAt": "2026-05-17T20:33:49.314Z",
-  "createdAt": "2026-05-17T19:17:35.218Z",
   "id": "1X4C4X3wsog9WIkh",
   "name": "P04 — Seguimento · Dispatch Semanal · v1.0",
-  "description": null,
   "active": true,
-  "isArchived": false,
+  "versionId": "d0cff2b3-29ad-4e0b-b5db-c561c234d6ce",
   "nodes": [
     {
       "id": "p04-sched-01",
@@ -43,22 +40,11 @@
       }
     },
     {
-      "id": "p04-split-01",
-      "name": "SplitInBatches",
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [480, 0],
-      "parameters": {
-        "batchSize": 1,
-        "options": {}
-      }
-    },
-    {
       "id": "p04-evo-send-01",
       "name": "Evolution — Send WhatsApp",
       "type": "n8n-nodes-evolution-api.evolutionApi",
       "typeVersion": 1,
-      "position": [720, 0],
+      "position": [480, 0],
       "parameters": {
         "resource": "messages-api",
         "operation": "send-text",
@@ -79,7 +65,7 @@
       "name": "Postgres — Update last_dispatched_at",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [960, 0],
+      "position": [720, 0],
       "parameters": {
         "operation": "executeQuery",
         "query": "=update public.patient_protocols\n   set last_dispatched_at = now(),\n       updated_at = now()\n where id = '{{ $json.patient_protocol_id }}';",
@@ -91,19 +77,6 @@
           "name": "Postgres account"
         }
       }
-    },
-    {
-      "id": "p04-wait-01",
-      "name": "Wait 3s",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [1200, 0],
-      "parameters": {
-        "resume": "timeInterval",
-        "amount": 3,
-        "unit": "seconds"
-      },
-      "webhookId": "a9b1b8ef-77a7-47d0-b016-f0298726c84f"
     }
   ],
   "connections": {
@@ -114,27 +87,12 @@
     },
     "Postgres — Query Due Patients": {
       "main": [
-        [{ "node": "SplitInBatches", "type": "main", "index": 0 }]
-      ]
-    },
-    "SplitInBatches": {
-      "main": [
         [{ "node": "Evolution — Send WhatsApp", "type": "main", "index": 0 }]
       ]
     },
     "Evolution — Send WhatsApp": {
       "main": [
         [{ "node": "Postgres — Update last_dispatched_at", "type": "main", "index": 0 }]
-      ]
-    },
-    "Postgres — Update last_dispatched_at": {
-      "main": [
-        [{ "node": "Wait 3s", "type": "main", "index": 0 }]
-      ]
-    },
-    "Wait 3s": {
-      "main": [
-        [{ "node": "SplitInBatches", "type": "main", "index": 0 }]
       ]
     }
   },
@@ -143,14 +101,5 @@
     "saveManualExecutions": true,
     "callerPolicy": "workflowsFromSameOwner",
     "errorWorkflow": "rONCEa2neV3XyBBX"
-  },
-  "staticData": {
-    "node:Schedule Trigger": {
-      "recurrenceRules": []
-    }
-  },
-  "meta": null,
-  "pinData": null,
-  "versionId": "fd4d233e-89eb-4e63-b2cc-687cd6cf640b",
-  "tags": []
+  }
 }

@@ -1,11 +1,8 @@
 {
-  "updatedAt": "2026-05-17T20:27:02.705Z",
-  "createdAt": "2026-05-17T19:17:35.434Z",
   "id": "0OaSsuuvGd2R1405",
   "name": "Alert Dispatch · Seguimento · v1.0",
-  "description": null,
   "active": true,
-  "isArchived": false,
+  "versionId": "eb311ed4-3ff9-4386-ab29-d2ac9dd0f4ed",
   "nodes": [
     {
       "id": "alt-sched-01",
@@ -43,22 +40,11 @@
       }
     },
     {
-      "id": "alt-split-01",
-      "name": "SplitInBatches",
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 3,
-      "position": [480, 0],
-      "parameters": {
-        "batchSize": 1,
-        "options": {}
-      }
-    },
-    {
       "id": "alt-switch-01",
       "name": "Switch — Severity",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
-      "position": [720, 0],
+      "position": [480, 0],
       "parameters": {
         "mode": "rules",
         "rules": {
@@ -98,7 +84,7 @@
                 "conditions": [
                   {
                     "id": "warn-rule",
-                    "leftValue": "="{{ $json.severity }}",
+                    "leftValue": "={{ $json.severity }}",
                     "rightValue": "warning",
                     "operator": {
                       "type": "string",
@@ -123,7 +109,7 @@
       "name": "IF — Doctor Phone Present",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [960, -160],
+      "position": [720, -160],
       "parameters": {
         "conditions": {
           "options": {
@@ -153,7 +139,7 @@
       "name": "Evolution — Critical to Doctor",
       "type": "n8n-nodes-evolution-api.evolutionApi",
       "typeVersion": 1,
-      "position": [1200, -280],
+      "position": [960, -280],
       "parameters": {
         "resource": "messages-api",
         "operation": "send-text",
@@ -174,7 +160,7 @@
       "name": "Evolution — Critical to Admin",
       "type": "n8n-nodes-evolution-api.evolutionApi",
       "typeVersion": 1,
-      "position": [1200, -80],
+      "position": [960, -80],
       "parameters": {
         "resource": "messages-api",
         "operation": "send-text",
@@ -195,7 +181,7 @@
       "name": "Evolution — Warning to Admin",
       "type": "n8n-nodes-evolution-api.evolutionApi",
       "typeVersion": 1,
-      "position": [960, 160],
+      "position": [720, 160],
       "parameters": {
         "resource": "messages-api",
         "operation": "send-text",
@@ -216,7 +202,7 @@
       "name": "Postgres — Mark Dispatched (Crit Doctor)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1440, -280],
+      "position": [1200, -280],
       "parameters": {
         "operation": "executeQuery",
         "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $json.alert_event_id }}';",
@@ -234,7 +220,7 @@
       "name": "Postgres — Mark Dispatched (Crit Admin)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1440, -80],
+      "position": [1200, -80],
       "parameters": {
         "operation": "executeQuery",
         "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $json.alert_event_id }}';",
@@ -252,7 +238,7 @@
       "name": "Postgres — Mark Dispatched (Warn)",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [1200, 160],
+      "position": [960, 160],
       "parameters": {
         "operation": "executeQuery",
         "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $json.alert_event_id }}';",
@@ -264,45 +250,6 @@
           "name": "Postgres account"
         }
       }
-    },
-    {
-      "id": "alt-wait-crit-doctor",
-      "name": "Wait 1s (A)",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [1680, -280],
-      "parameters": {
-        "resume": "timeInterval",
-        "amount": 1,
-        "unit": "seconds"
-      },
-      "webhookId": "f3c383ab-531e-483e-a863-a5eb4814bce9"
-    },
-    {
-      "id": "alt-wait-crit-admin",
-      "name": "Wait 1s (B)",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [1680, -80],
-      "parameters": {
-        "resume": "timeInterval",
-        "amount": 1,
-        "unit": "seconds"
-      },
-      "webhookId": "c5736749-ca6e-4b62-a438-644d6a35111c"
-    },
-    {
-      "id": "alt-wait-warn",
-      "name": "Wait 1s (C)",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [1440, 160],
-      "parameters": {
-        "resume": "timeInterval",
-        "amount": 1,
-        "unit": "seconds"
-      },
-      "webhookId": "d9a6bb1a-229a-4f3e-81a1-038f93731bff"
     }
   ],
   "connections": {
@@ -312,11 +259,6 @@
       ]
     },
     "Postgres — Query Pending Alerts": {
-      "main": [
-        [{ "node": "SplitInBatches", "type": "main", "index": 0 }]
-      ]
-    },
-    "SplitInBatches": {
       "main": [
         [{ "node": "Switch — Severity", "type": "main", "index": 0 }]
       ]
@@ -350,36 +292,6 @@
       "main": [
         [{ "node": "Postgres — Mark Dispatched (Warn)", "type": "main", "index": 0 }]
       ]
-    },
-    "Postgres — Mark Dispatched (Crit Doctor)": {
-      "main": [
-        [{ "node": "Wait 1s (A)", "type": "main", "index": 0 }]
-      ]
-    },
-    "Postgres — Mark Dispatched (Crit Admin)": {
-      "main": [
-        [{ "node": "Wait 1s (B)", "type": "main", "index": 0 }]
-      ]
-    },
-    "Postgres — Mark Dispatched (Warn)": {
-      "main": [
-        [{ "node": "Wait 1s (C)", "type": "main", "index": 0 }]
-      ]
-    },
-    "Wait 1s (A)": {
-      "main": [
-        [{ "node": "SplitInBatches", "type": "main", "index": 0 }]
-      ]
-    },
-    "Wait 1s (B)": {
-      "main": [
-        [{ "node": "SplitInBatches", "type": "main", "index": 0 }]
-      ]
-    },
-    "Wait 1s (C)": {
-      "main": [
-        [{ "node": "SplitInBatches", "type": "main", "index": 0 }]
-      ]
     }
   },
   "settings": {
@@ -387,14 +299,5 @@
     "saveManualExecutions": true,
     "callerPolicy": "workflowsFromSameOwner",
     "errorWorkflow": "rONCEa2neV3XyBBX"
-  },
-  "staticData": {
-    "node:Schedule Trigger": {
-      "recurrenceRules": []
-    }
-  },
-  "meta": null,
-  "pinData": null,
-  "versionId": "32daeb1f-d543-4d3e-9bd1-154b03623b95",
-  "tags": []
+  }
 }
