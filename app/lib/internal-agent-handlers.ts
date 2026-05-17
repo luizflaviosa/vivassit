@@ -20,7 +20,7 @@ import {
   workingHoursAtualizar,
 } from './internal-agent/agenda';
 import { pacientesCount, pacientesProximos, pacienteCriar } from './internal-agent/pacientes';
-import { pagamentosStatus, pagamentosPendentes, cobrancaAvulsa } from './internal-agent/financeiro';
+import { pagamentosStatus, pagamentosPendentes, cobrancasPaciente, cobrancaAvulsa } from './internal-agent/financeiro';
 import { documentosListar, documentoGerar, documentoAssinar } from './internal-agent/documentos';
 import { npsResumo, reviewsExternos } from './internal-agent/reputacao';
 import { medicosListar } from './internal-agent/medicos';
@@ -33,6 +33,7 @@ export const HANDLERS: Record<string, Handler> = {
   pacientes_proximos: pacientesProximos,
   pagamentos_status: pagamentosStatus,
   pagamentos_pendentes: pagamentosPendentes,
+  cobrancas_paciente: cobrancasPaciente,
   nps_resumo: npsResumo,
   reviews_externos: reviewsExternos,
   documentos_listar: documentosListar,
