@@ -14,8 +14,16 @@ export const DOC_TYPES = {
 
 export type DocTypeKey = keyof typeof DOC_TYPES;
 
-// MVP: only aptidao_fisica is enabled
-export const ENABLED_DOC_TYPES: DocTypeKey[] = ['aptidao_fisica'];
+// MVP+: 5 templates com renderização markdown editavel.
+// Cada um tem schema e renderTemplate em app/lib/docs-templates/<slug>.ts
+// e referência regulatória documentada no próprio arquivo.
+export const ENABLED_DOC_TYPES: DocTypeKey[] = [
+  'aptidao_fisica',
+  'afastamento_inss',
+  'lme_alto_custo',
+  'vacina_prioritaria',
+  'tiss_guia',
+];
 
 export const DOC_STATUSES = {
   draft: { label: 'Rascunho', color: '#71717A' },       // zinc-500
