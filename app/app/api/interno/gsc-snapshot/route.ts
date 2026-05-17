@@ -23,10 +23,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// Pode ser sobrescrito via env GSC_SITE_URL. Default usa URL prefix property.
-// - URL prefix: 'https://singulare.org/' (mais comum)
-// - Domain property: 'sc-domain:singulare.org' (cobre todos subdomínios)
-const SITE_URL = process.env.GSC_SITE_URL ?? 'https://singulare.org/';
+// Propriedade no GSC. Confirmada via /api/interno/gsc-sites como
+// sc-domain:singulare.org (Domain property — cobre apex + subdomínios).
+// Override via env GSC_SITE_URL se a propriedade mudar.
+const SITE_URL = process.env.GSC_SITE_URL ?? 'sc-domain:singulare.org';
 
 function verifyAuth(req: NextRequest): boolean {
   const auth = (req.headers.get('authorization') ?? '').trim();
