@@ -1407,14 +1407,77 @@ function MarketingInner({
     }
   }, []);
 
+  // Pós-hidrato: carrega só os 4 nice-to-have que o Server não buscou.
+  // Mantém a mesma lógica de "auto-refresh quando is_cached=false" do fetchData.
+  const fetchNiceToHave = useCallback(async () => {
+    try {
+      const [dRes, tRes, gRes, cRes] = await Promise.all([
+        fetch('/api/painel/marketing/region-demand'),
+        fetch('/api/painel/marketing/market-trends'),
+        fetch('/api/painel/marketing/gbp-insights'),
+        fetch('/api/painel/marketing/competitors'),
+      ]);
+      if (dRes.ok) {
+        const d = await dRes.json();
+        if (d.success) {
+          setRegionDemand(d);
+          if (!d.is_cached) {
+            setRegionRefreshing(true);
+            fetch('/api/painel/marketing/region-demand-refresh', { method: 'POST' })
+              .then(r => r.ok ? r.json() : null)
+              .then(j => { if (j?.payload) setRegionDemand(j.payload); })
+              .catch(() => {})
+              .finally(() => setRegionRefreshing(false));
+          }
+        }
+      }
+      if (tRes.ok) {
+        const t = await tRes.json();
+        if (t.primary_keyword) setMarketTrends(t);
+      }
+      if (gRes.ok) {
+        const g = await gRes.json();
+        if (g?.location_name) {
+          setGbpInsights(g);
+          if (!g.is_cached && !g.is_mock) {
+            setGbpRefreshing(true);
+            fetch('/api/painel/marketing/gbp-insights-refresh', { method: 'POST' })
+              .then(r => r.ok ? r.json() : null)
+              .then(j => { if (j?.payload) setGbpInsights(j.payload); })
+              .catch(() => {})
+              .finally(() => setGbpRefreshing(false));
+          }
+        }
+      }
+      if (cRes.ok) {
+        const c = await cRes.json();
+        if (c?.search_query) {
+          setCompetitors(c);
+          if (!c.is_cached) {
+            setCompetitorsRefreshing(true);
+            fetch('/api/painel/marketing/competitors-refresh', { method: 'POST' })
+              .then(r => r.ok ? r.json() : null)
+              .then(j => { if (j?.payload) setCompetitors(j.payload); })
+              .catch(() => {})
+              .finally(() => setCompetitorsRefreshing(false));
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
   useEffect(() => {
-    // Pula primeiro mount se Server ja entregou todos os dados.
+    // Server já entregou os 3 críticos → hidrata só os 4 nice-to-have pós-paint.
+    // Sem entrega do Server (falha de auth/network) → fetchData completo.
     if (fetchDataFirstMount.current) {
       fetchDataFirstMount.current = false;
+      fetchNiceToHave();
       return;
     }
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, fetchNiceToHave]);
 
   const approve = async (id: number) => {
     await fetch(`/api/painel/marketing/posts/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'approve' }) });
