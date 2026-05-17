@@ -43,23 +43,32 @@ export default async function SeguimentoIndexPage() {
 
   const admin = supabaseAdmin();
 
-  // Membership ativa no tenant.
-  const { data: member } = await admin
-    .from('tenant_members')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('tenant_id', tenantId)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (!member) redirect('/painel');
+  // Autoriza se: tenant_member ativo OU admin_user_id OU admin_email do tenant
+  // (mesma logica de resolucao do /api/painel/me).
+  const [{ data: member }, { data: tenantRow }] = await Promise.all([
+    admin
+      .from('tenant_members')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active')
+      .maybeSingle(),
+    admin
+      .from('tenants')
+      .select('admin_user_id, admin_email, addon_rpm, clinic_name')
+      .eq('tenant_id', tenantId)
+      .maybeSingle(),
+  ]);
 
-  // Feature flag: bloqueia tenant sem addon_rpm.
-  const { data: tenantRow } = await admin
-    .from('tenants')
-    .select('addon_rpm, clinic_name')
-    .eq('tenant_id', tenantId)
-    .maybeSingle();
-  if (!tenantRow?.addon_rpm) redirect('/painel');
+  if (!tenantRow) redirect('/painel');
+
+  const isAdminOfTenant =
+    tenantRow.admin_user_id === user.id ||
+    (!!user.email && tenantRow.admin_email === user.email);
+  if (!member && !isAdminOfTenant) redirect('/painel');
+
+  // Feature flag.
+  if (!tenantRow.addon_rpm) redirect('/painel');
 
   const { data: protocols } = await admin
     .from('patient_protocols')
