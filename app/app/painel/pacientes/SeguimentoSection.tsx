@@ -94,7 +94,7 @@ export function SeguimentoSection({ patientId }: Props) {
     <section>
       <div className="flex items-center gap-1.5 mb-3">
         <Activity className="w-3.5 h-3.5" style={{ color: ACCENT }} />
-        <h3 className="text-[13px] font-semibold text-zinc-900">Seguimento de tratamento</h3>
+        <h3 className="text-[13px] font-semibold text-zinc-900">Remote Patient Monitoring</h3>
         {activeCount > 0 && (
           <span
             className="text-[10px] uppercase tracking-wide font-bold px-1.5 py-0.5 rounded"

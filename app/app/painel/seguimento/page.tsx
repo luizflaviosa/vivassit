@@ -83,7 +83,7 @@ export default async function SeguimentoIndexPage() {
       <header className="mb-8">
         <div className="flex items-center gap-2 mb-2">
           <Activity className="w-5 h-5" style={{ color: '#6E56CF' }} />
-          <h1 className="text-[24px] font-medium tracking-[-0.02em] text-zinc-900 dark:text-zinc-100">Seguimento</h1>
+          <h1 className="text-[24px] font-medium tracking-[-0.02em] text-zinc-900 dark:text-zinc-100">Remote Patient Monitoring</h1>
         </div>
         <p className="text-[13px] text-zinc-500 dark:text-zinc-400 max-w-2xl">
           Monitoramento de pacientes entre consultas — coleta passiva (Apple Health, web) + ativa
