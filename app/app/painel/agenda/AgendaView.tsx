@@ -1302,7 +1302,14 @@ function AgendaInner({
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-2 mt-6">
+                  <div className="mt-5 mb-1 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200/70">
+                    <p className="text-[12.5px] leading-snug text-amber-900">
+                      Salvar aqui atualiza apenas o Google Calendar.{' '}
+                      <span className="font-medium">O paciente não é notificado.</span>
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-2 mt-3">
                     <button
                       type="button"
                       onClick={handleEditSave}
@@ -1318,6 +1325,23 @@ function AgendaInner({
                         'Salvar alterações'
                       )}
                     </button>
+                    {selected.booking_id &&
+                      selected.booking_status !== 'cancelled' &&
+                      selected.booking_status !== 'pending_confirmation' &&
+                      selected.booking_status !== 'completed' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditing(false);
+                            setEditForm(null);
+                            startPropose();
+                          }}
+                          disabled={editSaving}
+                          className="h-11 px-4 rounded-lg border border-violet-200 bg-violet-50 text-violet-900 text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-violet-100 transition-all disabled:opacity-50"
+                        >
+                          Notificar paciente em vez disso
+                        </button>
+                      )}
                     <button
                       type="button"
                       onClick={() => {
