@@ -1,0 +1,483 @@
+{
+  "name": "Alert Dispatch · Seguimento · v1.0",
+  "active": false,
+  "nodes": [
+    {
+      "id": "alt-sched-01",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [0, 0],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 * * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "alt-pg-query-01",
+      "name": "Postgres — Query Pending Alerts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [240, 0],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select\n  ae.id as alert_event_id,\n  ae.tenant_id,\n  ae.patient_id,\n  ae.severity,\n  ae.source,\n  ae.reason,\n  ae.created_at,\n  t.clinic_name,\n  t.admin_phone,\n  t.doctor_phone,\n  pat.first_name as patient_first_name,\n  pat.last_name as patient_last_name,\n  pat.phone as patient_phone,\n  case when pat.birthdate is not null\n       then extract(year from age(pat.birthdate))::int\n       else null end as patient_age\nfrom public.alert_events ae\njoin public.tenants t on t.tenant_id = ae.tenant_id\njoin public.patients pat on pat.id = ae.patient_id\nwhere ae.notified_doctor_whatsapp = false\n  and ae.severity in ('warning','critical')\n  and ae.created_at > now() - interval '24 hours'\norder by ae.severity = 'critical' desc, ae.created_at asc\nlimit 50;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "alt-split-01",
+      "name": "SplitInBatches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [480, 0],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "alt-switch-01",
+      "name": "Switch — Severity",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [720, 0],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "crit-rule",
+                    "leftValue": "={{ $json.severity }}",
+                    "rightValue": "critical",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "critical"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "warn-rule",
+                    "leftValue": "={{ $json.severity }}",
+                    "rightValue": "warning",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "warning"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      }
+    },
+    {
+      "id": "alt-if-doctor-01",
+      "name": "IF — Doctor Phone Present",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [960, -160],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "has-doctor-phone",
+              "leftValue": "={{ $json.doctor_phone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "alt-evo-crit-doctor-01",
+      "name": "Evolution — Critical to Doctor",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [1200, -280],
+      "parameters": {
+        "resource": "messages-api",
+        "operation": "send-text",
+        "instanceName": "singulare-admin",
+        "remoteJid": "={{ $json.doctor_phone.replace(/\\D/g, '') }}@s.whatsapp.net",
+        "messageText": "=ALERTA CRITICO - {{ $json.clinic_name }}\n\nPaciente: {{ $json.patient_first_name }} {{ $json.patient_last_name }}{{ $json.patient_age ? ' (' + $json.patient_age + ' anos)' : '' }}\nMotivo: {{ $json.reason }}\nOrigem: {{ $json.source }}\nQuando: {{ $json.created_at }}\n\nAcesse o briefing no painel ou retorne contato com o paciente."
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "id": "alt-evo-crit-admin-01",
+      "name": "Evolution — Critical to Admin",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [1200, -80],
+      "parameters": {
+        "resource": "messages-api",
+        "operation": "send-text",
+        "instanceName": "singulare-admin",
+        "remoteJid": "={{ $json.admin_phone.replace(/\\D/g, '') }}@s.whatsapp.net",
+        "messageText": "=ALERTA CRITICO - {{ $json.clinic_name }}\n\nPaciente: {{ $json.patient_first_name }} {{ $json.patient_last_name }}{{ $json.patient_age ? ' (' + $json.patient_age + ' anos)' : '' }}\nMotivo: {{ $json.reason }}\nOrigem: {{ $json.source }}\nQuando: {{ $json.created_at }}\n\nAcesse o briefing no painel ou retorne contato com o paciente."
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "id": "alt-evo-warn-admin-01",
+      "name": "Evolution — Warning to Admin",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [960, 160],
+      "parameters": {
+        "resource": "messages-api",
+        "operation": "send-text",
+        "instanceName": "singulare-admin",
+        "remoteJid": "={{ $json.admin_phone.replace(/\\D/g, '') }}@s.whatsapp.net",
+        "messageText": "=Alerta de atencao - {{ $json.clinic_name }}\n\nPaciente: {{ $json.patient_first_name }} {{ $json.patient_last_name }}\nMotivo: {{ $json.reason }}\nQuando: {{ $json.created_at }}\n\nAvalie no painel quando puder."
+      },
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "id": "alt-pg-mark-crit-doctor",
+      "name": "Postgres — Mark Dispatched (Crit Doctor)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1440, -280],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $json.alert_event_id }}';",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "alt-pg-mark-crit-admin",
+      "name": "Postgres — Mark Dispatched (Crit Admin)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1440, -80],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $json.alert_event_id }}';",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "alt-pg-mark-warn",
+      "name": "Postgres — Mark Dispatched (Warn)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1200, 160],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $json.alert_event_id }}';",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "alt-wait-crit-doctor",
+      "name": "Wait 1s (A)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1680, -280],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 1,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "alt-wait-crit-admin",
+      "name": "Wait 1s (B)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1680, -80],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 1,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "alt-wait-warn",
+      "name": "Wait 1s (C)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1440, 160],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 1,
+        "unit": "seconds"
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Postgres — Query Pending Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres — Query Pending Alerts": {
+      "main": [
+        [
+          {
+            "node": "SplitInBatches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SplitInBatches": {
+      "main": [
+        [
+          {
+            "node": "Switch — Severity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Switch — Severity": {
+      "main": [
+        [
+          {
+            "node": "IF — Doctor Phone Present",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Evolution — Warning to Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF — Doctor Phone Present": {
+      "main": [
+        [
+          {
+            "node": "Evolution — Critical to Doctor",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Evolution — Critical to Admin",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Evolution — Critical to Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evolution — Critical to Doctor": {
+      "main": [
+        [
+          {
+            "node": "Postgres — Mark Dispatched (Crit Doctor)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evolution — Critical to Admin": {
+      "main": [
+        [
+          {
+            "node": "Postgres — Mark Dispatched (Crit Admin)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evolution — Warning to Admin": {
+      "main": [
+        [
+          {
+            "node": "Postgres — Mark Dispatched (Warn)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres — Mark Dispatched (Crit Doctor)": {
+      "main": [
+        [
+          {
+            "node": "Wait 1s (A)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres — Mark Dispatched (Crit Admin)": {
+      "main": [
+        [
+          {
+            "node": "Wait 1s (B)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres — Mark Dispatched (Warn)": {
+      "main": [
+        [
+          {
+            "node": "Wait 1s (C)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 1s (A)": {
+      "main": [
+        [
+          {
+            "node": "SplitInBatches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 1s (B)": {
+      "main": [
+        [
+          {
+            "node": "SplitInBatches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 1s (C)": {
+      "main": [
+        [
+          {
+            "node": "SplitInBatches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "rONCEa2neV3XyBBX"
+  },
+  "tags": []
+}
