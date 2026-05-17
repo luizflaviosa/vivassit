@@ -238,15 +238,44 @@ ${professionalSignatureBlock(ctx)}
 `.trim();
 }
 
-// MVP: form so cobre tipo "Consulta" (mais usado). SP/SADT fica pra fase 2
-// (requer array de procedimentos + via_acesso + tecnica + valor_unitario, mais complexo).
+// Defaults unificados que cobrem ambos tipos (consulta e sp_sadt). O campo
+// `guia_type` discrimina e o form mostra/esconde campos via show().
+const TISS_UNIFIED_DEFAULTS = {
+  ...TISS_CONSULTA_DEFAULTS,
+  // Inclui campos sadt-only com valores neutros pra nao quebrar render
+  numero_guia_principal: undefined as string | undefined,
+  tipo_atendimento: '04' as TissSadtForm['tipo_atendimento'],
+  indicacao_clinica: '',
+  procedimentos_executados: [
+    { tuss_code: '', descricao: '', quantidade: 1, via_acesso: '', tecnica: '', valor_unitario: undefined as number | undefined },
+  ],
+};
+
 const TISS_FORM_FIELDS: FormField[] = [
+  {
+    type: 'radio',
+    name: 'guia_type',
+    label: 'Tipo de guia',
+    required: true,
+    orientation: 'horizontal',
+    options: [
+      { value: 'consulta', label: 'Guia de Consulta' },
+      { value: 'sp_sadt', label: 'Guia SP/SADT' },
+    ],
+    hint: 'Consulta = atendimento simples em consultorio. SP/SADT = procedimentos diagnósticos, terapêuticos, exames, quimio, dialise etc.',
+  },
   {
     type: 'group',
     label: 'Identificação da guia',
     fields: [
       { type: 'text', name: 'numero_guia_prestador', label: 'Nº guia prestador', required: true, placeholder: 'Ex.: SING-2026-00012' },
       { type: 'text', name: 'numero_guia_operadora', label: 'Nº guia operadora (após autorização)' },
+      {
+        type: 'text',
+        name: 'numero_guia_principal',
+        label: 'Guia principal associada (se houver)',
+        show: (f) => f.guia_type === 'sp_sadt',
+      },
     ],
   },
   {
@@ -258,12 +287,14 @@ const TISS_FORM_FIELDS: FormField[] = [
       { type: 'time', name: 'hora_fim', label: 'Hora fim (opcional)' },
     ],
   },
+  // ─── Apenas Consulta ───────────────────────────────────────
   {
     type: 'radio',
     name: 'tipo_consulta',
     label: 'Tipo de consulta',
     required: true,
     orientation: 'vertical',
+    show: (f) => f.guia_type === 'consulta',
     options: [
       { value: '1', label: '1 — Primeira consulta' },
       { value: '2', label: '2 — Retorno' },
@@ -277,6 +308,7 @@ const TISS_FORM_FIELDS: FormField[] = [
     label: 'Cobertura',
     required: true,
     orientation: 'horizontal',
+    show: (f) => f.guia_type === 'consulta',
     options: [
       { value: '1', label: 'Saúde' },
       { value: '2', label: 'Odontológica' },
@@ -288,10 +320,56 @@ const TISS_FORM_FIELDS: FormField[] = [
     type: 'tuss-search',
     name: 'procedimento_tuss',
     label: 'Procedimento TUSS',
-    required: true,
     descriptionField: 'procedimento_descricao',
+    show: (f) => f.guia_type === 'consulta',
     hint: 'Padrão: 10101012 — Consulta em consultório.',
   },
+  // ─── Apenas SP/SADT ────────────────────────────────────────
+  {
+    type: 'select',
+    name: 'tipo_atendimento',
+    label: 'Tipo de atendimento (tabela 50 ANS)',
+    required: true,
+    show: (f) => f.guia_type === 'sp_sadt',
+    options: [
+      { value: '01', label: '01 — Remoção' },
+      { value: '02', label: '02 — Pequena cirurgia' },
+      { value: '03', label: '03 — Terapias' },
+      { value: '04', label: '04 — Consulta' },
+      { value: '05', label: '05 — Exames' },
+      { value: '06', label: '06 — Atendimento domiciliar' },
+      { value: '07', label: '07 — SADT internado' },
+      { value: '08', label: '08 — Quimioterapia' },
+      { value: '09', label: '09 — Radioterapia' },
+      { value: '10', label: '10 — Terapia renal substitutiva' },
+    ],
+  },
+  {
+    type: 'textarea',
+    name: 'indicacao_clinica',
+    label: 'Indicação clínica',
+    rows: 3,
+    show: (f) => f.guia_type === 'sp_sadt',
+    placeholder: 'Justificativa clínica para os procedimentos solicitados/executados.',
+  },
+  {
+    type: 'array',
+    name: 'procedimentos_executados',
+    label: 'Procedimentos executados',
+    itemLabel: 'Procedimento',
+    minItems: 1,
+    maxItems: 20,
+    show: (f) => f.guia_type === 'sp_sadt',
+    itemDefault: { tuss_code: '', descricao: '', quantidade: 1, via_acesso: '', tecnica: '', valor_unitario: undefined },
+    itemFields: [
+      { type: 'tuss-search', name: 'tuss_code', label: 'Código TUSS', required: true, descriptionField: 'descricao' },
+      { type: 'number', name: 'quantidade', label: 'Quantidade', min: 1, max: 999, step: 1 },
+      { type: 'text', name: 'via_acesso', label: 'Via de acesso (opcional)', placeholder: 'Ex.: IV, oral, tópica' },
+      { type: 'text', name: 'tecnica', label: 'Técnica utilizada (opcional)', placeholder: 'Ex.: convencional, vídeo' },
+      { type: 'number', name: 'valor_unitario', label: 'Valor unitário (R$, opcional)', min: 0, step: 0.01 },
+    ],
+  },
+  // ─── Comum (ambos tipos) ───────────────────────────────────
   {
     type: 'cid-search',
     name: 'cid10_principal',
@@ -304,9 +382,9 @@ const TISS_FORM_FIELDS: FormField[] = [
 export const TISS_GUIA_TEMPLATE = {
   doc_type: 'tiss_guia' as const,
   display_name: 'Guia TISS (Consulta / SP-SADT)',
-  defaults: TISS_CONSULTA_DEFAULTS, // default: consulta. UI permite trocar pra sp_sadt.
+  defaults: TISS_UNIFIED_DEFAULTS,
   defaults_sadt: TISS_SADT_DEFAULTS,
   render: renderTissGuia,
-  required_fields: ['numero_guia_prestador', 'data_atendimento', 'procedimento_tuss'] as const,
+  required_fields: ['numero_guia_prestador', 'data_atendimento'] as const,
   form_fields: TISS_FORM_FIELDS,
 };

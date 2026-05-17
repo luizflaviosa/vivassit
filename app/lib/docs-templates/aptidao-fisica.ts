@@ -170,6 +170,21 @@ const APTIDAO_FORM_FIELDS: FormField[] = [
     max: 24,
     step: 1,
   },
+  {
+    type: 'derived',
+    name: 'validity_date_computed',
+    label: 'Validade calculada',
+    tone: 'info',
+    compute: (form) => {
+      const months = Number(form.validity_months ?? 12);
+      if (!months || months < 1) return null;
+      const d = new Date();
+      d.setMonth(d.getMonth() + months);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      return `Atestado válido até ${dd}/${mm}/${d.getFullYear()}`;
+    },
+  },
 ];
 
 export const APTIDAO_FISICA_TEMPLATE = {

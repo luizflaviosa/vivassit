@@ -25,15 +25,14 @@ import { useMe } from '@/lib/painel-context';
 import {
   DOC_TYPES,
   DOC_STATUSES,
-  ACTIVITY_TYPES,
-  FITNESS_RESULTS,
   type DocStatus,
-  type FitnessResult,
   type AptidaoFisicaForm,
   type MedicalDocument,
 } from '@/lib/docs-types';
+import { DOC_TEMPLATES, type DocTemplateKey } from '@/lib/docs-templates';
 import { DocPreviewAptidao } from '@/lib/components/doc-preview-aptidao';
 import { DocPreviewMarkdown } from '../_components/DocPreviewMarkdown';
+import { DynamicDocForm } from '../_components/DynamicDocForm';
 
 const ACCENT_DEEP = '#5746AF';
 
@@ -94,18 +93,12 @@ export default function DocDetailView({ docId, initialData }: DocDetailViewProps
   const [signingBirdId, setSigningBirdId] = useState(false);
   const [signSuccess, setSignSuccess] = useState<{ method: 'birdid' | 'manual'; tcn?: string } | null>(null);
 
-  // Edit modal (draft only)
+  // Edit modal (draft only) — universal via DynamicDocForm + preview live.
   const [showEdit, setShowEdit] = useState(false);
-  const [editForm, setEditForm] = useState<{
-    patient_name: string;
-    patient_cpf: string;
-    patient_birthdate: string;
-    activity_type: string;
-    result: FitnessResult;
-    restrictions: string;
-    professional_name: string;
-    professional_council: string;
-  }>({ patient_name: '', patient_cpf: '', patient_birthdate: '', activity_type: '', result: 'apto', restrictions: '', professional_name: '', professional_council: '' });
+  const [editData, setEditData] = useState<Record<string, unknown>>({});
+  const [editPreviewMd, setEditPreviewMd] = useState<string>('');
+  const [editPreviewLoading, setEditPreviewLoading] = useState(false);
+  const [editError, setEditError] = useState<string>('');
 
   // Reject modal
   const [showReject, setShowReject] = useState(false);
@@ -248,55 +241,75 @@ export default function DocDetailView({ docId, initialData }: DocDetailViewProps
 
   const openEdit = useCallback(() => {
     if (!data) return;
-    const f = data.document.form_data as unknown as AptidaoFisicaForm;
-    setEditForm({
-      patient_name: f.patient_name || '',
-      patient_cpf: f.patient_cpf || '',
-      patient_birthdate: f.patient_birthdate || '',
-      activity_type: f.activity_type || '',
-      result: (f.result as FitnessResult) || 'apto',
-      restrictions: f.restrictions || '',
-      professional_name: f.professional_name || '',
-      professional_council: f.professional_council || '',
-    });
+    setEditData({ ...(data.document.form_data as Record<string, unknown>) });
+    setEditPreviewMd('');
+    setEditError('');
     setShowEdit(true);
   }, [data]);
 
+  // Preview live durante edição — debounce 350ms.
+  useEffect(() => {
+    if (!showEdit || !data) return;
+    const t = setTimeout(() => {
+      setEditPreviewLoading(true);
+      fetch('/api/painel/docs/render-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          doc_type: data.document.doc_type,
+          patient_id: data.document.patient_id,
+          doctor_id: data.document.doctor_id,
+          form_data: editData,
+        }),
+      })
+        .then((r) => r.json())
+        .then((j) => {
+          if (j.success) setEditPreviewMd(j.markdown);
+        })
+        .catch(() => {})
+        .finally(() => setEditPreviewLoading(false));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [showEdit, editData, data]);
+
   const handleEdit = useCallback(async () => {
     if (!data) return;
+    setEditError('');
+
+    const tpl = DOC_TEMPLATES[data.document.doc_type as DocTemplateKey];
+    if (tpl) {
+      const missing = tpl.required_fields.filter((k) => {
+        const v = editData[k];
+        if (Array.isArray(v)) return v.length === 0;
+        return v === undefined || v === null || v === '';
+      });
+      if (missing.length > 0) {
+        setEditError(`Campos obrigatórios faltando: ${missing.join(', ')}`);
+        return;
+      }
+    }
+
     setActing(true);
-    const currentForm = data.document.form_data as unknown as AptidaoFisicaForm;
-    const updatedForm: AptidaoFisicaForm = {
-      ...currentForm,
-      patient_name: editForm.patient_name,
-      patient_cpf: editForm.patient_cpf,
-      patient_birthdate: editForm.patient_birthdate,
-      activity_type: editForm.activity_type,
-      result: editForm.result,
-      restrictions: editForm.result === 'apto_restricoes' ? editForm.restrictions : '',
-      professional_name: editForm.professional_name,
-      professional_council: editForm.professional_council,
-    };
     try {
       const res = await fetch(`/api/painel/docs/${docId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ form_data: updatedForm }),
+        body: JSON.stringify({ form_data: editData }),
       });
       const json = await res.json();
       if (json.success) {
         await fetchDoc();
         setShowEdit(false);
       } else {
-        alert(json.message || 'Erro ao salvar');
+        setEditError(json.message || 'Erro ao salvar');
       }
     } catch (e) {
       console.error(e);
-      alert('Erro de conexão');
+      setEditError('Erro de conexão');
     } finally {
       setActing(false);
     }
-  }, [docId, data, editForm, fetchDoc]);
+  }, [docId, data, editData, fetchDoc]);
 
   if (!me?.tenant_id) return null;
 
@@ -323,11 +336,8 @@ export default function DocDetailView({ docId, initialData }: DocDetailViewProps
   const form = doc.form_data as unknown as AptidaoFisicaForm;
   const status = doc.status as DocStatus;
 
-  // Editor inline só implementado pra aptidao_fisica por enquanto. Pros 4
-  // tipos novos (afastamento, LME, vacina, TISS) a edição direta exige
-  // re-criar via /novo (delete + create), porque o modal de edição usa
-  // fields hardcoded da aptidao.
-  const canEdit = status === 'draft' && doc.doc_type === 'aptidao_fisica';
+  const canEdit = status === 'draft';
+  const editTemplate = DOC_TEMPLATES[doc.doc_type as DocTemplateKey];
   const canSign = status === 'draft' || status === 'pending';
   const canSend = status === 'signed';
   const canCancel = status !== 'cancelled' && status !== 'sent';
@@ -827,15 +837,20 @@ export default function DocDetailView({ docId, initialData }: DocDetailViewProps
         </div>
       )}
 
-      {/* ═══════ Edit Modal (draft only) ═══════ */}
-      {showEdit && (
+      {/* ═══════ Edit Modal (draft only) — universal via DynamicDocForm ═══════ */}
+      {showEdit && editTemplate && (
         <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/40 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full my-auto flex flex-col max-h-[calc(100vh-2rem)]">
+          <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full my-auto flex flex-col max-h-[calc(100vh-2rem)]">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-black/[0.06] flex-shrink-0">
-              <h3 className="text-[17px] font-semibold text-zinc-900 flex items-center gap-2">
-                <Pencil className="w-4 h-4 text-zinc-400" /> Editar documento
-              </h3>
+              <div>
+                <h3 className="text-[17px] font-semibold text-zinc-900 flex items-center gap-2">
+                  <Pencil className="w-4 h-4 text-zinc-400" /> Editar {DOC_TYPES[doc.doc_type]}
+                </h3>
+                <p className="text-[12px] text-zinc-500 mt-0.5">
+                  Preencha à esquerda. O documento à direita atualiza automaticamente.
+                </p>
+              </div>
               <button
                 onClick={() => setShowEdit(false)}
                 className="h-8 w-8 -mr-2 rounded-md hover:bg-black/[0.04] inline-flex items-center justify-center text-zinc-400"
@@ -844,141 +859,59 @@ export default function DocDetailView({ docId, initialData }: DocDetailViewProps
               </button>
             </div>
 
-            {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-              {/* Patient data */}
-              <div className="space-y-3">
-                <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Paciente</p>
-                <div>
-                  <label className="block text-[12px] font-medium text-zinc-500 mb-1">Nome</label>
-                  <input
-                    type="text"
-                    value={editForm.patient_name}
-                    onChange={(e) => setEditForm((f) => ({ ...f, patient_name: e.target.value }))}
-                    className="w-full h-10 px-3 bg-white text-[14px] text-zinc-900 rounded-lg border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
+            {/* Body: 2-column layout */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 lg:divide-x divide-black/[0.06]">
+                {/* Left: form */}
+                <div className="px-6 py-5 space-y-5">
+                  <DynamicDocForm
+                    fields={editTemplate.form_fields}
+                    value={editData}
+                    onChange={setEditData}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[12px] font-medium text-zinc-500 mb-1">CPF</label>
-                    <input
-                      type="text"
-                      value={editForm.patient_cpf}
-                      onChange={(e) => setEditForm((f) => ({ ...f, patient_cpf: e.target.value }))}
-                      placeholder="000.000.000-00"
-                      className="w-full h-10 px-3 bg-white text-[14px] text-zinc-900 rounded-lg border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
-                    />
+
+                {/* Right: preview live */}
+                <div className="px-6 py-5 bg-zinc-50/40 space-y-2 lg:sticky lg:top-0 lg:self-start lg:max-h-[calc(100vh-12rem)] lg:overflow-y-auto">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">
+                      Pré-visualização
+                    </p>
+                    {editPreviewLoading && (
+                      <Loader2 className="w-3.5 h-3.5 text-zinc-400 animate-spin" />
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-[12px] font-medium text-zinc-500 mb-1">Data de nascimento</label>
-                    <input
-                      type="date"
-                      value={editForm.patient_birthdate ? editForm.patient_birthdate.slice(0, 10) : ''}
-                      onChange={(e) => setEditForm((f) => ({ ...f, patient_birthdate: e.target.value }))}
-                      className="w-full h-10 px-3 bg-white text-[14px] text-zinc-900 rounded-lg border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
-                    />
-                  </div>
+                  {editPreviewMd ? (
+                    <div className="rounded-xl bg-white border border-black/[0.05] p-2">
+                      <DocPreviewMarkdown markdown={editPreviewMd} />
+                    </div>
+                  ) : (
+                    <div className="text-[12px] text-zinc-400 text-center py-12 rounded-xl bg-white border border-dashed border-zinc-200">
+                      Preview aparecerá conforme você edita.
+                    </div>
+                  )}
                 </div>
-              </div>
-
-              {/* Professional data */}
-              <div className="space-y-3">
-                <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Profissional</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[12px] font-medium text-zinc-500 mb-1">Nome</label>
-                    <input
-                      type="text"
-                      value={editForm.professional_name}
-                      onChange={(e) => setEditForm((f) => ({ ...f, professional_name: e.target.value }))}
-                      className="w-full h-10 px-3 bg-white text-[14px] text-zinc-900 rounded-lg border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[12px] font-medium text-zinc-500 mb-1">Registro (CRM)</label>
-                    <input
-                      type="text"
-                      value={editForm.professional_council}
-                      onChange={(e) => setEditForm((f) => ({ ...f, professional_council: e.target.value }))}
-                      className="w-full h-10 px-3 bg-white text-[14px] text-zinc-900 rounded-lg border border-black/10 focus:border-zinc-900 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Clinical data */}
-              <div className="space-y-3">
-                <p className="text-[11px] uppercase tracking-[0.1em] font-semibold text-zinc-500">Avaliacao</p>
-
-                {/* Activity type */}
-                <div>
-                  <label className="block text-[12px] font-medium text-zinc-500 mb-1.5">Tipo de atividade</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ACTIVITY_TYPES.map((a) => (
-                      <button
-                        key={a}
-                        type="button"
-                        onClick={() => setEditForm((f) => ({ ...f, activity_type: a }))}
-                        className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${
-                          editForm.activity_type === a
-                            ? 'bg-violet-100 text-violet-800 border border-violet-300'
-                            : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
-                        }`}
-                      >
-                        {a}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Result */}
-                <div>
-                  <label className="block text-[12px] font-medium text-zinc-500 mb-1.5">Resultado</label>
-                  <div className="flex gap-2">
-                    {FITNESS_RESULTS.map((r) => (
-                      <button
-                        key={r.value}
-                        type="button"
-                        onClick={() => setEditForm((f) => ({ ...f, result: r.value as FitnessResult }))}
-                        className={`flex-1 px-3 py-2 rounded-lg text-[13px] font-medium transition-all text-center ${
-                          editForm.result === r.value
-                            ? 'bg-violet-100 text-violet-800 border border-violet-300'
-                            : 'bg-zinc-100 text-zinc-600 border border-transparent hover:bg-zinc-200'
-                        }`}
-                      >
-                        {r.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Restrictions (conditional) */}
-                {editForm.result === 'apto_restricoes' && (
-                  <div>
-                    <label className="block text-[12px] font-medium text-zinc-500 mb-1">Restricoes</label>
-                    <textarea
-                      value={editForm.restrictions}
-                      onChange={(e) => setEditForm((f) => ({ ...f, restrictions: e.target.value }))}
-                      placeholder="Descreva as restricoes..."
-                      rows={3}
-                      className="w-full px-3 py-2.5 bg-white text-[14px] rounded-lg border border-black/10 focus:outline-none focus:ring-4 focus:ring-zinc-900/[0.06] resize-none"
-                    />
-                  </div>
-                )}
               </div>
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-2 px-6 py-4 bg-zinc-50/60 border-t border-black/[0.06] flex-shrink-0">
-              <button type="button" onClick={() => setShowEdit(false)}
-                className="h-10 px-4 rounded-lg text-[13px] font-semibold text-zinc-600 hover:bg-black/[0.04] transition-colors">
-                Cancelar
-              </button>
-              <button type="button" onClick={handleEdit} disabled={acting || !editForm.activity_type}
-                className="h-10 px-5 rounded-lg text-white text-[13px] font-semibold hover:brightness-110 transition-all disabled:opacity-40"
-                style={{ background: ACCENT_DEEP }}>
-                {acting ? <Loader2 className="w-4 h-4 animate-spin mx-2" /> : 'Salvar'}
-              </button>
+            <div className="flex items-center justify-between gap-2 px-6 py-4 bg-zinc-50/60 border-t border-black/[0.06] flex-shrink-0">
+              <div className="flex-1 min-w-0">
+                {editError && (
+                  <p className="text-[12px] text-red-600 truncate">{editError}</p>
+                )}
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button type="button" onClick={() => setShowEdit(false)}
+                  className="h-10 px-4 rounded-lg text-[13px] font-semibold text-zinc-600 hover:bg-black/[0.04] transition-colors">
+                  Cancelar
+                </button>
+                <button type="button" onClick={handleEdit} disabled={acting}
+                  className="h-10 px-5 rounded-lg text-white text-[13px] font-semibold hover:brightness-110 transition-all disabled:opacity-40"
+                  style={{ background: ACCENT_DEEP }}>
+                  {acting ? <Loader2 className="w-4 h-4 animate-spin mx-2" /> : 'Salvar alterações'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

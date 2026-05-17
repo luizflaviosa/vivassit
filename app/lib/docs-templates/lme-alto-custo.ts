@@ -199,7 +199,40 @@ const LME_FORM_FIELDS: FormField[] = [
     fields: [
       { type: 'number', name: 'weight_kg', label: 'Peso (kg)', min: 1, max: 300, step: 0.1 },
       { type: 'number', name: 'height_cm', label: 'Altura (cm)', min: 30, max: 250, step: 1 },
+      {
+        type: 'derived',
+        name: 'imc_computed',
+        label: 'IMC calculado',
+        tone: 'info',
+        compute: (form) => {
+          const w = Number(form.weight_kg ?? 0);
+          const h = Number(form.height_cm ?? 0);
+          if (!w || !h) return null;
+          const imc = w / Math.pow(h / 100, 2);
+          let classification = '';
+          if (imc < 18.5) classification = 'baixo peso';
+          else if (imc < 25) classification = 'eutrófico';
+          else if (imc < 30) classification = 'sobrepeso';
+          else if (imc < 35) classification = 'obesidade grau I';
+          else if (imc < 40) classification = 'obesidade grau II';
+          else classification = 'obesidade grau III';
+          return `IMC ${imc.toFixed(1)} kg/m² — ${classification}`;
+        },
+      },
     ],
+  },
+  {
+    type: 'derived',
+    name: 'lme_validity_computed',
+    label: 'Validade do laudo',
+    tone: 'info',
+    compute: () => {
+      const d = new Date();
+      d.setDate(d.getDate() + 90);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      return `Laudo LME válido por 90 dias (até ${dd}/${mm}/${d.getFullYear()}) conforme Port. GM/MS 1.554/2013.`;
+    },
   },
   {
     type: 'array',

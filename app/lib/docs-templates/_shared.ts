@@ -139,7 +139,8 @@ export type FieldType =
   | 'cid-search'   // autocomplete CID-10 (preenche code + description)
   | 'tuss-search'  // autocomplete TUSS
   | 'array'        // lista de subforms (medications, procedimentos)
-  | 'group';       // agrupa visualmente
+  | 'group'        // agrupa visualmente
+  | 'derived';     // valor calculado read-only inline (validade, IMC, etc)
 
 export interface BaseField {
   type: FieldType;
@@ -210,6 +211,20 @@ export interface GroupField {
   show?: (form: Record<string, unknown>) => boolean;
 }
 
+// DerivedField: campo read-only que mostra ao profissional o valor calculado
+// de outros campos do form (ex: validade aptidao = issue + 12m; IMC = peso/altura;
+// data fim INSS = start + dias - 1). Nao persiste — apenas feedback visual.
+// Para clinicas perceberem cedo um valor errado (ex: dias_off > 90 sai do Atestmed).
+export interface DerivedField {
+  type: 'derived';
+  name: string;             // chave logica (nao salva no form_data)
+  label: string;
+  compute: (form: Record<string, unknown>) => string | null;
+  tone?: 'neutral' | 'info' | 'warning' | 'success'; // cor do badge
+  show?: (form: Record<string, unknown>) => boolean;
+  hint?: string;
+}
+
 export type FormField =
   | TextField
   | TextareaField
@@ -223,5 +238,6 @@ export type FormField =
   | CidSearchField
   | TussSearchField
   | ArrayField
-  | GroupField;
+  | GroupField
+  | DerivedField;
 

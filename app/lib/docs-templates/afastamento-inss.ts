@@ -182,6 +182,34 @@ const AFASTAMENTO_FORM_FIELDS: FormField[] = [
       { type: 'number', name: 'days_off', label: 'Dias de afastamento', required: true, min: 1, max: 365, step: 1, hint: 'Atestmed cobre até 90 dias sem perícia presencial.' },
       { type: 'date', name: 'rest_start_date', label: 'Data de início do repouso', required: true },
       { type: 'checkbox', name: 'is_retroactive', label: 'Atestado retroativo (início anterior à emissão)' },
+      {
+        type: 'derived',
+        name: 'rest_window_computed',
+        label: 'Janela de afastamento',
+        tone: 'info',
+        compute: (form) => {
+          const start = form.rest_start_date as string | undefined;
+          const days = Number(form.days_off ?? 0);
+          if (!start || !days) return null;
+          const s = new Date(start);
+          if (isNaN(s.getTime())) return null;
+          const e = new Date(s);
+          e.setDate(e.getDate() + days - 1);
+          const fmt = (d: Date) =>
+            `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+          return `Repouso de ${fmt(s)} a ${fmt(e)} (${days} dias)`;
+        },
+      },
+      {
+        type: 'derived',
+        name: 'atestmed_warning',
+        label: 'Atestmed (até 90 dias)',
+        tone: 'warning',
+        show: (form) => Number(form.days_off ?? 0) > 90,
+        compute: (form) =>
+          `Atenção: afastamento de ${form.days_off} dias supera os 90 dias do Novo Atestmed. ` +
+          `Este atestado exigirá perícia presencial pelo INSS.`,
+      },
     ],
   },
   {
