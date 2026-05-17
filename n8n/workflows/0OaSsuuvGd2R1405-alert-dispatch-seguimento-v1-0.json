@@ -2,7 +2,6 @@
   "id": "0OaSsuuvGd2R1405",
   "name": "Alert Dispatch · Seguimento · v1.0",
   "active": true,
-  "versionId": "eb311ed4-3ff9-4386-ab29-d2ac9dd0f4ed",
   "nodes": [
     {
       "id": "alt-sched-01",
@@ -205,7 +204,7 @@
       "position": [1200, -280],
       "parameters": {
         "operation": "executeQuery",
-        "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $json.alert_event_id }}';",
+        "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $('Postgres — Query Pending Alerts').item.json.alert_event_id }}';",
         "options": {}
       },
       "credentials": {
@@ -223,7 +222,7 @@
       "position": [1200, -80],
       "parameters": {
         "operation": "executeQuery",
-        "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $json.alert_event_id }}';",
+        "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $('Postgres — Query Pending Alerts').item.json.alert_event_id }}';",
         "options": {}
       },
       "credentials": {
@@ -241,7 +240,7 @@
       "position": [960, 160],
       "parameters": {
         "operation": "executeQuery",
-        "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $json.alert_event_id }}';",
+        "query": "=update public.alert_events\n   set notified_doctor_whatsapp = true,\n       notified_chatwoot = true\n where id = '{{ $('Postgres — Query Pending Alerts').item.json.alert_event_id }}';",
         "options": {}
       },
       "credentials": {
@@ -255,42 +254,42 @@
   "connections": {
     "Schedule Trigger": {
       "main": [
-        [{ "node": "Postgres — Query Pending Alerts", "type": "main", "index": 0 }]
+        [{"node": "Postgres — Query Pending Alerts", "type": "main", "index": 0}]
       ]
     },
     "Postgres — Query Pending Alerts": {
       "main": [
-        [{ "node": "Switch — Severity", "type": "main", "index": 0 }]
+        [{"node": "Switch — Severity", "type": "main", "index": 0}]
       ]
     },
     "Switch — Severity": {
       "main": [
-        [{ "node": "IF — Doctor Phone Present", "type": "main", "index": 0 }],
-        [{ "node": "Evolution — Warning to Admin", "type": "main", "index": 0 }]
+        [{"node": "IF — Doctor Phone Present", "type": "main", "index": 0}],
+        [{"node": "Evolution — Warning to Admin", "type": "main", "index": 0}]
       ]
     },
     "IF — Doctor Phone Present": {
       "main": [
         [
-          { "node": "Evolution — Critical to Doctor", "type": "main", "index": 0 },
-          { "node": "Evolution — Critical to Admin", "type": "main", "index": 0 }
+          {"node": "Evolution — Critical to Doctor", "type": "main", "index": 0},
+          {"node": "Evolution — Critical to Admin", "type": "main", "index": 0}
         ],
-        [{ "node": "Evolution — Critical to Admin", "type": "main", "index": 0 }]
+        [{"node": "Evolution — Critical to Admin", "type": "main", "index": 0}]
       ]
     },
     "Evolution — Critical to Doctor": {
       "main": [
-        [{ "node": "Postgres — Mark Dispatched (Crit Doctor)", "type": "main", "index": 0 }]
+        [{"node": "Postgres — Mark Dispatched (Crit Doctor)", "type": "main", "index": 0}]
       ]
     },
     "Evolution — Critical to Admin": {
       "main": [
-        [{ "node": "Postgres — Mark Dispatched (Crit Admin)", "type": "main", "index": 0 }]
+        [{"node": "Postgres — Mark Dispatched (Crit Admin)", "type": "main", "index": 0}]
       ]
     },
     "Evolution — Warning to Admin": {
       "main": [
-        [{ "node": "Postgres — Mark Dispatched (Warn)", "type": "main", "index": 0 }]
+        [{"node": "Postgres — Mark Dispatched (Warn)", "type": "main", "index": 0}]
       ]
     }
   },

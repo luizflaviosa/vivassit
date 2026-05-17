@@ -2,7 +2,6 @@
   "id": "1X4C4X3wsog9WIkh",
   "name": "P04 — Seguimento · Dispatch Semanal · v1.0",
   "active": true,
-  "versionId": "d0cff2b3-29ad-4e0b-b5db-c561c234d6ce",
   "nodes": [
     {
       "id": "p04-sched-01",
@@ -68,7 +67,7 @@
       "position": [720, 0],
       "parameters": {
         "operation": "executeQuery",
-        "query": "=update public.patient_protocols\n   set last_dispatched_at = now(),\n       updated_at = now()\n where id = '{{ $json.patient_protocol_id }}';",
+        "query": "=update public.patient_protocols\n   set last_dispatched_at = now(),\n       updated_at = now()\n where id = '{{ $('Postgres — Query Due Patients').item.json.patient_protocol_id }}';",
         "options": {}
       },
       "credentials": {
@@ -82,17 +81,17 @@
   "connections": {
     "Schedule Trigger": {
       "main": [
-        [{ "node": "Postgres — Query Due Patients", "type": "main", "index": 0 }]
+        [{"node": "Postgres — Query Due Patients", "type": "main", "index": 0}]
       ]
     },
     "Postgres — Query Due Patients": {
       "main": [
-        [{ "node": "Evolution — Send WhatsApp", "type": "main", "index": 0 }]
+        [{"node": "Evolution — Send WhatsApp", "type": "main", "index": 0}]
       ]
     },
     "Evolution — Send WhatsApp": {
       "main": [
-        [{ "node": "Postgres — Update last_dispatched_at", "type": "main", "index": 0 }]
+        [{"node": "Postgres — Update last_dispatched_at", "type": "main", "index": 0}]
       ]
     }
   },
