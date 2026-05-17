@@ -153,7 +153,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
         { href: '/painel/pacientes', label: 'Pacientes', icon: <UserPlus className="w-4 h-4" />, enabled: true },
         { href: '/painel/mensagens', label: 'Mensagens', icon: <MessageCircle className="w-4 h-4" />, enabled: true },
         { href: '/painel/atendimento', label: 'Atendimento', icon: <Headphones className="w-4 h-4" />, enabled: true, onNavigate: () => window.dispatchEvent(new CustomEvent('singulare:atendimento-focus')) },
-        { href: '/painel/seguimento', label: 'Remote Patient Monitoring', icon: <HeartPulse className="w-4 h-4" />, enabled: !!me?.addon_rpm, hint: 'RPM em rollout controlado — peca acesso ao time' },
+        { href: '/painel/seguimento', label: 'RPM', icon: <HeartPulse className="w-4 h-4" />, enabled: !!me?.addon_rpm, hint: me?.addon_rpm ? 'Remote Patient Monitoring' : 'Remote Patient Monitoring — em rollout controlado' },
       ],
     },
     {
@@ -252,6 +252,7 @@ function PainelLayoutInner({ children }: { children: React.ReactNode }) {
         <Link
           key={item.href}
           href={item.href}
+          title={item.hint}
           onClick={() => { item.onNavigate?.(); if (mobile) setMobileOpen(false); }}
           className={`${base} ${
             active
