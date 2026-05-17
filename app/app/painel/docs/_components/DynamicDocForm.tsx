@@ -69,6 +69,28 @@ function FieldRenderer({
   // Conditional show
   if (field.show && !field.show(parent)) return null;
 
+  // Derived é um badge calculado, não tem input/required/value — handle antes.
+  if (field.type === 'derived') {
+    const text = field.compute(parent);
+    if (!text) return null;
+    const tone = field.tone ?? 'neutral';
+    const styles = {
+      neutral: { bg: 'bg-zinc-50', border: 'border-zinc-200', text: 'text-zinc-700', icon: <Calculator className="w-3.5 h-3.5" /> },
+      info:    { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-900', icon: <Info className="w-3.5 h-3.5" /> },
+      warning: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-900', icon: <AlertTriangle className="w-3.5 h-3.5" /> },
+      success: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-900', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+    }[tone];
+    return (
+      <div className={`flex items-start gap-2 px-3 py-2 rounded-lg border ${styles.bg} ${styles.border} ${styles.text}`}>
+        <span className="mt-0.5 flex-shrink-0">{styles.icon}</span>
+        <div className="flex-1 text-[12px] leading-snug">
+          <span className="block font-semibold mb-0.5">{field.label}</span>
+          <span>{text}</span>
+        </div>
+      </div>
+    );
+  }
+
   const v = value[field.name];
   const label = (
     <>
@@ -268,27 +290,6 @@ function FieldRenderer({
           onChange={(next) => setField(field.name, next)}
         />
       );
-
-    case 'derived': {
-      const text = field.compute(parent);
-      if (!text) return null;
-      const tone = field.tone ?? 'neutral';
-      const styles = {
-        neutral: { bg: 'bg-zinc-50', border: 'border-zinc-200', text: 'text-zinc-700', icon: <Calculator className="w-3.5 h-3.5" /> },
-        info:    { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-900', icon: <Info className="w-3.5 h-3.5" /> },
-        warning: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-900', icon: <AlertTriangle className="w-3.5 h-3.5" /> },
-        success: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-900', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
-      }[tone];
-      return (
-        <div className={`flex items-start gap-2 px-3 py-2 rounded-lg border ${styles.bg} ${styles.border} ${styles.text}`}>
-          <span className="mt-0.5 flex-shrink-0">{styles.icon}</span>
-          <div className="flex-1 text-[12px] leading-snug">
-            <span className="block font-semibold mb-0.5">{field.label}</span>
-            <span>{text}</span>
-          </div>
-        </div>
-      );
-    }
 
     default:
       return null;
