@@ -113,6 +113,20 @@ export const cobrancasPaciente: Handler = async (params, ctx) => {
   let resolvedName = patientNameIn;
   let resolvedEmail = '';
 
+  if (phone && !resolvedName) {
+    // Quando phone vem direto, tenta resolver name/email pra evitar fallback "paciente"
+    const { data: pat } = await admin
+      .from('patients')
+      .select('name, email')
+      .eq('phone', phone)
+      .eq('tenant_id', ctx.tenant_id)
+      .maybeSingle();
+    if (pat) {
+      resolvedName = pat.name ?? '';
+      resolvedEmail = pat.email ?? '';
+    }
+  }
+
   if (!phone) {
     if (patientIdIn) {
       // patients.id e bigint; aceita string ou number
