@@ -1,0 +1,157 @@
+{
+  "id": "rONCEa2neV3XyBBX",
+  "name": "ERR — Notificador de Erros n8n · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "err-trigger",
+      "name": "On Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "log-error",
+      "name": "Log em n8n_historico_mensagens",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        320,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.n8n_historico_mensagens (session_id, tenant_id, message)\nVALUES (\n  'system_workflow_errors',\n  'admin-system',\n  jsonb_build_object(\n    'type', 'tool',\n    'name', 'workflow_error',\n    'content', jsonb_build_object(\n      'workflow_id',    $1::text,\n      'workflow_name',  $2::text,\n      'execution_id',   $3::text,\n      'execution_url',  $4::text,\n      'last_node',      $5::text,\n      'error_message',  $6::text,\n      'timestamp',      $7::text\n    ),\n    'tool_call_id', $8::text\n  )\n);",
+        "options": {
+          "queryReplacement": "={{ ($json.workflow || {}).id || '' }},{{ ($json.workflow || {}).name || '' }},{{ ($json.execution || {}).id || '' }},{{ ($json.execution || {}).url || '' }},{{ ($json.execution || {}).lastNodeExecuted || '' }},{{ ((($json.execution || {}).error || {}).message || '').replace(/,/g, ';').replace(/'/g, '\"') }},{{ $now.toISO() }},err_{{ $now.toMillis() }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "On Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Log em n8n_historico_mensagens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "activeVersionId": "87e1cfeb-b927-4518-9d74-88dca372d56a",
+  "versionCounter": 4,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-17T14:21:52.496Z",
+      "createdAt": "2026-05-17T14:21:52.496Z",
+      "role": "workflow:owner",
+      "workflowId": "rONCEa2neV3XyBBX",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-17T14:25:18.485Z",
+    "createdAt": "2026-05-17T14:25:18.485Z",
+    "versionId": "87e1cfeb-b927-4518-9d74-88dca372d56a",
+    "workflowId": "rONCEa2neV3XyBBX",
+    "nodes": [
+      {
+        "id": "err-trigger",
+        "name": "On Workflow Error",
+        "type": "n8n-nodes-base.errorTrigger",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "log-error",
+        "name": "Log em n8n_historico_mensagens",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          320,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO public.n8n_historico_mensagens (session_id, tenant_id, message)\nVALUES (\n  'system_workflow_errors',\n  'admin-system',\n  jsonb_build_object(\n    'type', 'tool',\n    'name', 'workflow_error',\n    'content', jsonb_build_object(\n      'workflow_id',    $1::text,\n      'workflow_name',  $2::text,\n      'execution_id',   $3::text,\n      'execution_url',  $4::text,\n      'last_node',      $5::text,\n      'error_message',  $6::text,\n      'timestamp',      $7::text\n    ),\n    'tool_call_id', $8::text\n  )\n);",
+          "options": {
+            "queryReplacement": "={{ ($json.workflow || {}).id || '' }},{{ ($json.workflow || {}).name || '' }},{{ ($json.execution || {}).id || '' }},{{ ($json.execution || {}).url || '' }},{{ ($json.execution || {}).lastNodeExecuted || '' }},{{ ((($json.execution || {}).error || {}).message || '').replace(/,/g, ';').replace(/'/g, '\"') }},{{ $now.toISO() }},err_{{ $now.toMillis() }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      }
+    ],
+    "connections": {
+      "On Workflow Error": {
+        "main": [
+          [
+            {
+              "node": "Log em n8n_historico_mensagens",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-17T14:26:05.741Z",
+        "id": 391,
+        "workflowId": "rONCEa2neV3XyBBX",
+        "versionId": "87e1cfeb-b927-4518-9d74-88dca372d56a",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

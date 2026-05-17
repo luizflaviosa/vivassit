@@ -1,6 +1,6 @@
 {
   "id": "87vZl62KFCOqFbyI",
-  "name": "3. NPS Pesquisa Pós-Consulta",
+  "name": "A02 — NPS · Pesquisa Pós-Consulta · v1.0",
   "description": "Cron 19h BRT envia pesquisa NPS via Chatwoot (cria contato+conversa+mensagem em 1 call) pra cada paciente que terminou consulta hoje. Resposta numérica processada pelo Master Secretária Pre-Router.",
   "active": true,
   "isArchived": false,
@@ -86,7 +86,7 @@
         "nodeCredentialType": "chatwootApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"source_id\": \"{{ $('List Bookings Completed Today').item.json.patient_phone.replace('+','') }}\",\n  \"inbox_id\": \"{{ $('List Bookings Completed Today').item.json.chatwoot_inbox_id }}\",\n  \"contact\": {\n    \"name\": \"{{ $('List Bookings Completed Today').item.json.patient_name }}\",\n    \"phone_number\": \"{{ $('List Bookings Completed Today').item.json.patient_phone }}\"\n  },\n  \"message\": {\n    \"content\": \"Olá {{ $('List Bookings Completed Today').item.json.first_name }}! 👋\\n\\nComo foi sua consulta hoje com {{ $('List Bookings Completed Today').item.json.doctor_name }}?\\nDe 0 a 10, qual nota você daria?\\n\\n_Caso não tenha comparecido à consulta, é só ignorar esta mensagem._\"\n  },\n  \"status\": \"open\"\n}",
+        "jsonBody": "={\n  \"contact_id\": {{ ($('Search Contact').item.json.payload && $('Search Contact').item.json.payload[0] && $('Search Contact').item.json.payload[0].id) || 0 }},\n  \"inbox_id\": \"{{ $('List Bookings Completed Today').item.json.chatwoot_inbox_id }}\",\n  \"status\": \"open\",\n  \"message\": {\n    \"content\": \"Olá {{ $('List Bookings Completed Today').item.json.patient_name.split(' ')[0] }}! 👋\\n\\nComo foi sua consulta hoje com {{ $('List Bookings Completed Today').item.json.doctor_name }}?\\nDe 0 a 10, qual nota você daria?\\n\\n_Caso não tenha comparecido à consulta, é só ignorar esta mensagem._\"\n  }\n}",
         "options": {
           "response": {
             "response": {
@@ -116,9 +116,10 @@
       "parameters": {
         "conditions": {
           "options": {
+            "version": 2,
+            "leftValue": "",
             "caseSensitive": true,
-            "typeValidation": "loose",
-            "version": 2
+            "typeValidation": "loose"
           },
           "conditions": [
             {
@@ -199,9 +200,10 @@
       "parameters": {
         "conditions": {
           "options": {
+            "version": 2,
+            "leftValue": "",
             "caseSensitive": true,
-            "typeValidation": "loose",
-            "version": 2
+            "typeValidation": "loose"
           },
           "conditions": [
             {
@@ -262,6 +264,36 @@
           "name": "Postgres account"
         }
       }
+    },
+    {
+      "id": "search-contact-001",
+      "name": "Search Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        -96
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('List Bookings Completed Today').item.json.chatwoot_url.replace(/\\/$/, '') }}/api/v1/accounts/{{ $('List Bookings Completed Today').item.json.chatwoot_account_id }}/contacts/search?q={{ encodeURIComponent($('List Bookings Completed Today').item.json.patient_phone.replace('+','')) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      },
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -281,17 +313,6 @@
         [
           {
             "node": "Loop Doctors",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Insert Pending": {
-      "main": [
-        [
-          {
-            "node": "Chatwoot Send",
             "type": "main",
             "index": 0
           }
@@ -400,12 +421,35 @@
           }
         ]
       ]
+    },
+    "Insert Pending": {
+      "main": [
+        [
+          {
+            "node": "Search Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Contact": {
+      "main": [
+        [
+          {
+            "node": "Chatwoot Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1",
     "availableInMCP": true,
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "errorWorkflow": "rONCEa2neV3XyBBX"
   },
   "staticData": {
     "node:Cron 19:00 BRT": {
@@ -416,8 +460,8 @@
     "aiBuilderAssisted": true
   },
   "pinData": {},
-  "activeVersionId": "0eb2180d-7821-49bb-88a7-362b91a7175f",
-  "versionCounter": 25,
+  "activeVersionId": "455ef8de-4e95-4f7c-9f07-be3af6dc00dc",
+  "versionCounter": 34,
   "triggerCount": 2,
   "shared": [
     {
@@ -440,9 +484,9 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-05-10T00:52:53.856Z",
-    "createdAt": "2026-05-10T00:52:53.856Z",
-    "versionId": "0eb2180d-7821-49bb-88a7-362b91a7175f",
+    "updatedAt": "2026-05-17T13:29:47.628Z",
+    "createdAt": "2026-05-17T13:29:47.628Z",
+    "versionId": "455ef8de-4e95-4f7c-9f07-be3af6dc00dc",
     "workflowId": "87vZl62KFCOqFbyI",
     "nodes": [
       {
@@ -526,7 +570,7 @@
           "nodeCredentialType": "chatwootApi",
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={\n  \"source_id\": \"{{ $('List Bookings Completed Today').item.json.patient_phone.replace('+','') }}\",\n  \"inbox_id\": \"{{ $('List Bookings Completed Today').item.json.chatwoot_inbox_id }}\",\n  \"contact\": {\n    \"name\": \"{{ $('List Bookings Completed Today').item.json.patient_name }}\",\n    \"phone_number\": \"{{ $('List Bookings Completed Today').item.json.patient_phone }}\"\n  },\n  \"message\": {\n    \"content\": \"Olá {{ $('List Bookings Completed Today').item.json.first_name }}! 👋\\n\\nComo foi sua consulta hoje com {{ $('List Bookings Completed Today').item.json.doctor_name }}?\\nDe 0 a 10, qual nota você daria?\\n\\n_Caso não tenha comparecido à consulta, é só ignorar esta mensagem._\"\n  },\n  \"status\": \"open\"\n}",
+          "jsonBody": "={\n  \"contact_id\": {{ ($('Search Contact').item.json.payload && $('Search Contact').item.json.payload[0] && $('Search Contact').item.json.payload[0].id) || 0 }},\n  \"inbox_id\": \"{{ $('List Bookings Completed Today').item.json.chatwoot_inbox_id }}\",\n  \"status\": \"open\",\n  \"message\": {\n    \"content\": \"Olá {{ $('List Bookings Completed Today').item.json.patient_name.split(' ')[0] }}! 👋\\n\\nComo foi sua consulta hoje com {{ $('List Bookings Completed Today').item.json.doctor_name }}?\\nDe 0 a 10, qual nota você daria?\\n\\n_Caso não tenha comparecido à consulta, é só ignorar esta mensagem._\"\n  }\n}",
           "options": {
             "response": {
               "response": {
@@ -556,9 +600,10 @@
         "parameters": {
           "conditions": {
             "options": {
+              "version": 2,
+              "leftValue": "",
               "caseSensitive": true,
-              "typeValidation": "loose",
-              "version": 2
+              "typeValidation": "loose"
             },
             "conditions": [
               {
@@ -639,9 +684,10 @@
         "parameters": {
           "conditions": {
             "options": {
+              "version": 2,
+              "leftValue": "",
               "caseSensitive": true,
-              "typeValidation": "loose",
-              "version": 2
+              "typeValidation": "loose"
             },
             "conditions": [
               {
@@ -702,6 +748,36 @@
             "name": "Postgres account"
           }
         }
+      },
+      {
+        "id": "search-contact-001",
+        "name": "Search Contact",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1800,
+          -96
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "={{ $('List Bookings Completed Today').item.json.chatwoot_url.replace(/\\/$/, '') }}/api/v1/accounts/{{ $('List Bookings Completed Today').item.json.chatwoot_account_id }}/contacts/search?q={{ encodeURIComponent($('List Bookings Completed Today').item.json.patient_phone.replace('+','')) }}",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        },
+        "onError": "continueRegularOutput"
       }
     ],
     "connections": {
@@ -721,17 +797,6 @@
           [
             {
               "node": "Loop Doctors",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Insert Pending": {
-        "main": [
-          [
-            {
-              "node": "Chatwoot Send",
               "type": "main",
               "index": 0
             }
@@ -840,6 +905,28 @@
             }
           ]
         ]
+      },
+      "Insert Pending": {
+        "main": [
+          [
+            {
+              "node": "Search Contact",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Search Contact": {
+        "main": [
+          [
+            {
+              "node": "Chatwoot Send",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "authors": "Luiz Flavio Sa",
@@ -848,18 +935,50 @@
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-05-10T00:52:53.922Z",
-        "id": 249,
+        "createdAt": "2026-05-17T13:29:47.702Z",
+        "id": 371,
         "workflowId": "87vZl62KFCOqFbyI",
-        "versionId": "0eb2180d-7821-49bb-88a7-362b91a7175f",
+        "versionId": "455ef8de-4e95-4f7c-9f07-be3af6dc00dc",
         "event": "deactivated",
         "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
       },
       {
-        "createdAt": "2026-05-10T00:52:53.951Z",
-        "id": 250,
+        "createdAt": "2026-05-17T13:29:47.733Z",
+        "id": 372,
         "workflowId": "87vZl62KFCOqFbyI",
-        "versionId": "0eb2180d-7821-49bb-88a7-362b91a7175f",
+        "versionId": "455ef8de-4e95-4f7c-9f07-be3af6dc00dc",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:48.474Z",
+        "id": 379,
+        "workflowId": "87vZl62KFCOqFbyI",
+        "versionId": "455ef8de-4e95-4f7c-9f07-be3af6dc00dc",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:48.497Z",
+        "id": 380,
+        "workflowId": "87vZl62KFCOqFbyI",
+        "versionId": "455ef8de-4e95-4f7c-9f07-be3af6dc00dc",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:26:41.261Z",
+        "id": 394,
+        "workflowId": "87vZl62KFCOqFbyI",
+        "versionId": "455ef8de-4e95-4f7c-9f07-be3af6dc00dc",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:26:41.284Z",
+        "id": 395,
+        "workflowId": "87vZl62KFCOqFbyI",
+        "versionId": "455ef8de-4e95-4f7c-9f07-be3af6dc00dc",
         "event": "activated",
         "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
       }

@@ -1,0 +1,392 @@
+{
+  "id": "W51oh7Qgbql9gmEm",
+  "name": "ADMIN — Pair Singulare Instance · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "wh1",
+      "name": "Pair Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "options": {},
+        "path": "pair-singulare-admin",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "3dc79d85-c8e8-457c-9841-ccdd6e6c5d10"
+    },
+    {
+      "id": "create1",
+      "name": "Create Singulare Admin Instance",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "instanceName": "singulare-admin",
+        "number": "5511989390155",
+        "options_Create_instance": {
+          "webhook": {
+            "webhookSettings": {
+              "webhookUrl": "https://n8n.singulare.org/webhook/evolution-events-v44"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "connect1",
+      "name": "Connect Singulare Admin",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "instanceName": "singulare-admin",
+        "operation": "instance-connect"
+      },
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "code1",
+      "name": "Build HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const c = $('Connect Singulare Admin').item.json || {};\nconst data = c.data || c.qrcode || c;\nlet qr_base64 = data.base64 || '';\n// Evolution already returns 'data:image/png;base64,...' prefix sometimes; strip if present\nif (qr_base64.startsWith('data:')) {\n  qr_base64 = qr_base64.split(',')[1] || qr_base64;\n}\nconst pair_code = data.pairingCode || '';\nconst qr_string = data.code || '';\nconst connected = data.state === 'open' || data.state === 'connected';\nconst html = `<!DOCTYPE html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Conectar Singulare admin</title><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"refresh\" content=\"25\"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:32px auto;padding:0 16px;color:#18181b;background:#fafaf7}.card{background:#fff;border-radius:16px;padding:24px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 18px 40px -16px rgba(0,0,0,.10)}.pair{font-size:36px;font-weight:700;letter-spacing:6px;font-family:'SF Mono',monospace;background:#f4f4f5;padding:18px 24px;border-radius:12px;text-align:center;margin:8px 0;color:#5746af}.qr{margin:16px 0;text-align:center}.qr img{max-width:280px;border-radius:12px}.small{color:#71717a;font-size:13px;line-height:1.5}h1{font-size:24px;margin:0 0 6px;letter-spacing:-.02em}h3{font-size:15px;margin:28px 0 8px;color:#3f3f46}.tag{display:inline-flex;align-items:center;gap:6px;background:#ecfdf5;color:#047857;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;margin-bottom:8px}.ok{background:#ecfdf5;color:#047857;padding:18px;border-radius:12px;text-align:center;font-weight:600}</style></head><body><div class=\"card\"><div class=\"tag\">SINGULARE • CONFIG</div><h1>Conectar canal admin</h1><p class=\"small\">Número: <strong>+55 11 98939-0155</strong> · Instância: <code>singulare-admin</code></p>${connected ? '<div class=\"ok\">✅ Número conectado. Você já pode fechar esta página.</div>' : ''}${!connected && pair_code ? `<h3>Opção A — Código de pareamento (8 chars)</h3><div class=\"pair\">${pair_code}</div><p class=\"small\">No celular do número acima, abra <strong>WhatsApp</strong> → <strong>Aparelhos Conectados</strong> → <strong>Conectar com número de telefone</strong> → digite o código.</p>` : ''}${!connected && qr_base64 ? `<h3>${pair_code ? 'Opção B' : 'Opção A'} — QR Code</h3><div class=\"qr\"><img src=\"data:image/png;base64,${qr_base64}\" alt=\"QR Code\"></div><p class=\"small\">No celular Singulare, abra <strong>WhatsApp</strong> → <strong>Aparelhos Conectados</strong> → <strong>Conectar um aparelho</strong> → escaneie o QR acima.</p>` : ''}${!connected && !pair_code && !qr_base64 ? '<p class=\"small\" style=\"color:#dc2626\">Não foi possível gerar QR/pair agora. Recarregue a página em 10s.</p>' : ''}<hr style=\"border:none;border-top:1px solid #e4e4e7;margin:24px 0\"><p class=\"small\">${connected ? 'Conectado em ' + new Date().toLocaleString('pt-BR') : 'Os códigos expiram em ~25s. Esta página recarrega sozinha.'}</p></div></body></html>`;\nreturn [{ json: { html, pair_code, qr_string, has_qr: !!qr_base64, connected } }];"
+      }
+    },
+    {
+      "id": "resp1",
+      "name": "Respond HTML",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              }
+            ]
+          }
+        },
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}"
+      }
+    }
+  ],
+  "connections": {
+    "Build HTML": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Respond HTML",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Connect Singulare Admin": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Build HTML",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Create Singulare Admin Instance": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Connect Singulare Admin",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Pair Webhook": {
+      "main": [
+        [
+          {
+            "node": "Create Singulare Admin Instance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "activeVersionId": "38fa5ed0-3a35-41fb-aeee-1a841cddf5a3",
+  "versionCounter": 25,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-12T21:55:18.077Z",
+      "createdAt": "2026-05-12T21:55:18.077Z",
+      "role": "workflow:owner",
+      "workflowId": "W51oh7Qgbql9gmEm",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-15T12:31:33.296Z",
+    "createdAt": "2026-05-15T12:31:33.296Z",
+    "versionId": "38fa5ed0-3a35-41fb-aeee-1a841cddf5a3",
+    "workflowId": "W51oh7Qgbql9gmEm",
+    "nodes": [
+      {
+        "id": "wh1",
+        "name": "Pair Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "GET",
+          "options": {},
+          "path": "pair-singulare-admin",
+          "responseMode": "responseNode"
+        },
+        "webhookId": "3dc79d85-c8e8-457c-9841-ccdd6e6c5d10"
+      },
+      {
+        "id": "create1",
+        "name": "Create Singulare Admin Instance",
+        "type": "n8n-nodes-evolution-api.evolutionApi",
+        "typeVersion": 1,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "instanceName": "singulare-admin",
+          "number": "5511989390155",
+          "options_Create_instance": {
+            "webhook": {
+              "webhookSettings": {
+                "webhookUrl": "https://n8n.singulare.org/webhook/evolution-events-v44"
+              }
+            }
+          }
+        },
+        "credentials": {
+          "evolutionApi": {
+            "id": "yFAQwH6wPqroKla0",
+            "name": "Evolution account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "connect1",
+        "name": "Connect Singulare Admin",
+        "type": "n8n-nodes-evolution-api.evolutionApi",
+        "typeVersion": 1,
+        "position": [
+          480,
+          0
+        ],
+        "parameters": {
+          "instanceName": "singulare-admin",
+          "operation": "instance-connect"
+        },
+        "credentials": {
+          "evolutionApi": {
+            "id": "yFAQwH6wPqroKla0",
+            "name": "Evolution account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "code1",
+        "name": "Build HTML",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          720,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const c = $('Connect Singulare Admin').item.json || {};\nconst data = c.data || c.qrcode || c;\nlet qr_base64 = data.base64 || '';\n// Evolution already returns 'data:image/png;base64,...' prefix sometimes; strip if present\nif (qr_base64.startsWith('data:')) {\n  qr_base64 = qr_base64.split(',')[1] || qr_base64;\n}\nconst pair_code = data.pairingCode || '';\nconst qr_string = data.code || '';\nconst connected = data.state === 'open' || data.state === 'connected';\nconst html = `<!DOCTYPE html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><title>Conectar Singulare admin</title><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta http-equiv=\"refresh\" content=\"25\"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:32px auto;padding:0 16px;color:#18181b;background:#fafaf7}.card{background:#fff;border-radius:16px;padding:24px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 18px 40px -16px rgba(0,0,0,.10)}.pair{font-size:36px;font-weight:700;letter-spacing:6px;font-family:'SF Mono',monospace;background:#f4f4f5;padding:18px 24px;border-radius:12px;text-align:center;margin:8px 0;color:#5746af}.qr{margin:16px 0;text-align:center}.qr img{max-width:280px;border-radius:12px}.small{color:#71717a;font-size:13px;line-height:1.5}h1{font-size:24px;margin:0 0 6px;letter-spacing:-.02em}h3{font-size:15px;margin:28px 0 8px;color:#3f3f46}.tag{display:inline-flex;align-items:center;gap:6px;background:#ecfdf5;color:#047857;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;margin-bottom:8px}.ok{background:#ecfdf5;color:#047857;padding:18px;border-radius:12px;text-align:center;font-weight:600}</style></head><body><div class=\"card\"><div class=\"tag\">SINGULARE • CONFIG</div><h1>Conectar canal admin</h1><p class=\"small\">Número: <strong>+55 11 98939-0155</strong> · Instância: <code>singulare-admin</code></p>${connected ? '<div class=\"ok\">✅ Número conectado. Você já pode fechar esta página.</div>' : ''}${!connected && pair_code ? `<h3>Opção A — Código de pareamento (8 chars)</h3><div class=\"pair\">${pair_code}</div><p class=\"small\">No celular do número acima, abra <strong>WhatsApp</strong> → <strong>Aparelhos Conectados</strong> → <strong>Conectar com número de telefone</strong> → digite o código.</p>` : ''}${!connected && qr_base64 ? `<h3>${pair_code ? 'Opção B' : 'Opção A'} — QR Code</h3><div class=\"qr\"><img src=\"data:image/png;base64,${qr_base64}\" alt=\"QR Code\"></div><p class=\"small\">No celular Singulare, abra <strong>WhatsApp</strong> → <strong>Aparelhos Conectados</strong> → <strong>Conectar um aparelho</strong> → escaneie o QR acima.</p>` : ''}${!connected && !pair_code && !qr_base64 ? '<p class=\"small\" style=\"color:#dc2626\">Não foi possível gerar QR/pair agora. Recarregue a página em 10s.</p>' : ''}<hr style=\"border:none;border-top:1px solid #e4e4e7;margin:24px 0\"><p class=\"small\">${connected ? 'Conectado em ' + new Date().toLocaleString('pt-BR') : 'Os códigos expiram em ~25s. Esta página recarrega sozinha.'}</p></div></body></html>`;\nreturn [{ json: { html, pair_code, qr_string, has_qr: !!qr_base64, connected } }];"
+        }
+      },
+      {
+        "id": "resp1",
+        "name": "Respond HTML",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          960,
+          0
+        ],
+        "parameters": {
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                },
+                {
+                  "name": "Cache-Control",
+                  "value": "no-store"
+                }
+              ]
+            }
+          },
+          "respondWith": "text",
+          "responseBody": "={{ $json.html }}"
+        }
+      }
+    ],
+    "connections": {
+      "Build HTML": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Respond HTML",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Connect Singulare Admin": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Build HTML",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Create Singulare Admin Instance": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "Connect Singulare Admin",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "Pair Webhook": {
+        "main": [
+          [
+            {
+              "node": "Create Singulare Admin Instance",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-15T12:31:33.817Z",
+        "id": 296,
+        "workflowId": "W51oh7Qgbql9gmEm",
+        "versionId": "38fa5ed0-3a35-41fb-aeee-1a841cddf5a3",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-15T12:31:33.844Z",
+        "id": 297,
+        "workflowId": "W51oh7Qgbql9gmEm",
+        "versionId": "38fa5ed0-3a35-41fb-aeee-1a841cddf5a3",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:55.777Z",
+        "id": 389,
+        "workflowId": "W51oh7Qgbql9gmEm",
+        "versionId": "38fa5ed0-3a35-41fb-aeee-1a841cddf5a3",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:55.800Z",
+        "id": 390,
+        "workflowId": "W51oh7Qgbql9gmEm",
+        "versionId": "38fa5ed0-3a35-41fb-aeee-1a841cddf5a3",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

@@ -1,0 +1,412 @@
+{
+  "id": "PoYzFl7zlUZ4U6L7",
+  "name": "I03 — Healthcheck Silent Workflows · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "schedule-6h",
+      "name": "A cada 6h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "list-workflows",
+      "name": "List Active Workflows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://n8n.singulare.org/api/v1/workflows?active=true&limit=250",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "vNZ7NEqlqEo9PeKM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "filter-triggers",
+      "name": "Filter Has Trigger",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Emite 1 item por workflow ativo que tem trigger próprio.\n// Exclui sub-workflows (executeWorkflowTrigger sem schedule/webhook).\nconst body = $input.first().json;\nconst workflows = body.data || [];\nconst out = [];\nfor (const wf of workflows) {\n  if ((wf.triggerCount || 0) === 0) continue;\n  out.push({ json: { workflow_id: wf.id, workflow_name: wf.name, triggerCount: wf.triggerCount } });\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "last-exec",
+      "name": "Get Last Execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://n8n.singulare.org/api/v1/executions?workflowId={{ $json.workflow_id }}&limit=1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "vNZ7NEqlqEo9PeKM",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "classify",
+      "name": "Classify Stale or Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Emite item APENAS se workflow está silent (>24h sem exec) ou última foi erro.\nconst items = $input.all();\nconst out = [];\nconst NOW = Date.now();\nconst H24_MS = 24 * 60 * 60 * 1000;\nfor (let i = 0; i < items.length; i++) {\n  const upstream = $('Filter Has Trigger').itemMatching(i).json;\n  const wfId = upstream.workflow_id;\n  const wfName = upstream.workflow_name;\n  const body = items[i].json || {};\n  const execs = body.data || [];\n  const last = execs[0];\n  if (!last) {\n    out.push({ json: { workflow_id: wfId, workflow_name: wfName, reason: 'never_executed', hours_ago: null, exec_id: null, status: null } });\n    continue;\n  }\n  const startedAt = last.startedAt ? new Date(last.startedAt).getTime() : 0;\n  const hoursAgo = startedAt ? Math.round((NOW - startedAt) / 3600000) : null;\n  if (last.status === 'error') {\n    out.push({ json: { workflow_id: wfId, workflow_name: wfName, reason: 'last_was_error', hours_ago: hoursAgo, exec_id: last.id, status: 'error' } });\n  } else if (hoursAgo !== null && hoursAgo > 24) {\n    out.push({ json: { workflow_id: wfId, workflow_name: wfName, reason: 'stale_>24h', hours_ago: hoursAgo, exec_id: last.id, status: last.status } });\n  }\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "log-alert",
+      "name": "Log per Alert",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.n8n_historico_mensagens (session_id, tenant_id, message)\nVALUES (\n  'system_healthcheck_silent',\n  'admin-system',\n  jsonb_build_object(\n    'type', 'tool',\n    'name', 'healthcheck_silent',\n    'content', jsonb_build_object(\n      'workflow_id',    $1::text,\n      'workflow_name',  $2::text,\n      'reason',         $3::text,\n      'hours_ago',      $4::text,\n      'exec_id',        $5::text,\n      'status',         $6::text,\n      'checked_at',     $7::text\n    ),\n    'tool_call_id', 'hc_' || $8::text\n  )\n);",
+        "options": {
+          "queryReplacement": "={{ $json.workflow_id }},{{ $json.workflow_name }},{{ $json.reason }},{{ $json.hours_ago || '' }},{{ $json.exec_id || '' }},{{ $json.status || '' }},{{ $now.toISO() }},{{ $now.toMillis() }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "A cada 6h": {
+      "main": [
+        [
+          {
+            "node": "List Active Workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Active Workflows": {
+      "main": [
+        [
+          {
+            "node": "Filter Has Trigger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Has Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Last Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Execution": {
+      "main": [
+        [
+          {
+            "node": "Classify Stale or Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Stale or Error": {
+      "main": [
+        [
+          {
+            "node": "Log per Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "errorWorkflow": "rONCEa2neV3XyBBX"
+  },
+  "staticData": {
+    "node:A cada 6h": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "pinData": null,
+  "activeVersionId": "b7dade06-c479-4636-9174-44b1f7fae8a7",
+  "versionCounter": 4,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-17T14:55:30.251Z",
+      "createdAt": "2026-05-17T14:55:30.251Z",
+      "role": "workflow:owner",
+      "workflowId": "PoYzFl7zlUZ4U6L7",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-17T14:55:30.251Z",
+    "createdAt": "2026-05-17T14:55:30.251Z",
+    "versionId": "b7dade06-c479-4636-9174-44b1f7fae8a7",
+    "workflowId": "PoYzFl7zlUZ4U6L7",
+    "nodes": [
+      {
+        "id": "schedule-6h",
+        "name": "A cada 6h",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "hours",
+                "hoursInterval": 6
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "list-workflows",
+        "name": "List Active Workflows",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "https://n8n.singulare.org/api/v1/workflows?active=true&limit=250",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "vNZ7NEqlqEo9PeKM",
+            "name": "Header Auth account"
+          }
+        }
+      },
+      {
+        "id": "filter-triggers",
+        "name": "Filter Has Trigger",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// Emite 1 item por workflow ativo que tem trigger próprio.\n// Exclui sub-workflows (executeWorkflowTrigger sem schedule/webhook).\nconst body = $input.first().json;\nconst workflows = body.data || [];\nconst out = [];\nfor (const wf of workflows) {\n  if ((wf.triggerCount || 0) === 0) continue;\n  out.push({ json: { workflow_id: wf.id, workflow_name: wf.name, triggerCount: wf.triggerCount } });\n}\nreturn out;"
+        }
+      },
+      {
+        "id": "last-exec",
+        "name": "Get Last Execution",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          720,
+          0
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "=https://n8n.singulare.org/api/v1/executions?workflowId={{ $json.workflow_id }}&limit=1",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {}
+        },
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "vNZ7NEqlqEo9PeKM",
+            "name": "Header Auth account"
+          }
+        }
+      },
+      {
+        "id": "classify",
+        "name": "Classify Stale or Error",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          960,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// Emite item APENAS se workflow está silent (>24h sem exec) ou última foi erro.\nconst items = $input.all();\nconst out = [];\nconst NOW = Date.now();\nconst H24_MS = 24 * 60 * 60 * 1000;\nfor (let i = 0; i < items.length; i++) {\n  const upstream = $('Filter Has Trigger').itemMatching(i).json;\n  const wfId = upstream.workflow_id;\n  const wfName = upstream.workflow_name;\n  const body = items[i].json || {};\n  const execs = body.data || [];\n  const last = execs[0];\n  if (!last) {\n    out.push({ json: { workflow_id: wfId, workflow_name: wfName, reason: 'never_executed', hours_ago: null, exec_id: null, status: null } });\n    continue;\n  }\n  const startedAt = last.startedAt ? new Date(last.startedAt).getTime() : 0;\n  const hoursAgo = startedAt ? Math.round((NOW - startedAt) / 3600000) : null;\n  if (last.status === 'error') {\n    out.push({ json: { workflow_id: wfId, workflow_name: wfName, reason: 'last_was_error', hours_ago: hoursAgo, exec_id: last.id, status: 'error' } });\n  } else if (hoursAgo !== null && hoursAgo > 24) {\n    out.push({ json: { workflow_id: wfId, workflow_name: wfName, reason: 'stale_>24h', hours_ago: hoursAgo, exec_id: last.id, status: last.status } });\n  }\n}\nreturn out;"
+        }
+      },
+      {
+        "id": "log-alert",
+        "name": "Log per Alert",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          1200,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO public.n8n_historico_mensagens (session_id, tenant_id, message)\nVALUES (\n  'system_healthcheck_silent',\n  'admin-system',\n  jsonb_build_object(\n    'type', 'tool',\n    'name', 'healthcheck_silent',\n    'content', jsonb_build_object(\n      'workflow_id',    $1::text,\n      'workflow_name',  $2::text,\n      'reason',         $3::text,\n      'hours_ago',      $4::text,\n      'exec_id',        $5::text,\n      'status',         $6::text,\n      'checked_at',     $7::text\n    ),\n    'tool_call_id', 'hc_' || $8::text\n  )\n);",
+          "options": {
+            "queryReplacement": "={{ $json.workflow_id }},{{ $json.workflow_name }},{{ $json.reason }},{{ $json.hours_ago || '' }},{{ $json.exec_id || '' }},{{ $json.status || '' }},{{ $now.toISO() }},{{ $now.toMillis() }}"
+          }
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      }
+    ],
+    "connections": {
+      "A cada 6h": {
+        "main": [
+          [
+            {
+              "node": "List Active Workflows",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "List Active Workflows": {
+        "main": [
+          [
+            {
+              "node": "Filter Has Trigger",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Filter Has Trigger": {
+        "main": [
+          [
+            {
+              "node": "Get Last Execution",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Last Execution": {
+        "main": [
+          [
+            {
+              "node": "Classify Stale or Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Classify Stale or Error": {
+        "main": [
+          [
+            {
+              "node": "Log per Alert",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-17T14:55:58.012Z",
+        "id": 430,
+        "workflowId": "PoYzFl7zlUZ4U6L7",
+        "versionId": "b7dade06-c479-4636-9174-44b1f7fae8a7",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
+}

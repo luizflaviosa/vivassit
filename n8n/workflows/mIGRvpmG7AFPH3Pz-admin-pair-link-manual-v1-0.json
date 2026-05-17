@@ -1,0 +1,135 @@
+{
+  "id": "mIGRvpmG7AFPH3Pz",
+  "name": "ADMIN — Pair Link (manual) · v1.0",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "wh1",
+      "name": "Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-pair-link-luiz",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "79d2ea62-d3f0-46d3-b34f-b0d4a8b7b1d1"
+    },
+    {
+      "id": "send1",
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "resource": "messages-api",
+        "operation": "send-text",
+        "instanceName": "Dra. Paula Franzon",
+        "remoteJid": "5511945671290@s.whatsapp.net",
+        "messageText": "Link da página de QR (fresh):\nhttps://n8n.singulare.org/webhook/pair-singulare-admin\n\nComo o QR fica num app diferente (WA Business) e você quer parear pelo iPhone:\n\nOpção 1 — abrir a página num *outro* device (notebook, outro celular) e escanear com a câmera do WA Business no iPhone. Mais fácil.\n\nOpção 2 — só com o iPhone:\n1. Abre o link no Safari, segura o QR no dedo\n2. Tira print da tela\n3. Abre WhatsApp Business → Aparelhos Conectados → Conectar um aparelho\n4. Toca no ícone de foto e seleciona o print\n\n(O QR expira em ~25s. Se não der, recarrega a página e tenta de novo.)"
+      },
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "ret1",
+      "name": "Return Status",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "status",
+              "value": "sent",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "to",
+              "value": "5511945671290",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Return Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "activeVersionId": null,
+  "versionCounter": 33,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-12T21:57:15.086Z",
+      "createdAt": "2026-05-12T21:57:15.086Z",
+      "role": "workflow:owner",
+      "workflowId": "mIGRvpmG7AFPH3Pz",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

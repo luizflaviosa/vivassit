@@ -1,643 +1,648 @@
 {
-    "updatedAt": "2026-05-16T21:32:24.175Z",
-    "createdAt": "2026-05-16T21:31:31.325Z",
-    "id": "3amcK8x2libj7opK",
-    "name": "T08 \u2014 safe_confirm_proposed_reschedule \u00b7 v1.0",
-    "description": null,
-    "active": true,
-    "isArchived": false,
-    "nodes": [
-        {
-            "id": "wf-trigger-t08",
-            "name": "When Called",
-            "type": "n8n-nodes-base.executeWorkflowTrigger",
-            "typeVersion": 1.1,
-            "position": [
-                0,
-                0
-            ],
-            "parameters": {
-                "inputSource": "workflowInputs",
-                "workflowInputs": {
-                    "values": [
-                        {
-                            "name": "booking_id",
-                            "type": "string"
-                        },
-                        {
-                            "name": "tenant_id",
-                            "type": "string"
-                        }
-                    ]
-                }
+  "id": "3amcK8x2libj7opK",
+  "name": "T08 — safe_confirm_proposed_reschedule · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "wf-trigger-t08",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "booking_id",
+              "type": "string"
+            },
+            {
+              "name": "tenant_id",
+              "type": "string"
             }
-        },
-        {
-            "id": "pg-ctx-t08",
-            "name": "Resolver contexto",
-            "type": "n8n-nodes-base.postgres",
-            "typeVersion": 2.6,
-            "position": [
-                224,
-                0
-            ],
-            "parameters": {
-                "operation": "executeQuery",
-                "query": "=SELECT b.id AS booking_id, b.calendar_event_id, b.conversation_id, b.patient_name, t.chatwoot_url, t.chatwoot_account_id, td.calendar_id FROM public.doctor_bookings b JOIN public.tenants t ON t.tenant_id = b.tenant_id JOIN public.tenant_doctors td ON td.id = b.doctor_id WHERE b.id = '{{ $json.booking_id }}'::uuid AND b.tenant_id = '{{ $json.tenant_id }}' LIMIT 1",
-                "options": {}
-            },
-            "credentials": {
-                "postgres": {
-                    "id": "2MWvHIrEZHdAbAz1",
-                    "name": "Postgres account"
-                }
-            }
-        },
-        {
-            "id": "pg-confirm-t08",
-            "name": "Chamar fn_confirm",
-            "type": "n8n-nodes-base.postgres",
-            "typeVersion": 2.6,
-            "position": [
-                448,
-                0
-            ],
-            "parameters": {
-                "operation": "executeQuery",
-                "query": "=SELECT public.fn_confirm_proposed_reschedule('{{ $('When Called').first().json.booking_id }}'::uuid, '{{ $('When Called').first().json.tenant_id }}') AS result",
-                "options": {}
-            },
-            "credentials": {
-                "postgres": {
-                    "id": "2MWvHIrEZHdAbAz1",
-                    "name": "Postgres account"
-                }
-            }
-        },
-        {
-            "id": "code-check-t08",
-            "name": "Sucesso?",
-            "type": "n8n-nodes-base.code",
-            "typeVersion": 2,
-            "position": [
-                672,
-                0
-            ],
-            "parameters": {
-                "mode": "runOnceForEachItem",
-                "jsCode": "const result = $input.item.json.result || {};\nconst ctx = $('Resolver contexto').first().json;\nreturn { json: { success: result.success === true, db_result: result, ctx: ctx } };"
-            }
-        },
-        {
-            "id": "http-cal-update-t08",
-            "name": "Limpar [PROPOSTO] do Calendar",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4.2,
-            "position": [
-                896,
-                -128
-            ],
-            "parameters": {
-                "method": "PATCH",
-                "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($json.ctx.calendar_id) }}/events/{{ $json.ctx.calendar_event_id }}",
-                "authentication": "predefinedCredentialType",
-                "nodeCredentialType": "googleCalendarOAuth2Api",
-                "sendBody": true,
-                "contentType": "json",
-                "specifyBody": "json",
-                "jsonBody": "={ \"summary\": {{ JSON.stringify((($json.db_result || {}).patient_name) || 'Consulta') }} }",
-                "options": {}
-            },
-            "credentials": {
-                "googleCalendarOAuth2Api": {
-                    "id": "OkOV7izIvJcvD3wl",
-                    "name": "Google Calendar account"
-                }
-            },
-            "onError": "continueRegularOutput"
-        },
-        {
-            "id": "http-labels-get-t08",
-            "name": "Listar labels conversa",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4.2,
-            "position": [
-                1120,
-                -128
-            ],
-            "parameters": {
-                "method": "GET",
-                "url": "={{ $('Sucesso?').first().json.ctx.chatwoot_url }}api/v1/accounts/{{ $('Sucesso?').first().json.ctx.chatwoot_account_id }}/conversations/{{ $('Sucesso?').first().json.ctx.conversation_id }}/labels",
-                "authentication": "predefinedCredentialType",
-                "nodeCredentialType": "chatwootApi",
-                "options": {}
-            },
-            "credentials": {
-                "chatwootApi": {
-                    "id": "6RGRnozwwfQx8hHl",
-                    "name": "ChatWoot account"
-                }
-            },
-            "onError": "continueRegularOutput"
-        },
-        {
-            "id": "http-labels-put-t08",
-            "name": "Remover label aguardando_reagendamento",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4.2,
-            "position": [
-                1344,
-                -128
-            ],
-            "parameters": {
-                "method": "POST",
-                "url": "={{ $('Sucesso?').first().json.ctx.chatwoot_url }}api/v1/accounts/{{ $('Sucesso?').first().json.ctx.chatwoot_account_id }}/conversations/{{ $('Sucesso?').first().json.ctx.conversation_id }}/labels",
-                "authentication": "predefinedCredentialType",
-                "nodeCredentialType": "chatwootApi",
-                "sendBody": true,
-                "bodyParameters": {
-                    "parameters": [
-                        {
-                            "name": "labels",
-                            "value": "={{ ($json.payload || []).filter(l => l !== 'aguardando_reagendamento') }}"
-                        }
-                    ]
-                },
-                "options": {}
-            },
-            "credentials": {
-                "chatwootApi": {
-                    "id": "6RGRnozwwfQx8hHl",
-                    "name": "ChatWoot account"
-                }
-            },
-            "onError": "continueRegularOutput"
-        },
-        {
-            "id": "set-return-t08",
-            "name": "Resposta ao agente",
-            "type": "n8n-nodes-base.set",
-            "typeVersion": 3.4,
-            "position": [
-                1568,
-                0
-            ],
-            "parameters": {
-                "assignments": {
-                    "assignments": [
-                        {
-                            "id": "r1",
-                            "name": "success",
-                            "value": "={{ $('Sucesso?').first().json.success }}",
-                            "type": "boolean"
-                        },
-                        {
-                            "id": "r2",
-                            "name": "message",
-                            "value": "={{ $('Sucesso?').first().json.success ? 'Reagendamento confirmado com sucesso. Avise o paciente: \\'Pronto! Sua consulta foi remarcada e o novo horario ja esta confirmado.\\' NAO chame esta ferramenta novamente.' : ('Falha ao confirmar: ' + (($('Sucesso?').first().json.db_result || {}).message || 'erro desconhecido')) }}",
-                            "type": "string"
-                        }
-                    ]
-                },
-                "options": {}
-            }
-        },
-        {
-            "id": "sticky-t08-doc",
-            "name": "Doc",
-            "type": "n8n-nodes-base.stickyNote",
-            "typeVersion": 1,
-            "position": [
-                0,
-                -224
-            ],
-            "parameters": {
-                "content": "## T08 - safe_confirm_proposed_reschedule\n\nUsado pelo P01 quando paciente aceita uma proposta de reagendamento enviada pela clinica via UI.\n\n1. Resolve calendar_id, conversation_id etc via JOIN tenants + tenant_doctors\n2. Chama fn_confirm_proposed_reschedule (status: pending -> booked, limpa proposed_*)\n3. Tira [PROPOSTO] do titulo do Calendar event (best-effort)\n4. Remove label aguardando_reagendamento da conversa (best-effort)\n5. Retorna string pro agente confirmar ao paciente",
-                "height": 200,
-                "width": 540,
-                "color": 4
-            }
+          ]
         }
+      }
+    },
+    {
+      "id": "pg-ctx-t08",
+      "name": "Resolver contexto",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT b.id AS booking_id, b.calendar_event_id, b.conversation_id, b.patient_name, t.chatwoot_url, t.chatwoot_account_id, td.calendar_id FROM public.doctor_bookings b JOIN public.tenants t ON t.tenant_id = b.tenant_id JOIN public.tenant_doctors td ON td.id = b.doctor_id WHERE b.id = '{{ $json.booking_id }}'::uuid AND b.tenant_id = '{{ $json.tenant_id }}' LIMIT 1",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "pg-confirm-t08",
+      "name": "Chamar fn_confirm",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT public.fn_confirm_proposed_reschedule('{{ $('When Called').first().json.booking_id }}'::uuid, '{{ $('When Called').first().json.tenant_id }}') AS result",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "code-check-t08",
+      "name": "Sucesso?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const result = $input.item.json.result || {};\nconst ctx = $('Resolver contexto').first().json;\nreturn { json: { success: result.success === true, db_result: result, ctx: ctx } };"
+      }
+    },
+    {
+      "id": "http-cal-update-t08",
+      "name": "Limpar [PROPOSTO] do Calendar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        -128
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($json.ctx.calendar_id) }}/events/{{ $json.ctx.calendar_event_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={ \"summary\": {{ JSON.stringify((($json.db_result || {}).patient_name) || 'Consulta') }} }",
+        "options": {}
+      },
+      "credentials": {
+        "googleApi": {
+          "id": "co3SxRBKRqtJRGpa",
+          "name": "Google Service Account account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "http-labels-get-t08",
+      "name": "Listar labels conversa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        -128
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Sucesso?').first().json.ctx.chatwoot_url }}api/v1/accounts/{{ $('Sucesso?').first().json.ctx.chatwoot_account_id }}/conversations/{{ $('Sucesso?').first().json.ctx.conversation_id }}/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "options": {}
+      },
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "http-labels-put-t08",
+      "name": "Remover label aguardando_reagendamento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1344,
+        -128
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Sucesso?').first().json.ctx.chatwoot_url }}api/v1/accounts/{{ $('Sucesso?').first().json.ctx.chatwoot_account_id }}/conversations/{{ $('Sucesso?').first().json.ctx.conversation_id }}/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "labels",
+              "value": "={{ ($json.payload || []).filter(l => l !== 'aguardando_reagendamento') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "set-return-t08",
+      "name": "Resposta ao agente",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1568,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "success",
+              "value": "={{ $('Sucesso?').first().json.success }}",
+              "type": "boolean"
+            },
+            {
+              "id": "r2",
+              "name": "message",
+              "value": "={{ $('Sucesso?').first().json.success ? 'Reagendamento confirmado com sucesso. Avise o paciente: \\'Pronto! Sua consulta foi remarcada e o novo horario ja esta confirmado.\\' NAO chame esta ferramenta novamente.' : ('Falha ao confirmar: ' + (($('Sucesso?').first().json.db_result || {}).message || 'erro desconhecido')) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "sticky-t08-doc",
+      "name": "Doc",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -224
+      ],
+      "parameters": {
+        "content": "## T08 - safe_confirm_proposed_reschedule\n\nUsado pelo P01 quando paciente aceita uma proposta de reagendamento enviada pela clinica via UI.\n\n1. Resolve calendar_id, conversation_id etc via JOIN tenants + tenant_doctors\n2. Chama fn_confirm_proposed_reschedule (status: pending -> booked, limpa proposed_*)\n3. Tira [PROPOSTO] do titulo do Calendar event (best-effort)\n4. Remove label aguardando_reagendamento da conversa (best-effort)\n5. Retorna string pro agente confirmar ao paciente",
+        "height": 200,
+        "width": 540,
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Resolver contexto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolver contexto": {
+      "main": [
+        [
+          {
+            "node": "Chamar fn_confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chamar fn_confirm": {
+      "main": [
+        [
+          {
+            "node": "Sucesso?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sucesso?": {
+      "main": [
+        [
+          {
+            "node": "Limpar [PROPOSTO] do Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpar [PROPOSTO] do Calendar": {
+      "main": [
+        [
+          {
+            "node": "Listar labels conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar labels conversa": {
+      "main": [
+        [
+          {
+            "node": "Remover label aguardando_reagendamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remover label aguardando_reagendamento": {
+      "main": [
+        [
+          {
+            "node": "Resposta ao agente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "activeVersionId": "7cb260b9-8237-4c4a-b8c6-6d6ceee86eb3",
+  "versionCounter": 7,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-16T21:31:31.325Z",
+      "createdAt": "2026-05-16T21:31:31.325Z",
+      "role": "workflow:owner",
+      "workflowId": "3amcK8x2libj7opK",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-17T15:01:37.617Z",
+    "createdAt": "2026-05-17T15:01:37.617Z",
+    "versionId": "7cb260b9-8237-4c4a-b8c6-6d6ceee86eb3",
+    "workflowId": "3amcK8x2libj7opK",
+    "nodes": [
+      {
+        "id": "wf-trigger-t08",
+        "name": "When Called",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "inputSource": "workflowInputs",
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "booking_id",
+                "type": "string"
+              },
+              {
+                "name": "tenant_id",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "pg-ctx-t08",
+        "name": "Resolver contexto",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          224,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=SELECT b.id AS booking_id, b.calendar_event_id, b.conversation_id, b.patient_name, t.chatwoot_url, t.chatwoot_account_id, td.calendar_id FROM public.doctor_bookings b JOIN public.tenants t ON t.tenant_id = b.tenant_id JOIN public.tenant_doctors td ON td.id = b.doctor_id WHERE b.id = '{{ $json.booking_id }}'::uuid AND b.tenant_id = '{{ $json.tenant_id }}' LIMIT 1",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "pg-confirm-t08",
+        "name": "Chamar fn_confirm",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          448,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=SELECT public.fn_confirm_proposed_reschedule('{{ $('When Called').first().json.booking_id }}'::uuid, '{{ $('When Called').first().json.tenant_id }}') AS result",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "code-check-t08",
+        "name": "Sucesso?",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          672,
+          0
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const result = $input.item.json.result || {};\nconst ctx = $('Resolver contexto').first().json;\nreturn { json: { success: result.success === true, db_result: result, ctx: ctx } };"
+        }
+      },
+      {
+        "id": "http-cal-update-t08",
+        "name": "Limpar [PROPOSTO] do Calendar",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          896,
+          -128
+        ],
+        "parameters": {
+          "method": "PATCH",
+          "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($json.ctx.calendar_id) }}/events/{{ $json.ctx.calendar_event_id }}",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "googleApi",
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={ \"summary\": {{ JSON.stringify((($json.db_result || {}).patient_name) || 'Consulta') }} }",
+          "options": {}
+        },
+        "credentials": {
+          "googleApi": {
+            "id": "co3SxRBKRqtJRGpa",
+            "name": "Google Service Account account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "http-labels-get-t08",
+        "name": "Listar labels conversa",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1120,
+          -128
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "={{ $('Sucesso?').first().json.ctx.chatwoot_url }}api/v1/accounts/{{ $('Sucesso?').first().json.ctx.chatwoot_account_id }}/conversations/{{ $('Sucesso?').first().json.ctx.conversation_id }}/labels",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "options": {}
+        },
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "http-labels-put-t08",
+        "name": "Remover label aguardando_reagendamento",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1344,
+          -128
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('Sucesso?').first().json.ctx.chatwoot_url }}api/v1/accounts/{{ $('Sucesso?').first().json.ctx.chatwoot_account_id }}/conversations/{{ $('Sucesso?').first().json.ctx.conversation_id }}/labels",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "labels",
+                "value": "={{ ($json.payload || []).filter(l => l !== 'aguardando_reagendamento') }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "set-return-t08",
+        "name": "Resposta ao agente",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1568,
+          0
+        ],
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "r1",
+                "name": "success",
+                "value": "={{ $('Sucesso?').first().json.success }}",
+                "type": "boolean"
+              },
+              {
+                "id": "r2",
+                "name": "message",
+                "value": "={{ $('Sucesso?').first().json.success ? 'Reagendamento confirmado com sucesso. Avise o paciente: \\'Pronto! Sua consulta foi remarcada e o novo horario ja esta confirmado.\\' NAO chame esta ferramenta novamente.' : ('Falha ao confirmar: ' + (($('Sucesso?').first().json.db_result || {}).message || 'erro desconhecido')) }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "sticky-t08-doc",
+        "name": "Doc",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          0,
+          -224
+        ],
+        "parameters": {
+          "content": "## T08 - safe_confirm_proposed_reschedule\n\nUsado pelo P01 quando paciente aceita uma proposta de reagendamento enviada pela clinica via UI.\n\n1. Resolve calendar_id, conversation_id etc via JOIN tenants + tenant_doctors\n2. Chama fn_confirm_proposed_reschedule (status: pending -> booked, limpa proposed_*)\n3. Tira [PROPOSTO] do titulo do Calendar event (best-effort)\n4. Remove label aguardando_reagendamento da conversa (best-effort)\n5. Retorna string pro agente confirmar ao paciente",
+          "height": 200,
+          "width": 540,
+          "color": 4
+        }
+      }
     ],
     "connections": {
-        "When Called": {
-            "main": [
-                [
-                    {
-                        "node": "Resolver contexto",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Resolver contexto": {
-            "main": [
-                [
-                    {
-                        "node": "Chamar fn_confirm",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Chamar fn_confirm": {
-            "main": [
-                [
-                    {
-                        "node": "Sucesso?",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Sucesso?": {
-            "main": [
-                [
-                    {
-                        "node": "Limpar [PROPOSTO] do Calendar",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Limpar [PROPOSTO] do Calendar": {
-            "main": [
-                [
-                    {
-                        "node": "Listar labels conversa",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Listar labels conversa": {
-            "main": [
-                [
-                    {
-                        "node": "Remover label aguardando_reagendamento",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Remover label aguardando_reagendamento": {
-            "main": [
-                [
-                    {
-                        "node": "Resposta ao agente",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        }
-    },
-    "settings": {
-        "executionOrder": "v1"
-    },
-    "staticData": null,
-    "meta": null,
-    "pinData": null,
-    "versionId": "14f8b359-e420-4959-859b-79d754a60d84",
-    "activeVersionId": "14f8b359-e420-4959-859b-79d754a60d84",
-    "versionCounter": 4,
-    "triggerCount": 0,
-    "shared": [
-        {
-            "updatedAt": "2026-05-16T21:31:31.325Z",
-            "createdAt": "2026-05-16T21:31:31.325Z",
-            "role": "workflow:owner",
-            "workflowId": "3amcK8x2libj7opK",
-            "projectId": "2cGyYwvKw4dDUUz9",
-            "project": {
-                "updatedAt": "2026-05-04T21:21:30.902Z",
-                "createdAt": "2026-05-04T21:15:25.493Z",
-                "id": "2cGyYwvKw4dDUUz9",
-                "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
-                "type": "personal",
-                "icon": null,
-                "description": null,
-                "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      "When Called": {
+        "main": [
+          [
+            {
+              "node": "Resolver contexto",
+              "type": "main",
+              "index": 0
             }
-        }
-    ],
-    "tags": [],
-    "activeVersion": {
-        "updatedAt": "2026-05-16T21:31:31.325Z",
-        "createdAt": "2026-05-16T21:31:31.325Z",
-        "versionId": "14f8b359-e420-4959-859b-79d754a60d84",
-        "workflowId": "3amcK8x2libj7opK",
-        "nodes": [
-            {
-                "id": "wf-trigger-t08",
-                "name": "When Called",
-                "type": "n8n-nodes-base.executeWorkflowTrigger",
-                "typeVersion": 1.1,
-                "position": [
-                    0,
-                    0
-                ],
-                "parameters": {
-                    "inputSource": "workflowInputs",
-                    "workflowInputs": {
-                        "values": [
-                            {
-                                "name": "booking_id",
-                                "type": "string"
-                            },
-                            {
-                                "name": "tenant_id",
-                                "type": "string"
-                            }
-                        ]
-                    }
-                }
-            },
-            {
-                "id": "pg-ctx-t08",
-                "name": "Resolver contexto",
-                "type": "n8n-nodes-base.postgres",
-                "typeVersion": 2.6,
-                "position": [
-                    224,
-                    0
-                ],
-                "parameters": {
-                    "operation": "executeQuery",
-                    "query": "=SELECT b.id AS booking_id, b.calendar_event_id, b.conversation_id, b.patient_name, t.chatwoot_url, t.chatwoot_account_id, td.calendar_id FROM public.doctor_bookings b JOIN public.tenants t ON t.tenant_id = b.tenant_id JOIN public.tenant_doctors td ON td.id = b.doctor_id WHERE b.id = '{{ $json.booking_id }}'::uuid AND b.tenant_id = '{{ $json.tenant_id }}' LIMIT 1",
-                    "options": {}
-                },
-                "credentials": {
-                    "postgres": {
-                        "id": "2MWvHIrEZHdAbAz1",
-                        "name": "Postgres account"
-                    }
-                }
-            },
-            {
-                "id": "pg-confirm-t08",
-                "name": "Chamar fn_confirm",
-                "type": "n8n-nodes-base.postgres",
-                "typeVersion": 2.6,
-                "position": [
-                    448,
-                    0
-                ],
-                "parameters": {
-                    "operation": "executeQuery",
-                    "query": "=SELECT public.fn_confirm_proposed_reschedule('{{ $('When Called').first().json.booking_id }}'::uuid, '{{ $('When Called').first().json.tenant_id }}') AS result",
-                    "options": {}
-                },
-                "credentials": {
-                    "postgres": {
-                        "id": "2MWvHIrEZHdAbAz1",
-                        "name": "Postgres account"
-                    }
-                }
-            },
-            {
-                "id": "code-check-t08",
-                "name": "Sucesso?",
-                "type": "n8n-nodes-base.code",
-                "typeVersion": 2,
-                "position": [
-                    672,
-                    0
-                ],
-                "parameters": {
-                    "mode": "runOnceForEachItem",
-                    "jsCode": "const result = $input.item.json.result || {};\nconst ctx = $('Resolver contexto').first().json;\nreturn { json: { success: result.success === true, db_result: result, ctx: ctx } };"
-                }
-            },
-            {
-                "id": "http-cal-update-t08",
-                "name": "Limpar [PROPOSTO] do Calendar",
-                "type": "n8n-nodes-base.httpRequest",
-                "typeVersion": 4.2,
-                "position": [
-                    896,
-                    -128
-                ],
-                "parameters": {
-                    "method": "PATCH",
-                    "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($json.ctx.calendar_id) }}/events/{{ $json.ctx.calendar_event_id }}",
-                    "authentication": "predefinedCredentialType",
-                    "nodeCredentialType": "googleCalendarOAuth2Api",
-                    "sendBody": true,
-                    "contentType": "json",
-                    "specifyBody": "json",
-                    "jsonBody": "={ \"summary\": {{ JSON.stringify((($json.db_result || {}).patient_name) || 'Consulta') }} }",
-                    "options": {}
-                },
-                "credentials": {
-                    "googleCalendarOAuth2Api": {
-                        "id": "OkOV7izIvJcvD3wl",
-                        "name": "Google Calendar account"
-                    }
-                },
-                "onError": "continueRegularOutput"
-            },
-            {
-                "id": "http-labels-get-t08",
-                "name": "Listar labels conversa",
-                "type": "n8n-nodes-base.httpRequest",
-                "typeVersion": 4.2,
-                "position": [
-                    1120,
-                    -128
-                ],
-                "parameters": {
-                    "method": "GET",
-                    "url": "={{ $('Sucesso?').first().json.ctx.chatwoot_url }}api/v1/accounts/{{ $('Sucesso?').first().json.ctx.chatwoot_account_id }}/conversations/{{ $('Sucesso?').first().json.ctx.conversation_id }}/labels",
-                    "authentication": "predefinedCredentialType",
-                    "nodeCredentialType": "chatwootApi",
-                    "options": {}
-                },
-                "credentials": {
-                    "chatwootApi": {
-                        "id": "6RGRnozwwfQx8hHl",
-                        "name": "ChatWoot account"
-                    }
-                },
-                "onError": "continueRegularOutput"
-            },
-            {
-                "id": "http-labels-put-t08",
-                "name": "Remover label aguardando_reagendamento",
-                "type": "n8n-nodes-base.httpRequest",
-                "typeVersion": 4.2,
-                "position": [
-                    1344,
-                    -128
-                ],
-                "parameters": {
-                    "method": "POST",
-                    "url": "={{ $('Sucesso?').first().json.ctx.chatwoot_url }}api/v1/accounts/{{ $('Sucesso?').first().json.ctx.chatwoot_account_id }}/conversations/{{ $('Sucesso?').first().json.ctx.conversation_id }}/labels",
-                    "authentication": "predefinedCredentialType",
-                    "nodeCredentialType": "chatwootApi",
-                    "sendBody": true,
-                    "bodyParameters": {
-                        "parameters": [
-                            {
-                                "name": "labels",
-                                "value": "={{ ($json.payload || []).filter(l => l !== 'aguardando_reagendamento') }}"
-                            }
-                        ]
-                    },
-                    "options": {}
-                },
-                "credentials": {
-                    "chatwootApi": {
-                        "id": "6RGRnozwwfQx8hHl",
-                        "name": "ChatWoot account"
-                    }
-                },
-                "onError": "continueRegularOutput"
-            },
-            {
-                "id": "set-return-t08",
-                "name": "Resposta ao agente",
-                "type": "n8n-nodes-base.set",
-                "typeVersion": 3.4,
-                "position": [
-                    1568,
-                    0
-                ],
-                "parameters": {
-                    "assignments": {
-                        "assignments": [
-                            {
-                                "id": "r1",
-                                "name": "success",
-                                "value": "={{ $('Sucesso?').first().json.success }}",
-                                "type": "boolean"
-                            },
-                            {
-                                "id": "r2",
-                                "name": "message",
-                                "value": "={{ $('Sucesso?').first().json.success ? 'Reagendamento confirmado com sucesso. Avise o paciente: \\'Pronto! Sua consulta foi remarcada e o novo horario ja esta confirmado.\\' NAO chame esta ferramenta novamente.' : ('Falha ao confirmar: ' + (($('Sucesso?').first().json.db_result || {}).message || 'erro desconhecido')) }}",
-                                "type": "string"
-                            }
-                        ]
-                    },
-                    "options": {}
-                }
-            },
-            {
-                "id": "sticky-t08-doc",
-                "name": "Doc",
-                "type": "n8n-nodes-base.stickyNote",
-                "typeVersion": 1,
-                "position": [
-                    0,
-                    -224
-                ],
-                "parameters": {
-                    "content": "## T08 - safe_confirm_proposed_reschedule\n\nUsado pelo P01 quando paciente aceita uma proposta de reagendamento enviada pela clinica via UI.\n\n1. Resolve calendar_id, conversation_id etc via JOIN tenants + tenant_doctors\n2. Chama fn_confirm_proposed_reschedule (status: pending -> booked, limpa proposed_*)\n3. Tira [PROPOSTO] do titulo do Calendar event (best-effort)\n4. Remove label aguardando_reagendamento da conversa (best-effort)\n5. Retorna string pro agente confirmar ao paciente",
-                    "height": 200,
-                    "width": 540,
-                    "color": 4
-                }
-            }
-        ],
-        "connections": {
-            "When Called": {
-                "main": [
-                    [
-                        {
-                            "node": "Resolver contexto",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Resolver contexto": {
-                "main": [
-                    [
-                        {
-                            "node": "Chamar fn_confirm",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Chamar fn_confirm": {
-                "main": [
-                    [
-                        {
-                            "node": "Sucesso?",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Sucesso?": {
-                "main": [
-                    [
-                        {
-                            "node": "Limpar [PROPOSTO] do Calendar",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Limpar [PROPOSTO] do Calendar": {
-                "main": [
-                    [
-                        {
-                            "node": "Listar labels conversa",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Listar labels conversa": {
-                "main": [
-                    [
-                        {
-                            "node": "Remover label aguardando_reagendamento",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Remover label aguardando_reagendamento": {
-                "main": [
-                    [
-                        {
-                            "node": "Resposta ao agente",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            }
-        },
-        "authors": "Luiz Flavio Sa",
-        "name": null,
-        "description": null,
-        "autosaved": false,
-        "workflowPublishHistory": [
-            {
-                "createdAt": "2026-05-16T21:32:24.764Z",
-                "id": 344,
-                "workflowId": "3amcK8x2libj7opK",
-                "versionId": "14f8b359-e420-4959-859b-79d754a60d84",
-                "event": "activated",
-                "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-            }
+          ]
         ]
-    }
+      },
+      "Resolver contexto": {
+        "main": [
+          [
+            {
+              "node": "Chamar fn_confirm",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Chamar fn_confirm": {
+        "main": [
+          [
+            {
+              "node": "Sucesso?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Sucesso?": {
+        "main": [
+          [
+            {
+              "node": "Limpar [PROPOSTO] do Calendar",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Limpar [PROPOSTO] do Calendar": {
+        "main": [
+          [
+            {
+              "node": "Listar labels conversa",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Listar labels conversa": {
+        "main": [
+          [
+            {
+              "node": "Remover label aguardando_reagendamento",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Remover label aguardando_reagendamento": {
+        "main": [
+          [
+            {
+              "node": "Resposta ao agente",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-17T15:01:37.652Z",
+        "id": 433,
+        "workflowId": "3amcK8x2libj7opK",
+        "versionId": "7cb260b9-8237-4c4a-b8c6-6d6ceee86eb3",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T15:01:37.666Z",
+        "id": 434,
+        "workflowId": "3amcK8x2libj7opK",
+        "versionId": "7cb260b9-8237-4c4a-b8c6-6d6ceee86eb3",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
 }

@@ -180,7 +180,8 @@
   },
   "settings": {
     "executionOrder": "v1",
-    "availableInMCP": true
+    "availableInMCP": true,
+    "errorWorkflow": "rONCEa2neV3XyBBX"
   },
   "staticData": {
     "node:A cada 30 min": {
@@ -193,7 +194,7 @@
   },
   "pinData": null,
   "activeVersionId": "a79e8b7f-6c66-4bc9-9bc9-d0fbc2d4bcee",
-  "versionCounter": 14,
+  "versionCounter": 17,
   "triggerCount": 1,
   "shared": [
     {
@@ -426,6 +427,22 @@
       {
         "createdAt": "2026-05-09T14:17:29.933Z",
         "id": 235,
+        "workflowId": "qiqGSRc5zOUSroT4",
+        "versionId": "a79e8b7f-6c66-4bc9-9bc9-d0fbc2d4bcee",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:26:46.234Z",
+        "id": 400,
+        "workflowId": "qiqGSRc5zOUSroT4",
+        "versionId": "a79e8b7f-6c66-4bc9-9bc9-d0fbc2d4bcee",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:26:46.250Z",
+        "id": 401,
         "workflowId": "qiqGSRc5zOUSroT4",
         "versionId": "a79e8b7f-6c66-4bc9-9bc9-d0fbc2d4bcee",
         "event": "activated",

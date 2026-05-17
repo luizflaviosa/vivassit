@@ -1,6 +1,6 @@
 {
   "id": "OqxxLRm33tSe69HS",
-  "name": "Master Secretária — Confirmação Pre-Router",
+  "name": "P01a — Pre-Router · Confirmação · v1.0",
   "description": "Sub-workflow chamado pelo Master Secretária. Detecta resposta do paciente à confirmação diária (sim/cancelar/reagendar), atualiza appointments.status, responde via Chatwoot e envia push pro médico. v2: fix LATERAL+COALESCE nos lookups.",
   "active": true,
   "isArchived": false,
@@ -808,7 +808,8 @@
   },
   "settings": {
     "executionOrder": "v1",
-    "availableInMCP": true
+    "availableInMCP": true,
+    "errorWorkflow": "rONCEa2neV3XyBBX"
   },
   "staticData": null,
   "meta": {
@@ -817,7 +818,7 @@
   },
   "pinData": null,
   "activeVersionId": "57cd3b18-f073-42b8-93a8-e24c1e33a58a",
-  "versionCounter": 10,
+  "versionCounter": 16,
   "triggerCount": 0,
   "shared": [
     {
@@ -1654,6 +1655,38 @@
       {
         "createdAt": "2026-05-04T22:33:56.822Z",
         "id": 17,
+        "workflowId": "OqxxLRm33tSe69HS",
+        "versionId": "57cd3b18-f073-42b8-93a8-e24c1e33a58a",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:52.784Z",
+        "id": 385,
+        "workflowId": "OqxxLRm33tSe69HS",
+        "versionId": "57cd3b18-f073-42b8-93a8-e24c1e33a58a",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:52.809Z",
+        "id": 386,
+        "workflowId": "OqxxLRm33tSe69HS",
+        "versionId": "57cd3b18-f073-42b8-93a8-e24c1e33a58a",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:26:53.634Z",
+        "id": 408,
+        "workflowId": "OqxxLRm33tSe69HS",
+        "versionId": "57cd3b18-f073-42b8-93a8-e24c1e33a58a",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:26:53.653Z",
+        "id": 409,
         "workflowId": "OqxxLRm33tSe69HS",
         "versionId": "57cd3b18-f073-42b8-93a8-e24c1e33a58a",
         "event": "activated",

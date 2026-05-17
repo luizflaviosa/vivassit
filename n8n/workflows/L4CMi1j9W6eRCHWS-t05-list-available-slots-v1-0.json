@@ -1,285 +1,282 @@
 {
-    "updatedAt": "2026-05-16T18:48:08.878Z",
-    "createdAt": "2026-05-03T12:02:26.811Z",
-    "id": "L4CMi1j9W6eRCHWS",
-    "name": "T05 \u2014 list_available_slots \u00b7 v1.0",
-    "description": "v2: aceita doctor_code int (preferencial multi-doctor) + doctor_name (fallback). Wraps fn_get_available_slots.",
-    "active": true,
-    "isArchived": false,
-    "nodes": [
-        {
-            "id": "d8fbcfe7-f44b-4796-8850-4c752953089d",
-            "name": "When Called",
-            "type": "n8n-nodes-base.executeWorkflowTrigger",
-            "typeVersion": 1.1,
-            "position": [
-                0,
-                0
-            ],
-            "parameters": {
-                "inputSource": "workflowInputs",
-                "workflowInputs": {
-                    "values": [
-                        {
-                            "name": "tenant_id",
-                            "type": "string"
-                        },
-                        {
-                            "name": "doctor_code",
-                            "type": "number"
-                        },
-                        {
-                            "name": "doctor_name",
-                            "type": "string"
-                        },
-                        {
-                            "name": "doctor_id",
-                            "type": "string"
-                        },
-                        {
-                            "name": "from_date",
-                            "type": "string"
-                        },
-                        {
-                            "name": "to_date",
-                            "type": "string"
-                        },
-                        {
-                            "name": "limit",
-                            "type": "number"
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "id": "62640725-e5ac-4e22-b7df-ca56bb2038aa",
-            "name": "Get Available Slots",
-            "type": "n8n-nodes-base.postgres",
-            "typeVersion": 2.5,
-            "position": [
-                224,
-                0
-            ],
-            "parameters": {
-                "operation": "executeQuery",
-                "query": "=SELECT * FROM public.fn_get_available_slots(\n  '{{ $('When Called').item.json.tenant_id }}',\n  NULLIF(NULLIF('{{ $('When Called').item.json.doctor_name }}', ''), 'null'),\n  NULLIF(NULLIF('{{ $('When Called').item.json.doctor_id }}', ''), 'null')::uuid,\n  '{{ $('When Called').item.json.from_date }}'::date,\n  '{{ $('When Called').item.json.to_date }}'::date,\n  {{ $('When Called').item.json.limit || 2 }},\n  NULLIF(NULLIF('{{ $('When Called').item.json.doctor_code ?? '' }}', ''), 'null')::int\n)",
-                "options": {}
+  "id": "L4CMi1j9W6eRCHWS",
+  "name": "T05 — list_available_slots · v1.0",
+  "description": "v2: aceita doctor_code int (preferencial multi-doctor) + doctor_name (fallback). Wraps fn_get_available_slots.",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "d8fbcfe7-f44b-4796-8850-4c752953089d",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "tenant_id",
+              "type": "string"
             },
-            "credentials": {
-                "postgres": {
-                    "id": "2MWvHIrEZHdAbAz1",
-                    "name": "Postgres account"
-                }
+            {
+              "name": "doctor_code",
+              "type": "number"
+            },
+            {
+              "name": "doctor_name",
+              "type": "string"
+            },
+            {
+              "name": "doctor_id",
+              "type": "string"
+            },
+            {
+              "name": "from_date",
+              "type": "string"
+            },
+            {
+              "name": "to_date",
+              "type": "string"
+            },
+            {
+              "name": "limit",
+              "type": "number"
             }
-        },
-        {
-            "id": "3b6047e7-e555-490a-9782-55f7335f7b02",
-            "name": "Format Response",
-            "type": "n8n-nodes-base.code",
-            "typeVersion": 2,
-            "position": [
-                448,
-                0
-            ],
-            "parameters": {
-                "mode": "runOnceForAllItems",
-                "language": "javaScript",
-                "jsCode": "const items = $input.all();\nconst slots = items.map(i => i.json).filter(s => s.slot_start);\n\nif (slots.length === 0) {\n  return [{ json: {\n    available: false,\n    count: 0,\n    message: 'Nenhum slot dispon\u00edvel no per\u00edodo pedido. Sugira ao paciente expandir o range.',\n    slots: []\n  }}];\n}\n\nconst formatBR = (iso) => {\n  const d = new Date(iso);\n  return d.toLocaleString('pt-BR', { \n    timeZone: 'America/Sao_Paulo',\n    weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'\n  });\n};\n\nconst formatted = slots.map(s => ({\n  slot_iso: s.slot_start,\n  end_iso: s.slot_end,\n  doctor_code: s.doctor_code,\n  doctor_name: s.doctor_name,\n  day_label: s.day_label,\n  display: formatBR(s.slot_start),\n  working_window: s.working_window\n}));\n\nreturn [{ json: {\n  available: true,\n  count: slots.length,\n  doctor_code: slots[0].doctor_code,\n  doctor_name: slots[0].doctor_name,\n  message: 'Tenho ' + slots.length + ' hor\u00e1rios dispon\u00edveis (mais pr\u00f3ximos primeiro). Ofere\u00e7a ao paciente e use slot_iso EXATO + doctor_code pra chamar safe_create_event.',\n  slots: formatted\n}}];\n"
-            }
+          ]
         }
+      }
+    },
+    {
+      "id": "62640725-e5ac-4e22-b7df-ca56bb2038aa",
+      "name": "Get Available Slots",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT * FROM public.fn_get_available_slots(\n  '{{ $('When Called').item.json.tenant_id }}',\n  NULLIF(NULLIF('{{ $('When Called').item.json.doctor_name }}', ''), 'null'),\n  NULLIF(NULLIF('{{ $('When Called').item.json.doctor_id }}', ''), 'null')::uuid,\n  '{{ $('When Called').item.json.from_date }}'::date,\n  '{{ $('When Called').item.json.to_date }}'::date,\n  {{ $('When Called').item.json.limit || 2 }},\n  NULLIF(NULLIF('{{ $('When Called').item.json.doctor_code ?? '' }}', ''), 'null')::int\n)",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "3b6047e7-e555-490a-9782-55f7335f7b02",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const items = $input.all();\nconst slots = items.map(i => i.json).filter(s => s.slot_start);\n\nif (slots.length === 0) {\n  return [{ json: {\n    available: false,\n    count: 0,\n    message: 'Nenhum slot disponível no período pedido. Sugira ao paciente expandir o range.',\n    slots: []\n  }}];\n}\n\nconst formatBR = (iso) => {\n  const d = new Date(iso);\n  return d.toLocaleString('pt-BR', { \n    timeZone: 'America/Sao_Paulo',\n    weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'\n  });\n};\n\nconst formatted = slots.map(s => ({\n  slot_iso: s.slot_start,\n  end_iso: s.slot_end,\n  doctor_code: s.doctor_code,\n  doctor_name: s.doctor_name,\n  day_label: s.day_label,\n  display: formatBR(s.slot_start),\n  working_window: s.working_window\n}));\n\nreturn [{ json: {\n  available: true,\n  count: slots.length,\n  doctor_code: slots[0].doctor_code,\n  doctor_name: slots[0].doctor_name,\n  message: 'Tenho ' + slots.length + ' horários disponíveis (mais próximos primeiro). Ofereça ao paciente e use slot_iso EXATO + doctor_code pra chamar safe_create_event.',\n  slots: formatted\n}}];\n"
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Get Available Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Available Slots": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "pinData": null,
+  "activeVersionId": "7823a0e5-ac14-4bdf-9bbd-05580846871b",
+  "versionCounter": 19,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-05-04T21:18:47.436Z",
+      "createdAt": "2026-05-04T21:18:47.436Z",
+      "role": "workflow:owner",
+      "workflowId": "L4CMi1j9W6eRCHWS",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-16T18:48:08.880Z",
+    "createdAt": "2026-05-16T18:48:08.880Z",
+    "versionId": "7823a0e5-ac14-4bdf-9bbd-05580846871b",
+    "workflowId": "L4CMi1j9W6eRCHWS",
+    "nodes": [
+      {
+        "id": "d8fbcfe7-f44b-4796-8850-4c752953089d",
+        "name": "When Called",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "inputSource": "workflowInputs",
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "tenant_id",
+                "type": "string"
+              },
+              {
+                "name": "doctor_code",
+                "type": "number"
+              },
+              {
+                "name": "doctor_name",
+                "type": "string"
+              },
+              {
+                "name": "doctor_id",
+                "type": "string"
+              },
+              {
+                "name": "from_date",
+                "type": "string"
+              },
+              {
+                "name": "to_date",
+                "type": "string"
+              },
+              {
+                "name": "limit",
+                "type": "number"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "62640725-e5ac-4e22-b7df-ca56bb2038aa",
+        "name": "Get Available Slots",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          224,
+          0
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=SELECT * FROM public.fn_get_available_slots(\n  '{{ $('When Called').item.json.tenant_id }}',\n  NULLIF(NULLIF('{{ $('When Called').item.json.doctor_name }}', ''), 'null'),\n  NULLIF(NULLIF('{{ $('When Called').item.json.doctor_id }}', ''), 'null')::uuid,\n  '{{ $('When Called').item.json.from_date }}'::date,\n  '{{ $('When Called').item.json.to_date }}'::date,\n  {{ $('When Called').item.json.limit || 2 }},\n  NULLIF(NULLIF('{{ $('When Called').item.json.doctor_code ?? '' }}', ''), 'null')::int\n)",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "3b6047e7-e555-490a-9782-55f7335f7b02",
+        "name": "Format Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          448,
+          0
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const items = $input.all();\nconst slots = items.map(i => i.json).filter(s => s.slot_start);\n\nif (slots.length === 0) {\n  return [{ json: {\n    available: false,\n    count: 0,\n    message: 'Nenhum slot disponível no período pedido. Sugira ao paciente expandir o range.',\n    slots: []\n  }}];\n}\n\nconst formatBR = (iso) => {\n  const d = new Date(iso);\n  return d.toLocaleString('pt-BR', { \n    timeZone: 'America/Sao_Paulo',\n    weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'\n  });\n};\n\nconst formatted = slots.map(s => ({\n  slot_iso: s.slot_start,\n  end_iso: s.slot_end,\n  doctor_code: s.doctor_code,\n  doctor_name: s.doctor_name,\n  day_label: s.day_label,\n  display: formatBR(s.slot_start),\n  working_window: s.working_window\n}));\n\nreturn [{ json: {\n  available: true,\n  count: slots.length,\n  doctor_code: slots[0].doctor_code,\n  doctor_name: slots[0].doctor_name,\n  message: 'Tenho ' + slots.length + ' horários disponíveis (mais próximos primeiro). Ofereça ao paciente e use slot_iso EXATO + doctor_code pra chamar safe_create_event.',\n  slots: formatted\n}}];\n"
+        }
+      }
     ],
     "connections": {
-        "When Called": {
-            "main": [
-                [
-                    {
-                        "node": "Get Available Slots",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Get Available Slots": {
-            "main": [
-                [
-                    {
-                        "node": "Format Response",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        }
-    },
-    "settings": {
-        "executionOrder": "v1",
-        "availableInMCP": true
-    },
-    "staticData": null,
-    "meta": {
-        "aiBuilderAssisted": true,
-        "builderVariant": "mcp"
-    },
-    "pinData": null,
-    "versionId": "7823a0e5-ac14-4bdf-9bbd-05580846871b",
-    "activeVersionId": "7823a0e5-ac14-4bdf-9bbd-05580846871b",
-    "versionCounter": 19,
-    "triggerCount": 0,
-    "shared": [
-        {
-            "updatedAt": "2026-05-04T21:18:47.436Z",
-            "createdAt": "2026-05-04T21:18:47.436Z",
-            "role": "workflow:owner",
-            "workflowId": "L4CMi1j9W6eRCHWS",
-            "projectId": "2cGyYwvKw4dDUUz9",
-            "project": {
-                "updatedAt": "2026-05-04T21:21:30.902Z",
-                "createdAt": "2026-05-04T21:15:25.493Z",
-                "id": "2cGyYwvKw4dDUUz9",
-                "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
-                "type": "personal",
-                "icon": null,
-                "description": null,
-                "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      "When Called": {
+        "main": [
+          [
+            {
+              "node": "Get Available Slots",
+              "type": "main",
+              "index": 0
             }
-        }
-    ],
-    "tags": [],
-    "activeVersion": {
-        "updatedAt": "2026-05-16T18:48:08.880Z",
-        "createdAt": "2026-05-16T18:48:08.880Z",
-        "versionId": "7823a0e5-ac14-4bdf-9bbd-05580846871b",
-        "workflowId": "L4CMi1j9W6eRCHWS",
-        "nodes": [
-            {
-                "id": "d8fbcfe7-f44b-4796-8850-4c752953089d",
-                "name": "When Called",
-                "type": "n8n-nodes-base.executeWorkflowTrigger",
-                "typeVersion": 1.1,
-                "position": [
-                    0,
-                    0
-                ],
-                "parameters": {
-                    "inputSource": "workflowInputs",
-                    "workflowInputs": {
-                        "values": [
-                            {
-                                "name": "tenant_id",
-                                "type": "string"
-                            },
-                            {
-                                "name": "doctor_code",
-                                "type": "number"
-                            },
-                            {
-                                "name": "doctor_name",
-                                "type": "string"
-                            },
-                            {
-                                "name": "doctor_id",
-                                "type": "string"
-                            },
-                            {
-                                "name": "from_date",
-                                "type": "string"
-                            },
-                            {
-                                "name": "to_date",
-                                "type": "string"
-                            },
-                            {
-                                "name": "limit",
-                                "type": "number"
-                            }
-                        ]
-                    }
-                }
-            },
-            {
-                "id": "62640725-e5ac-4e22-b7df-ca56bb2038aa",
-                "name": "Get Available Slots",
-                "type": "n8n-nodes-base.postgres",
-                "typeVersion": 2.5,
-                "position": [
-                    224,
-                    0
-                ],
-                "parameters": {
-                    "operation": "executeQuery",
-                    "query": "=SELECT * FROM public.fn_get_available_slots(\n  '{{ $('When Called').item.json.tenant_id }}',\n  NULLIF(NULLIF('{{ $('When Called').item.json.doctor_name }}', ''), 'null'),\n  NULLIF(NULLIF('{{ $('When Called').item.json.doctor_id }}', ''), 'null')::uuid,\n  '{{ $('When Called').item.json.from_date }}'::date,\n  '{{ $('When Called').item.json.to_date }}'::date,\n  {{ $('When Called').item.json.limit || 2 }},\n  NULLIF(NULLIF('{{ $('When Called').item.json.doctor_code ?? '' }}', ''), 'null')::int\n)",
-                    "options": {}
-                },
-                "credentials": {
-                    "postgres": {
-                        "id": "2MWvHIrEZHdAbAz1",
-                        "name": "Postgres account"
-                    }
-                }
-            },
-            {
-                "id": "3b6047e7-e555-490a-9782-55f7335f7b02",
-                "name": "Format Response",
-                "type": "n8n-nodes-base.code",
-                "typeVersion": 2,
-                "position": [
-                    448,
-                    0
-                ],
-                "parameters": {
-                    "mode": "runOnceForAllItems",
-                    "language": "javaScript",
-                    "jsCode": "const items = $input.all();\nconst slots = items.map(i => i.json).filter(s => s.slot_start);\n\nif (slots.length === 0) {\n  return [{ json: {\n    available: false,\n    count: 0,\n    message: 'Nenhum slot dispon\u00edvel no per\u00edodo pedido. Sugira ao paciente expandir o range.',\n    slots: []\n  }}];\n}\n\nconst formatBR = (iso) => {\n  const d = new Date(iso);\n  return d.toLocaleString('pt-BR', { \n    timeZone: 'America/Sao_Paulo',\n    weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'\n  });\n};\n\nconst formatted = slots.map(s => ({\n  slot_iso: s.slot_start,\n  end_iso: s.slot_end,\n  doctor_code: s.doctor_code,\n  doctor_name: s.doctor_name,\n  day_label: s.day_label,\n  display: formatBR(s.slot_start),\n  working_window: s.working_window\n}));\n\nreturn [{ json: {\n  available: true,\n  count: slots.length,\n  doctor_code: slots[0].doctor_code,\n  doctor_name: slots[0].doctor_name,\n  message: 'Tenho ' + slots.length + ' hor\u00e1rios dispon\u00edveis (mais pr\u00f3ximos primeiro). Ofere\u00e7a ao paciente e use slot_iso EXATO + doctor_code pra chamar safe_create_event.',\n  slots: formatted\n}}];\n"
-                }
-            }
-        ],
-        "connections": {
-            "When Called": {
-                "main": [
-                    [
-                        {
-                            "node": "Get Available Slots",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Get Available Slots": {
-                "main": [
-                    [
-                        {
-                            "node": "Format Response",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            }
-        },
-        "authors": "Luiz Flavio Sa",
-        "name": null,
-        "description": null,
-        "autosaved": false,
-        "workflowPublishHistory": [
-            {
-                "createdAt": "2026-05-16T18:48:08.916Z",
-                "id": 335,
-                "workflowId": "L4CMi1j9W6eRCHWS",
-                "versionId": "7823a0e5-ac14-4bdf-9bbd-05580846871b",
-                "event": "deactivated",
-                "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-            },
-            {
-                "createdAt": "2026-05-16T18:48:08.931Z",
-                "id": 336,
-                "workflowId": "L4CMi1j9W6eRCHWS",
-                "versionId": "7823a0e5-ac14-4bdf-9bbd-05580846871b",
-                "event": "activated",
-                "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-            }
+          ]
         ]
-    }
+      },
+      "Get Available Slots": {
+        "main": [
+          [
+            {
+              "node": "Format Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-16T18:48:08.916Z",
+        "id": 335,
+        "workflowId": "L4CMi1j9W6eRCHWS",
+        "versionId": "7823a0e5-ac14-4bdf-9bbd-05580846871b",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-16T18:48:08.931Z",
+        "id": 336,
+        "workflowId": "L4CMi1j9W6eRCHWS",
+        "versionId": "7823a0e5-ac14-4bdf-9bbd-05580846871b",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
 }

@@ -498,7 +498,8 @@
     "timezone": "America/Sao_Paulo",
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": true,
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "errorWorkflow": "rONCEa2neV3XyBBX"
   },
   "staticData": {
     "node:Gatilho Diário": {
@@ -508,7 +509,7 @@
   "meta": null,
   "pinData": {},
   "activeVersionId": "e7fade3a-52d4-4440-a3be-f4efb5be1c4e",
-  "versionCounter": 23,
+  "versionCounter": 29,
   "triggerCount": 1,
   "shared": [
     {
@@ -1040,6 +1041,38 @@
       {
         "createdAt": "2026-05-10T00:38:42.796Z",
         "id": 248,
+        "workflowId": "sOB9YWGkmDpW3NP4",
+        "versionId": "e7fade3a-52d4-4440-a3be-f4efb5be1c4e",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:02:35.515Z",
+        "id": 373,
+        "workflowId": "sOB9YWGkmDpW3NP4",
+        "versionId": "e7fade3a-52d4-4440-a3be-f4efb5be1c4e",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:02:38.261Z",
+        "id": 374,
+        "workflowId": "sOB9YWGkmDpW3NP4",
+        "versionId": "e7fade3a-52d4-4440-a3be-f4efb5be1c4e",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:26:39.714Z",
+        "id": 392,
+        "workflowId": "sOB9YWGkmDpW3NP4",
+        "versionId": "e7fade3a-52d4-4440-a3be-f4efb5be1c4e",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:26:39.737Z",
+        "id": 393,
         "workflowId": "sOB9YWGkmDpW3NP4",
         "versionId": "e7fade3a-52d4-4440-a3be-f4efb5be1c4e",
         "event": "activated",

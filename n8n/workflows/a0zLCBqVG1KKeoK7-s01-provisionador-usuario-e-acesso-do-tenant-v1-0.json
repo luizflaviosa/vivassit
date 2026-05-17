@@ -253,7 +253,8 @@
   "settings": {
     "executionOrder": "v1",
     "availableInMCP": true,
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "errorWorkflow": "rONCEa2neV3XyBBX"
   },
   "staticData": null,
   "meta": {
@@ -261,7 +262,7 @@
   },
   "pinData": {},
   "activeVersionId": "8d1408f8-9d24-4685-a68c-ebcd10421702",
-  "versionCounter": 24,
+  "versionCounter": 27,
   "triggerCount": 0,
   "shared": [
     {
@@ -558,6 +559,22 @@
       {
         "createdAt": "2026-05-08T23:36:31.455Z",
         "id": 217,
+        "workflowId": "a0zLCBqVG1KKeoK7",
+        "versionId": "8d1408f8-9d24-4685-a68c-ebcd10421702",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:27:10.032Z",
+        "id": 428,
+        "workflowId": "a0zLCBqVG1KKeoK7",
+        "versionId": "8d1408f8-9d24-4685-a68c-ebcd10421702",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:27:10.045Z",
+        "id": 429,
         "workflowId": "a0zLCBqVG1KKeoK7",
         "versionId": "8d1408f8-9d24-4685-a68c-ebcd10421702",
         "event": "activated",

@@ -1,0 +1,235 @@
+{
+  "id": "HrXcVpvxUVkLLUa0",
+  "name": "UTIL — Cleanup Massa Agente-Off (manual webhook) · v1.0",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "wh-cleanup",
+      "name": "Webhook Cleanup",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        304
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cleanup-agente-off-massa",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "52064361-4aba-42d1-885c-1e17a6eecae2"
+    },
+    {
+      "id": "pg-tenants-cleanup",
+      "name": "Tenants Ativos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        464,
+        304
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT tenant_id, clinic_name, chatwoot_url, chatwoot_account_id, chatwoot_inbox_id, telegram_chat_id FROM tenants WHERE status = 'active' AND tenant_id != 'admin-system' AND chatwoot_url IS NOT NULL AND chatwoot_account_id IS NOT NULL ORDER BY tenant_id",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "http-list-cleanup",
+      "name": "Listar conversas off",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        688,
+        304
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.chatwoot_url }}api/v1/accounts/{{ $json.chatwoot_account_id }}/conversations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "open"
+            },
+            {
+              "name": "labels[]",
+              "value": "agente-off"
+            },
+            {
+              "name": "page",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "code-filter-cleanup",
+      "name": "Filtrar por min_age",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        304
+      ],
+      "parameters": {
+        "jsCode": "// Lista conversas com agente-off respeitando min_age_hours.\n// Suporta dry_run: se true, NAO repassa para o node Remover; so retorna a lista.\nconst body = $('Webhook Cleanup').first().json.body || {};\nconst minAgeHours = Number(body.min_age_hours ?? 1);\nconst dryRun = body.dry_run === true || body.dry_run === 'true';\nconst MIN_MS = minAgeHours * 60 * 60 * 1000;\nconst now = Date.now();\nconst out = [];\n\nfor (let i = 0; i < $input.all().length; i++) {\n  const item = $input.all()[i];\n  const resp = item.json;\n  const conversations = resp?.data?.payload || resp?.payload || [];\n  const tenant = $('Tenants Ativos').itemMatching(i)?.json || {};\n  for (const conv of conversations) {\n    const labels = conv.labels || conv.meta?.labels || [];\n    if (!labels.includes('agente-off')) continue;\n    if (labels.includes('aguardando_reagendamento')) continue;\n    const lastTs = conv.last_activity_at || conv.timestamp || 0;\n    const ageMs = now - (lastTs * 1000);\n    if (ageMs < MIN_MS) continue;\n    out.push({\n      json: {\n        conv_id: conv.id,\n        contact_name: conv.meta?.sender?.name || 'Paciente',\n        contact_phone: conv.meta?.sender?.phone_number || null,\n        labels_atuais: labels,\n        labels_novas: labels.filter(l => l !== 'agente-off'),\n        age_hours: Math.round(ageMs / 1000 / 60 / 60),\n        tenant_id: tenant.tenant_id,\n        clinic_name: tenant.clinic_name,\n        chatwoot_url: tenant.chatwoot_url,\n        chatwoot_account_id: tenant.chatwoot_account_id,\n        dry_run: dryRun,\n      },\n    });\n  }\n}\n// Se dry_run, vazia o array pra que o node Remover nao execute\n// e o sumario reflita a lista que SERIA modificada\nif (dryRun) {\n  // ainda retorna pra o code Sumario via paired-item (Sumario le de Filtrar por min_age.all())\n  return [];\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "http-remove-cleanup",
+      "name": "Remover agente-off",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1136,
+        304
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.chatwoot_url }}api/v1/accounts/{{ $json.chatwoot_account_id }}/conversations/{{ $json.conv_id }}/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "labels",
+              "value": "={{ $json.labels_novas }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "code-summary-cleanup",
+      "name": "Sumario",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        304
+      ],
+      "parameters": {
+        "jsCode": "// Sumario funciona tanto pra dry_run quanto pra execucao real.\n// Em dry_run, Filtrar por min_age retorna [] (nao chama Remover) mas conserva\n// os items consultaveis via $('Filtrar por min_age').all() ... mas como o node\n// retornou [], all() tb fica vazio. Fallback: refazer query.\n\n// Pra dry_run funcionar, vou armazenar a lista no body do webhook output\nconst removed = $input.all();\nconst body = $('Webhook Cleanup').first().json.body || {};\nconst dryRun = body.dry_run === true || body.dry_run === 'true';\n\nif (dryRun) {\n  // Re-roda a logica de filtragem inline pra retornar a lista que SERIA modificada\n  const minAgeHours = Number(body.min_age_hours ?? 1);\n  const MIN_MS = minAgeHours * 60 * 60 * 1000;\n  const now = Date.now();\n  const allConvs = $('Listar conversas off').all();\n  const tenants = $('Tenants Ativos').all();\n  const list = [];\n  for (let i = 0; i < allConvs.length; i++) {\n    const conversations = allConvs[i].json?.data?.payload || allConvs[i].json?.payload || [];\n    const tenant = tenants[i]?.json || {};\n    for (const conv of conversations) {\n      const labels = conv.labels || conv.meta?.labels || [];\n      if (!labels.includes('agente-off')) continue;\n      if (labels.includes('aguardando_reagendamento')) continue;\n      const lastTs = conv.last_activity_at || conv.timestamp || 0;\n      const ageMs = now - (lastTs * 1000);\n      if (ageMs < MIN_MS) continue;\n      list.push({\n        conv_id: conv.id,\n        age_hours: Math.round(ageMs / 1000 / 60 / 60),\n        contact_name: conv.meta?.sender?.name || 'Paciente',\n        tenant_id: tenant.tenant_id,\n      });\n    }\n  }\n  list.sort((a, b) => b.age_hours - a.age_hours);\n  return [{ json: { success: true, dry_run: true, would_clean: list.length, min_age_hours: minAgeHours, conversations: list } }];\n}\n\nconst rows = removed.map(i => ({ conv_id: i.json.conv_id, age_hours: i.json.age_hours, contact_name: i.json.contact_name, tenant_id: i.json.tenant_id }));\nrows.sort((a, b) => b.age_hours - a.age_hours);\nreturn [{ json: { success: true, dry_run: false, total_cleaned: rows.length, conversations: rows } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Cleanup": {
+      "main": [
+        [
+          {
+            "node": "Tenants Ativos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tenants Ativos": {
+      "main": [
+        [
+          {
+            "node": "Listar conversas off",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar conversas off": {
+      "main": [
+        [
+          {
+            "node": "Filtrar por min_age",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar por min_age": {
+      "main": [
+        [
+          {
+            "node": "Remover agente-off",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remover agente-off": {
+      "main": [
+        [
+          {
+            "node": "Sumario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "activeVersionId": null,
+  "versionCounter": 11,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-16T23:38:58.269Z",
+      "createdAt": "2026-05-16T23:38:58.269Z",
+      "role": "workflow:owner",
+      "workflowId": "HrXcVpvxUVkLLUa0",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

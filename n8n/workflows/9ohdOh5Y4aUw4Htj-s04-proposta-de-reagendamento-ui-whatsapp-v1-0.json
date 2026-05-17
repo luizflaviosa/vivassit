@@ -1,746 +1,760 @@
 {
-    "updatedAt": "2026-05-16T21:25:18.567Z",
-    "createdAt": "2026-05-16T21:24:59.053Z",
-    "id": "9ohdOh5Y4aUw4Htj",
-    "name": "S04 \u2014 Proposta de Reagendamento (UI \u2192 WhatsApp) \u00b7 v1.0",
-    "description": null,
-    "active": true,
-    "isArchived": false,
-    "nodes": [
-        {
-            "id": "webhook-trigger-s04",
-            "name": "Webhook Proposta",
-            "type": "n8n-nodes-base.webhook",
-            "typeVersion": 2,
-            "position": [
-                240,
-                304
-            ],
-            "parameters": {
-                "httpMethod": "POST",
-                "path": "s04-propose-reschedule",
-                "responseMode": "lastNode",
-                "options": {}
-            },
-            "webhookId": "095def80-e225-4904-931c-22430df8d836"
-        },
-        {
-            "id": "postgres-tenant-s04",
-            "name": "Buscar Config Tenant",
-            "type": "n8n-nodes-base.postgres",
-            "typeVersion": 2.6,
-            "position": [
-                464,
-                304
-            ],
-            "parameters": {
-                "operation": "executeQuery",
-                "query": "=SELECT \n  t.tenant_id,\n  t.clinic_name,\n  t.chatwoot_url,\n  t.chatwoot_account_id,\n  t.telegram_chat_id,\n  d.doctor_name\nFROM public.tenants t\nLEFT JOIN public.tenant_doctors d\n  ON d.id = '{{ $json.body.doctor_id }}'::uuid\nWHERE t.tenant_id = '{{ $json.body.tenant_id }}'\n  AND t.status = 'active'\nLIMIT 1",
-                "options": {}
-            },
-            "credentials": {
-                "postgres": {
-                    "id": "2MWvHIrEZHdAbAz1",
-                    "name": "Postgres account"
-                }
-            }
-        },
-        {
-            "id": "code-format-s04",
-            "name": "Formatar dados",
-            "type": "n8n-nodes-base.code",
-            "typeVersion": 2,
-            "position": [
-                688,
-                304
-            ],
-            "parameters": {
-                "mode": "runOnceForEachItem",
-                "jsCode": "// Formata datas em BRT legivel e monta payload para os proximos nodes.\nconst tenantRow = $input.item.json;\nconst payload = $('Webhook Proposta').first().json.body;\n\nfunction utcToBRT(isoString) {\n  if (!isoString) return '';\n  try {\n    const dt = new Date(isoString);\n    if (isNaN(dt.getTime())) return isoString;\n    const brtTime = new Date(dt.getTime() - 3 * 60 * 60 * 1000);\n    const dias = ['domingo', 'segunda-feira', 'terca-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sabado'];\n    const dayName = dias[brtTime.getUTCDay()];\n    const dd = String(brtTime.getUTCDate()).padStart(2, '0');\n    const mm = String(brtTime.getUTCMonth() + 1).padStart(2, '0');\n    const hh = String(brtTime.getUTCHours()).padStart(2, '0');\n    const min = String(brtTime.getUTCMinutes()).padStart(2, '0');\n    const timeStr = min === '00' ? hh + 'h' : hh + 'h' + min;\n    return dayName + ', ' + dd + '/' + mm + ' as ' + timeStr;\n  } catch(e) { return isoString; }\n}\n\nconst urlBase = (tenantRow.chatwoot_url || '').replace(/\\/$/, '');\nconst doctorName = tenantRow.doctor_name || 'a profissional';\nconst patientName = payload.patient_name || 'tudo bem';\nconst firstName = (payload.patient_name || '').split(' ')[0] || '';\n\nconst oldSlotBrt = utcToBRT(payload.old_slot_start);\nconst newSlotBrt = utcToBRT(payload.new_slot_start);\n\nconst mensagemPaciente =\n  'Ola' + (firstName ? ', ' + firstName : '') + '! Aqui e da ' + (tenantRow.clinic_name || 'clinica') + '.\\n\\n' +\n  doctorName + ' precisou reorganizar a agenda e gostariamos de sugerir um novo horario pra sua consulta.\\n\\n' +\n  '*Consulta atual:* ' + oldSlotBrt + '\\n' +\n  '*Nova sugestao:* ' + newSlotBrt + '\\n\\n' +\n  'Esse novo horario funciona pra voce? Se sim, e so responder *\"sim\"* ou *\"confirmo\"*.\\n' +\n  'Se preferir outro dia ou horario, me avisa e a gente acha o melhor jeito juntos.';\n\nconst notaInterna =\n  'Proposta de reagendamento enviada ao paciente via UI.\\n\\n' +\n  'Proposto por: ' + (payload.proposed_by_name || '(nao identificado)') + '\\n' +\n  'Antes: ' + oldSlotBrt + '\\n' +\n  'Depois: ' + newSlotBrt + '\\n\\n' +\n  'Aguardando resposta do paciente (deadline ' + utcToBRT(payload.confirmation_expires_at) + ').';\n\nconst telegramMsg =\n  '*Proposta de reagendamento enviada*\\n\\n' +\n  'Clinica: ' + (tenantRow.clinic_name || tenantRow.tenant_id) + '\\n' +\n  'Paciente: ' + (payload.patient_name || payload.patient_phone) + '\\n' +\n  'Antes: ' + oldSlotBrt + '\\n' +\n  'Depois: ' + newSlotBrt + '\\n' +\n  'Por: ' + (payload.proposed_by_name || '(nao identificado)') + '\\n' +\n  'Deadline: ' + utcToBRT(payload.confirmation_expires_at);\n\nreturn {\n  json: {\n    booking_id: payload.booking_id,\n    tenant_id: tenantRow.tenant_id,\n    clinic_name: tenantRow.clinic_name,\n    doctor_name: doctorName,\n    patient_phone: payload.patient_phone,\n    patient_name: payload.patient_name,\n    conversation_id: payload.conversation_id,\n    chatwoot_url: urlBase,\n    chatwoot_account_id: tenantRow.chatwoot_account_id,\n    telegram_chat_id: tenantRow.telegram_chat_id,\n    old_slot_brt: oldSlotBrt,\n    new_slot_brt: newSlotBrt,\n    mensagem_paciente: mensagemPaciente,\n    nota_interna: notaInterna,\n    telegram_msg: telegramMsg,\n  }\n};"
-            }
-        },
-        {
-            "id": "http-labels-get-s04",
-            "name": "Listar etiquetas",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4.2,
-            "position": [
-                912,
-                304
-            ],
-            "parameters": {
-                "method": "GET",
-                "url": "={{ $json.chatwoot_url }}/api/v1/accounts/{{ $json.chatwoot_account_id }}/conversations/{{ $json.conversation_id }}/labels",
-                "authentication": "predefinedCredentialType",
-                "nodeCredentialType": "chatwootApi",
-                "options": {}
-            },
-            "credentials": {
-                "chatwootApi": {
-                    "id": "6RGRnozwwfQx8hHl",
-                    "name": "ChatWoot account"
-                }
-            },
-            "onError": "continueRegularOutput"
-        },
-        {
-            "id": "http-labels-post-s04",
-            "name": "Aplicar label aguardando_reagendamento",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4.2,
-            "position": [
-                1136,
-                304
-            ],
-            "parameters": {
-                "method": "POST",
-                "url": "={{ $('Formatar dados').first().json.chatwoot_url }}/api/v1/accounts/{{ $('Formatar dados').first().json.chatwoot_account_id }}/conversations/{{ $('Formatar dados').first().json.conversation_id }}/labels",
-                "authentication": "predefinedCredentialType",
-                "nodeCredentialType": "chatwootApi",
-                "sendBody": true,
-                "bodyParameters": {
-                    "parameters": [
-                        {
-                            "name": "labels",
-                            "value": "={{ Array.from(new Set([...(($json.payload || []).filter(l => l !== 'agente-off')), 'aguardando_reagendamento'])) }}"
-                        }
-                    ]
-                },
-                "options": {}
-            },
-            "credentials": {
-                "chatwootApi": {
-                    "id": "6RGRnozwwfQx8hHl",
-                    "name": "ChatWoot account"
-                }
-            },
-            "onError": "continueRegularOutput"
-        },
-        {
-            "id": "http-msg-paciente-s04",
-            "name": "Enviar mensagem ao paciente",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4.2,
-            "position": [
-                1360,
-                304
-            ],
-            "parameters": {
-                "method": "POST",
-                "url": "={{ $('Formatar dados').first().json.chatwoot_url }}/api/v1/accounts/{{ $('Formatar dados').first().json.chatwoot_account_id }}/conversations/{{ $('Formatar dados').first().json.conversation_id }}/messages",
-                "authentication": "predefinedCredentialType",
-                "nodeCredentialType": "chatwootApi",
-                "sendBody": true,
-                "bodyParameters": {
-                    "parameters": [
-                        {
-                            "name": "content",
-                            "value": "={{ $('Formatar dados').first().json.mensagem_paciente }}"
-                        },
-                        {
-                            "name": "message_type",
-                            "value": "outgoing"
-                        }
-                    ]
-                },
-                "options": {}
-            },
-            "credentials": {
-                "chatwootApi": {
-                    "id": "6RGRnozwwfQx8hHl",
-                    "name": "ChatWoot account"
-                }
-            }
-        },
-        {
-            "id": "http-nota-interna-s04",
-            "name": "Nota interna Chatwoot",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4.2,
-            "position": [
-                1584,
-                304
-            ],
-            "parameters": {
-                "method": "POST",
-                "url": "={{ $('Formatar dados').first().json.chatwoot_url }}/api/v1/accounts/{{ $('Formatar dados').first().json.chatwoot_account_id }}/conversations/{{ $('Formatar dados').first().json.conversation_id }}/messages",
-                "authentication": "predefinedCredentialType",
-                "nodeCredentialType": "chatwootApi",
-                "sendBody": true,
-                "contentType": "json",
-                "specifyBody": "json",
-                "jsonBody": "={\n  \"content\": {{ JSON.stringify($('Formatar dados').first().json.nota_interna) }},\n  \"message_type\": \"outgoing\",\n  \"private\": true\n}",
-                "options": {}
-            },
-            "credentials": {
-                "chatwootApi": {
-                    "id": "6RGRnozwwfQx8hHl",
-                    "name": "ChatWoot account"
-                }
-            },
-            "onError": "continueRegularOutput"
-        },
-        {
-            "id": "telegram-notify-s04",
-            "name": "Notificar Telegram",
-            "type": "n8n-nodes-base.telegram",
-            "typeVersion": 1.2,
-            "position": [
-                1808,
-                304
-            ],
-            "parameters": {
-                "resource": "message",
-                "operation": "sendMessage",
-                "chatId": "={{ $('Formatar dados').first().json.telegram_chat_id }}",
-                "text": "={{ $('Formatar dados').first().json.telegram_msg }}",
-                "additionalFields": {
-                    "parse_mode": "Markdown"
-                }
-            },
-            "credentials": {
-                "telegramApi": {
-                    "id": "sDb6ROA0185exLKN",
-                    "name": "Telegram account"
-                }
-            },
-            "onError": "continueRegularOutput",
-            "webhookId": "60470842-00b2-4ba9-b5f3-9890b85ecd45"
-        },
-        {
-            "id": "set-response-s04",
-            "name": "Resposta Webhook",
-            "type": "n8n-nodes-base.set",
-            "typeVersion": 3.4,
-            "position": [
-                2032,
-                304
-            ],
-            "parameters": {
-                "assignments": {
-                    "assignments": [
-                        {
-                            "id": "r1",
-                            "name": "success",
-                            "value": true,
-                            "type": "boolean"
-                        },
-                        {
-                            "id": "r2",
-                            "name": "booking_id",
-                            "value": "={{ $('Formatar dados').first().json.booking_id }}",
-                            "type": "string"
-                        },
-                        {
-                            "id": "r3",
-                            "name": "message",
-                            "value": "Proposta enviada ao paciente e notificacao Telegram disparada.",
-                            "type": "string"
-                        }
-                    ]
-                },
-                "options": {}
-            }
-        },
-        {
-            "id": "sticky-s04-doc",
-            "name": "Sticky Note Doc",
-            "type": "n8n-nodes-base.stickyNote",
-            "typeVersion": 1,
-            "position": [
-                240,
-                80
-            ],
-            "parameters": {
-                "content": "## S04 - Proposta de Reagendamento (UI -> WhatsApp)\n\nFluxo Fase 3 do feature \"sugerir novo horario via painel\":\n\n1. Painel envia POST /api/painel/agenda/events/[id]/propose-reschedule\n2. API Vercel atualiza booking pra pending_confirmation + dispara webhook deste workflow\n3. Este workflow envia WhatsApp ao paciente + aplica label aguardando_reagendamento + notifica Telegram do tenant\n4. P01 (Secretaria IA) reconhece a label e roteia resposta do paciente pra fluxo de confirmacao (Fase 4)\n\nWebhook URL (producao):\nhttps://n8n.singulare.org/webhook/s04-propose-reschedule\n\nSetar como N8N_S04_RESCHEDULE_WEBHOOK_URL no Vercel.",
-                "height": 220,
-                "width": 600,
-                "color": 4
-            }
+  "id": "9ohdOh5Y4aUw4Htj",
+  "name": "S04 — Proposta de Reagendamento (UI → WhatsApp) · v1.0",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "webhook-trigger-s04",
+      "name": "Webhook Proposta",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        304
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "s04-propose-reschedule",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "095def80-e225-4904-931c-22430df8d836"
+    },
+    {
+      "id": "postgres-tenant-s04",
+      "name": "Buscar Config Tenant",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        464,
+        304
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT \n  t.tenant_id,\n  t.clinic_name,\n  t.chatwoot_url,\n  t.chatwoot_account_id,\n  t.telegram_chat_id,\n  d.doctor_name\nFROM public.tenants t\nLEFT JOIN public.tenant_doctors d\n  ON d.id = '{{ $json.body.doctor_id }}'::uuid\nWHERE t.tenant_id = '{{ $json.body.tenant_id }}'\n  AND t.status = 'active'\nLIMIT 1",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "2MWvHIrEZHdAbAz1",
+          "name": "Postgres account"
         }
+      }
+    },
+    {
+      "id": "code-format-s04",
+      "name": "Formatar dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        304
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Formata datas em BRT legivel e monta payload para os proximos nodes.\nconst tenantRow = $input.item.json;\nconst payload = $('Webhook Proposta').first().json.body;\n\nfunction utcToBRT(isoString) {\n  if (!isoString) return '';\n  try {\n    const dt = new Date(isoString);\n    if (isNaN(dt.getTime())) return isoString;\n    const brtTime = new Date(dt.getTime() - 3 * 60 * 60 * 1000);\n    const dias = ['domingo', 'segunda-feira', 'terca-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sabado'];\n    const dayName = dias[brtTime.getUTCDay()];\n    const dd = String(brtTime.getUTCDate()).padStart(2, '0');\n    const mm = String(brtTime.getUTCMonth() + 1).padStart(2, '0');\n    const hh = String(brtTime.getUTCHours()).padStart(2, '0');\n    const min = String(brtTime.getUTCMinutes()).padStart(2, '0');\n    const timeStr = min === '00' ? hh + 'h' : hh + 'h' + min;\n    return dayName + ', ' + dd + '/' + mm + ' as ' + timeStr;\n  } catch(e) { return isoString; }\n}\n\nconst urlBase = (tenantRow.chatwoot_url || '').replace(/\\/$/, '');\nconst doctorName = tenantRow.doctor_name || 'a profissional';\nconst patientName = payload.patient_name || 'tudo bem';\nconst firstName = (payload.patient_name || '').split(' ')[0] || '';\n\nconst oldSlotBrt = utcToBRT(payload.old_slot_start);\nconst newSlotBrt = utcToBRT(payload.new_slot_start);\n\nconst mensagemPaciente =\n  'Ola' + (firstName ? ', ' + firstName : '') + '! Aqui e da ' + (tenantRow.clinic_name || 'clinica') + '.\\n\\n' +\n  doctorName + ' precisou reorganizar a agenda e gostariamos de sugerir um novo horario pra sua consulta.\\n\\n' +\n  '*Consulta atual:* ' + oldSlotBrt + '\\n' +\n  '*Nova sugestao:* ' + newSlotBrt + '\\n\\n' +\n  'Esse novo horario funciona pra voce? Se sim, e so responder *\"sim\"* ou *\"confirmo\"*.\\n' +\n  'Se preferir outro dia ou horario, me avisa e a gente acha o melhor jeito juntos.';\n\nconst notaInterna =\n  'Proposta de reagendamento enviada ao paciente via UI.\\n\\n' +\n  'Proposto por: ' + (payload.proposed_by_name || '(nao identificado)') + '\\n' +\n  'Antes: ' + oldSlotBrt + '\\n' +\n  'Depois: ' + newSlotBrt + '\\n\\n' +\n  'Aguardando resposta do paciente (deadline ' + utcToBRT(payload.confirmation_expires_at) + ').';\n\nconst telegramMsg =\n  '*Proposta de reagendamento enviada*\\n\\n' +\n  'Clinica: ' + (tenantRow.clinic_name || tenantRow.tenant_id) + '\\n' +\n  'Paciente: ' + (payload.patient_name || payload.patient_phone) + '\\n' +\n  'Antes: ' + oldSlotBrt + '\\n' +\n  'Depois: ' + newSlotBrt + '\\n' +\n  'Por: ' + (payload.proposed_by_name || '(nao identificado)') + '\\n' +\n  'Deadline: ' + utcToBRT(payload.confirmation_expires_at);\n\nreturn {\n  json: {\n    booking_id: payload.booking_id,\n    tenant_id: tenantRow.tenant_id,\n    clinic_name: tenantRow.clinic_name,\n    doctor_name: doctorName,\n    patient_phone: payload.patient_phone,\n    patient_name: payload.patient_name,\n    conversation_id: payload.conversation_id,\n    chatwoot_url: urlBase,\n    chatwoot_account_id: tenantRow.chatwoot_account_id,\n    telegram_chat_id: tenantRow.telegram_chat_id,\n    old_slot_brt: oldSlotBrt,\n    new_slot_brt: newSlotBrt,\n    mensagem_paciente: mensagemPaciente,\n    nota_interna: notaInterna,\n    telegram_msg: telegramMsg,\n  }\n};"
+      }
+    },
+    {
+      "id": "http-labels-get-s04",
+      "name": "Listar etiquetas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        912,
+        304
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.chatwoot_url }}/api/v1/accounts/{{ $json.chatwoot_account_id }}/conversations/{{ $json.conversation_id }}/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "options": {}
+      },
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "http-labels-post-s04",
+      "name": "Aplicar label aguardando_reagendamento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1136,
+        304
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Formatar dados').first().json.chatwoot_url }}/api/v1/accounts/{{ $('Formatar dados').first().json.chatwoot_account_id }}/conversations/{{ $('Formatar dados').first().json.conversation_id }}/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "labels",
+              "value": "={{ Array.from(new Set([...(($json.payload || []).filter(l => l !== 'agente-off')), 'aguardando_reagendamento'])) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "http-msg-paciente-s04",
+      "name": "Enviar mensagem ao paciente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        304
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Formatar dados').first().json.chatwoot_url }}/api/v1/accounts/{{ $('Formatar dados').first().json.chatwoot_account_id }}/conversations/{{ $('Formatar dados').first().json.conversation_id }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "={{ $('Formatar dados').first().json.mensagem_paciente }}"
+            },
+            {
+              "name": "message_type",
+              "value": "outgoing"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      }
+    },
+    {
+      "id": "http-nota-interna-s04",
+      "name": "Nota interna Chatwoot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1584,
+        304
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Formatar dados').first().json.chatwoot_url }}/api/v1/accounts/{{ $('Formatar dados').first().json.chatwoot_account_id }}/conversations/{{ $('Formatar dados').first().json.conversation_id }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "chatwootApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"content\": {{ JSON.stringify($('Formatar dados').first().json.nota_interna) }},\n  \"message_type\": \"outgoing\",\n  \"private\": true\n}",
+        "options": {}
+      },
+      "credentials": {
+        "chatwootApi": {
+          "id": "6RGRnozwwfQx8hHl",
+          "name": "ChatWoot account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "telegram-notify-s04",
+      "name": "Notificar Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1808,
+        304
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Formatar dados').first().json.telegram_chat_id }}",
+        "text": "={{ $('Formatar dados').first().json.telegram_msg }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "sDb6ROA0185exLKN",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "webhookId": "60470842-00b2-4ba9-b5f3-9890b85ecd45"
+    },
+    {
+      "id": "set-response-s04",
+      "name": "Resposta Webhook",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2032,
+        304
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "r2",
+              "name": "booking_id",
+              "value": "={{ $('Formatar dados').first().json.booking_id }}",
+              "type": "string"
+            },
+            {
+              "id": "r3",
+              "name": "message",
+              "value": "Proposta enviada ao paciente e notificacao Telegram disparada.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "sticky-s04-doc",
+      "name": "Sticky Note Doc",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        80
+      ],
+      "parameters": {
+        "content": "## S04 - Proposta de Reagendamento (UI -> WhatsApp)\n\nFluxo Fase 3 do feature \"sugerir novo horario via painel\":\n\n1. Painel envia POST /api/painel/agenda/events/[id]/propose-reschedule\n2. API Vercel atualiza booking pra pending_confirmation + dispara webhook deste workflow\n3. Este workflow envia WhatsApp ao paciente + aplica label aguardando_reagendamento + notifica Telegram do tenant\n4. P01 (Secretaria IA) reconhece a label e roteia resposta do paciente pra fluxo de confirmacao (Fase 4)\n\nWebhook URL (producao):\nhttps://n8n.singulare.org/webhook/s04-propose-reschedule\n\nSetar como N8N_S04_RESCHEDULE_WEBHOOK_URL no Vercel.",
+        "height": 220,
+        "width": 600,
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Proposta": {
+      "main": [
+        [
+          {
+            "node": "Buscar Config Tenant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Config Tenant": {
+      "main": [
+        [
+          {
+            "node": "Formatar dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar dados": {
+      "main": [
+        [
+          {
+            "node": "Listar etiquetas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar etiquetas": {
+      "main": [
+        [
+          {
+            "node": "Aplicar label aguardando_reagendamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aplicar label aguardando_reagendamento": {
+      "main": [
+        [
+          {
+            "node": "Enviar mensagem ao paciente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar mensagem ao paciente": {
+      "main": [
+        [
+          {
+            "node": "Nota interna Chatwoot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nota interna Chatwoot": {
+      "main": [
+        [
+          {
+            "node": "Notificar Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Telegram": {
+      "main": [
+        [
+          {
+            "node": "Resposta Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo",
+    "errorWorkflow": "rONCEa2neV3XyBBX"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "activeVersionId": "42fe354b-d288-422c-b2c4-9c1c3872ef3a",
+  "versionCounter": 7,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-16T21:24:59.053Z",
+      "createdAt": "2026-05-16T21:24:59.053Z",
+      "role": "workflow:owner",
+      "workflowId": "9ohdOh5Y4aUw4Htj",
+      "projectId": "2cGyYwvKw4dDUUz9",
+      "project": {
+        "updatedAt": "2026-05-04T21:21:30.902Z",
+        "createdAt": "2026-05-04T21:15:25.493Z",
+        "id": "2cGyYwvKw4dDUUz9",
+        "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-05-16T21:24:59.053Z",
+    "createdAt": "2026-05-16T21:24:59.053Z",
+    "versionId": "42fe354b-d288-422c-b2c4-9c1c3872ef3a",
+    "workflowId": "9ohdOh5Y4aUw4Htj",
+    "nodes": [
+      {
+        "id": "webhook-trigger-s04",
+        "name": "Webhook Proposta",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          240,
+          304
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "s04-propose-reschedule",
+          "responseMode": "lastNode",
+          "options": {}
+        },
+        "webhookId": "095def80-e225-4904-931c-22430df8d836"
+      },
+      {
+        "id": "postgres-tenant-s04",
+        "name": "Buscar Config Tenant",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          464,
+          304
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=SELECT \n  t.tenant_id,\n  t.clinic_name,\n  t.chatwoot_url,\n  t.chatwoot_account_id,\n  t.telegram_chat_id,\n  d.doctor_name\nFROM public.tenants t\nLEFT JOIN public.tenant_doctors d\n  ON d.id = '{{ $json.body.doctor_id }}'::uuid\nWHERE t.tenant_id = '{{ $json.body.tenant_id }}'\n  AND t.status = 'active'\nLIMIT 1",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "2MWvHIrEZHdAbAz1",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "code-format-s04",
+        "name": "Formatar dados",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          688,
+          304
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "// Formata datas em BRT legivel e monta payload para os proximos nodes.\nconst tenantRow = $input.item.json;\nconst payload = $('Webhook Proposta').first().json.body;\n\nfunction utcToBRT(isoString) {\n  if (!isoString) return '';\n  try {\n    const dt = new Date(isoString);\n    if (isNaN(dt.getTime())) return isoString;\n    const brtTime = new Date(dt.getTime() - 3 * 60 * 60 * 1000);\n    const dias = ['domingo', 'segunda-feira', 'terca-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sabado'];\n    const dayName = dias[brtTime.getUTCDay()];\n    const dd = String(brtTime.getUTCDate()).padStart(2, '0');\n    const mm = String(brtTime.getUTCMonth() + 1).padStart(2, '0');\n    const hh = String(brtTime.getUTCHours()).padStart(2, '0');\n    const min = String(brtTime.getUTCMinutes()).padStart(2, '0');\n    const timeStr = min === '00' ? hh + 'h' : hh + 'h' + min;\n    return dayName + ', ' + dd + '/' + mm + ' as ' + timeStr;\n  } catch(e) { return isoString; }\n}\n\nconst urlBase = (tenantRow.chatwoot_url || '').replace(/\\/$/, '');\nconst doctorName = tenantRow.doctor_name || 'a profissional';\nconst patientName = payload.patient_name || 'tudo bem';\nconst firstName = (payload.patient_name || '').split(' ')[0] || '';\n\nconst oldSlotBrt = utcToBRT(payload.old_slot_start);\nconst newSlotBrt = utcToBRT(payload.new_slot_start);\n\nconst mensagemPaciente =\n  'Ola' + (firstName ? ', ' + firstName : '') + '! Aqui e da ' + (tenantRow.clinic_name || 'clinica') + '.\\n\\n' +\n  doctorName + ' precisou reorganizar a agenda e gostariamos de sugerir um novo horario pra sua consulta.\\n\\n' +\n  '*Consulta atual:* ' + oldSlotBrt + '\\n' +\n  '*Nova sugestao:* ' + newSlotBrt + '\\n\\n' +\n  'Esse novo horario funciona pra voce? Se sim, e so responder *\"sim\"* ou *\"confirmo\"*.\\n' +\n  'Se preferir outro dia ou horario, me avisa e a gente acha o melhor jeito juntos.';\n\nconst notaInterna =\n  'Proposta de reagendamento enviada ao paciente via UI.\\n\\n' +\n  'Proposto por: ' + (payload.proposed_by_name || '(nao identificado)') + '\\n' +\n  'Antes: ' + oldSlotBrt + '\\n' +\n  'Depois: ' + newSlotBrt + '\\n\\n' +\n  'Aguardando resposta do paciente (deadline ' + utcToBRT(payload.confirmation_expires_at) + ').';\n\nconst telegramMsg =\n  '*Proposta de reagendamento enviada*\\n\\n' +\n  'Clinica: ' + (tenantRow.clinic_name || tenantRow.tenant_id) + '\\n' +\n  'Paciente: ' + (payload.patient_name || payload.patient_phone) + '\\n' +\n  'Antes: ' + oldSlotBrt + '\\n' +\n  'Depois: ' + newSlotBrt + '\\n' +\n  'Por: ' + (payload.proposed_by_name || '(nao identificado)') + '\\n' +\n  'Deadline: ' + utcToBRT(payload.confirmation_expires_at);\n\nreturn {\n  json: {\n    booking_id: payload.booking_id,\n    tenant_id: tenantRow.tenant_id,\n    clinic_name: tenantRow.clinic_name,\n    doctor_name: doctorName,\n    patient_phone: payload.patient_phone,\n    patient_name: payload.patient_name,\n    conversation_id: payload.conversation_id,\n    chatwoot_url: urlBase,\n    chatwoot_account_id: tenantRow.chatwoot_account_id,\n    telegram_chat_id: tenantRow.telegram_chat_id,\n    old_slot_brt: oldSlotBrt,\n    new_slot_brt: newSlotBrt,\n    mensagem_paciente: mensagemPaciente,\n    nota_interna: notaInterna,\n    telegram_msg: telegramMsg,\n  }\n};"
+        }
+      },
+      {
+        "id": "http-labels-get-s04",
+        "name": "Listar etiquetas",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          912,
+          304
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "={{ $json.chatwoot_url }}/api/v1/accounts/{{ $json.chatwoot_account_id }}/conversations/{{ $json.conversation_id }}/labels",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "options": {}
+        },
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "http-labels-post-s04",
+        "name": "Aplicar label aguardando_reagendamento",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1136,
+          304
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('Formatar dados').first().json.chatwoot_url }}/api/v1/accounts/{{ $('Formatar dados').first().json.chatwoot_account_id }}/conversations/{{ $('Formatar dados').first().json.conversation_id }}/labels",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "labels",
+                "value": "={{ Array.from(new Set([...(($json.payload || []).filter(l => l !== 'agente-off')), 'aguardando_reagendamento'])) }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "http-msg-paciente-s04",
+        "name": "Enviar mensagem ao paciente",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1360,
+          304
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('Formatar dados').first().json.chatwoot_url }}/api/v1/accounts/{{ $('Formatar dados').first().json.chatwoot_account_id }}/conversations/{{ $('Formatar dados').first().json.conversation_id }}/messages",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "content",
+                "value": "={{ $('Formatar dados').first().json.mensagem_paciente }}"
+              },
+              {
+                "name": "message_type",
+                "value": "outgoing"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        }
+      },
+      {
+        "id": "http-nota-interna-s04",
+        "name": "Nota interna Chatwoot",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1584,
+          304
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('Formatar dados').first().json.chatwoot_url }}/api/v1/accounts/{{ $('Formatar dados').first().json.chatwoot_account_id }}/conversations/{{ $('Formatar dados').first().json.conversation_id }}/messages",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "chatwootApi",
+          "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"content\": {{ JSON.stringify($('Formatar dados').first().json.nota_interna) }},\n  \"message_type\": \"outgoing\",\n  \"private\": true\n}",
+          "options": {}
+        },
+        "credentials": {
+          "chatwootApi": {
+            "id": "6RGRnozwwfQx8hHl",
+            "name": "ChatWoot account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "telegram-notify-s04",
+        "name": "Notificar Telegram",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1808,
+          304
+        ],
+        "parameters": {
+          "resource": "message",
+          "operation": "sendMessage",
+          "chatId": "={{ $('Formatar dados').first().json.telegram_chat_id }}",
+          "text": "={{ $('Formatar dados').first().json.telegram_msg }}",
+          "additionalFields": {
+            "parse_mode": "Markdown"
+          }
+        },
+        "credentials": {
+          "telegramApi": {
+            "id": "sDb6ROA0185exLKN",
+            "name": "Telegram account"
+          }
+        },
+        "onError": "continueRegularOutput",
+        "webhookId": "60470842-00b2-4ba9-b5f3-9890b85ecd45"
+      },
+      {
+        "id": "set-response-s04",
+        "name": "Resposta Webhook",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          2032,
+          304
+        ],
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "r1",
+                "name": "success",
+                "value": true,
+                "type": "boolean"
+              },
+              {
+                "id": "r2",
+                "name": "booking_id",
+                "value": "={{ $('Formatar dados').first().json.booking_id }}",
+                "type": "string"
+              },
+              {
+                "id": "r3",
+                "name": "message",
+                "value": "Proposta enviada ao paciente e notificacao Telegram disparada.",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "sticky-s04-doc",
+        "name": "Sticky Note Doc",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          240,
+          80
+        ],
+        "parameters": {
+          "content": "## S04 - Proposta de Reagendamento (UI -> WhatsApp)\n\nFluxo Fase 3 do feature \"sugerir novo horario via painel\":\n\n1. Painel envia POST /api/painel/agenda/events/[id]/propose-reschedule\n2. API Vercel atualiza booking pra pending_confirmation + dispara webhook deste workflow\n3. Este workflow envia WhatsApp ao paciente + aplica label aguardando_reagendamento + notifica Telegram do tenant\n4. P01 (Secretaria IA) reconhece a label e roteia resposta do paciente pra fluxo de confirmacao (Fase 4)\n\nWebhook URL (producao):\nhttps://n8n.singulare.org/webhook/s04-propose-reschedule\n\nSetar como N8N_S04_RESCHEDULE_WEBHOOK_URL no Vercel.",
+          "height": 220,
+          "width": 600,
+          "color": 4
+        }
+      }
     ],
     "connections": {
-        "Webhook Proposta": {
-            "main": [
-                [
-                    {
-                        "node": "Buscar Config Tenant",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Buscar Config Tenant": {
-            "main": [
-                [
-                    {
-                        "node": "Formatar dados",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Formatar dados": {
-            "main": [
-                [
-                    {
-                        "node": "Listar etiquetas",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Listar etiquetas": {
-            "main": [
-                [
-                    {
-                        "node": "Aplicar label aguardando_reagendamento",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Aplicar label aguardando_reagendamento": {
-            "main": [
-                [
-                    {
-                        "node": "Enviar mensagem ao paciente",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Enviar mensagem ao paciente": {
-            "main": [
-                [
-                    {
-                        "node": "Nota interna Chatwoot",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Nota interna Chatwoot": {
-            "main": [
-                [
-                    {
-                        "node": "Notificar Telegram",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Notificar Telegram": {
-            "main": [
-                [
-                    {
-                        "node": "Resposta Webhook",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        }
-    },
-    "settings": {
-        "executionOrder": "v1",
-        "timezone": "America/Sao_Paulo"
-    },
-    "staticData": null,
-    "meta": null,
-    "pinData": null,
-    "versionId": "42fe354b-d288-422c-b2c4-9c1c3872ef3a",
-    "activeVersionId": "42fe354b-d288-422c-b2c4-9c1c3872ef3a",
-    "versionCounter": 4,
-    "triggerCount": 1,
-    "shared": [
-        {
-            "updatedAt": "2026-05-16T21:24:59.053Z",
-            "createdAt": "2026-05-16T21:24:59.053Z",
-            "role": "workflow:owner",
-            "workflowId": "9ohdOh5Y4aUw4Htj",
-            "projectId": "2cGyYwvKw4dDUUz9",
-            "project": {
-                "updatedAt": "2026-05-04T21:21:30.902Z",
-                "createdAt": "2026-05-04T21:15:25.493Z",
-                "id": "2cGyYwvKw4dDUUz9",
-                "name": "Luiz Flavio Sa <luizflaviosa@yahoo.com.br>",
-                "type": "personal",
-                "icon": null,
-                "description": null,
-                "creatorId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      "Webhook Proposta": {
+        "main": [
+          [
+            {
+              "node": "Buscar Config Tenant",
+              "type": "main",
+              "index": 0
             }
-        }
-    ],
-    "tags": [],
-    "activeVersion": {
-        "updatedAt": "2026-05-16T21:24:59.053Z",
-        "createdAt": "2026-05-16T21:24:59.053Z",
-        "versionId": "42fe354b-d288-422c-b2c4-9c1c3872ef3a",
-        "workflowId": "9ohdOh5Y4aUw4Htj",
-        "nodes": [
-            {
-                "id": "webhook-trigger-s04",
-                "name": "Webhook Proposta",
-                "type": "n8n-nodes-base.webhook",
-                "typeVersion": 2,
-                "position": [
-                    240,
-                    304
-                ],
-                "parameters": {
-                    "httpMethod": "POST",
-                    "path": "s04-propose-reschedule",
-                    "responseMode": "lastNode",
-                    "options": {}
-                },
-                "webhookId": "095def80-e225-4904-931c-22430df8d836"
-            },
-            {
-                "id": "postgres-tenant-s04",
-                "name": "Buscar Config Tenant",
-                "type": "n8n-nodes-base.postgres",
-                "typeVersion": 2.6,
-                "position": [
-                    464,
-                    304
-                ],
-                "parameters": {
-                    "operation": "executeQuery",
-                    "query": "=SELECT \n  t.tenant_id,\n  t.clinic_name,\n  t.chatwoot_url,\n  t.chatwoot_account_id,\n  t.telegram_chat_id,\n  d.doctor_name\nFROM public.tenants t\nLEFT JOIN public.tenant_doctors d\n  ON d.id = '{{ $json.body.doctor_id }}'::uuid\nWHERE t.tenant_id = '{{ $json.body.tenant_id }}'\n  AND t.status = 'active'\nLIMIT 1",
-                    "options": {}
-                },
-                "credentials": {
-                    "postgres": {
-                        "id": "2MWvHIrEZHdAbAz1",
-                        "name": "Postgres account"
-                    }
-                }
-            },
-            {
-                "id": "code-format-s04",
-                "name": "Formatar dados",
-                "type": "n8n-nodes-base.code",
-                "typeVersion": 2,
-                "position": [
-                    688,
-                    304
-                ],
-                "parameters": {
-                    "mode": "runOnceForEachItem",
-                    "jsCode": "// Formata datas em BRT legivel e monta payload para os proximos nodes.\nconst tenantRow = $input.item.json;\nconst payload = $('Webhook Proposta').first().json.body;\n\nfunction utcToBRT(isoString) {\n  if (!isoString) return '';\n  try {\n    const dt = new Date(isoString);\n    if (isNaN(dt.getTime())) return isoString;\n    const brtTime = new Date(dt.getTime() - 3 * 60 * 60 * 1000);\n    const dias = ['domingo', 'segunda-feira', 'terca-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sabado'];\n    const dayName = dias[brtTime.getUTCDay()];\n    const dd = String(brtTime.getUTCDate()).padStart(2, '0');\n    const mm = String(brtTime.getUTCMonth() + 1).padStart(2, '0');\n    const hh = String(brtTime.getUTCHours()).padStart(2, '0');\n    const min = String(brtTime.getUTCMinutes()).padStart(2, '0');\n    const timeStr = min === '00' ? hh + 'h' : hh + 'h' + min;\n    return dayName + ', ' + dd + '/' + mm + ' as ' + timeStr;\n  } catch(e) { return isoString; }\n}\n\nconst urlBase = (tenantRow.chatwoot_url || '').replace(/\\/$/, '');\nconst doctorName = tenantRow.doctor_name || 'a profissional';\nconst patientName = payload.patient_name || 'tudo bem';\nconst firstName = (payload.patient_name || '').split(' ')[0] || '';\n\nconst oldSlotBrt = utcToBRT(payload.old_slot_start);\nconst newSlotBrt = utcToBRT(payload.new_slot_start);\n\nconst mensagemPaciente =\n  'Ola' + (firstName ? ', ' + firstName : '') + '! Aqui e da ' + (tenantRow.clinic_name || 'clinica') + '.\\n\\n' +\n  doctorName + ' precisou reorganizar a agenda e gostariamos de sugerir um novo horario pra sua consulta.\\n\\n' +\n  '*Consulta atual:* ' + oldSlotBrt + '\\n' +\n  '*Nova sugestao:* ' + newSlotBrt + '\\n\\n' +\n  'Esse novo horario funciona pra voce? Se sim, e so responder *\"sim\"* ou *\"confirmo\"*.\\n' +\n  'Se preferir outro dia ou horario, me avisa e a gente acha o melhor jeito juntos.';\n\nconst notaInterna =\n  'Proposta de reagendamento enviada ao paciente via UI.\\n\\n' +\n  'Proposto por: ' + (payload.proposed_by_name || '(nao identificado)') + '\\n' +\n  'Antes: ' + oldSlotBrt + '\\n' +\n  'Depois: ' + newSlotBrt + '\\n\\n' +\n  'Aguardando resposta do paciente (deadline ' + utcToBRT(payload.confirmation_expires_at) + ').';\n\nconst telegramMsg =\n  '*Proposta de reagendamento enviada*\\n\\n' +\n  'Clinica: ' + (tenantRow.clinic_name || tenantRow.tenant_id) + '\\n' +\n  'Paciente: ' + (payload.patient_name || payload.patient_phone) + '\\n' +\n  'Antes: ' + oldSlotBrt + '\\n' +\n  'Depois: ' + newSlotBrt + '\\n' +\n  'Por: ' + (payload.proposed_by_name || '(nao identificado)') + '\\n' +\n  'Deadline: ' + utcToBRT(payload.confirmation_expires_at);\n\nreturn {\n  json: {\n    booking_id: payload.booking_id,\n    tenant_id: tenantRow.tenant_id,\n    clinic_name: tenantRow.clinic_name,\n    doctor_name: doctorName,\n    patient_phone: payload.patient_phone,\n    patient_name: payload.patient_name,\n    conversation_id: payload.conversation_id,\n    chatwoot_url: urlBase,\n    chatwoot_account_id: tenantRow.chatwoot_account_id,\n    telegram_chat_id: tenantRow.telegram_chat_id,\n    old_slot_brt: oldSlotBrt,\n    new_slot_brt: newSlotBrt,\n    mensagem_paciente: mensagemPaciente,\n    nota_interna: notaInterna,\n    telegram_msg: telegramMsg,\n  }\n};"
-                }
-            },
-            {
-                "id": "http-labels-get-s04",
-                "name": "Listar etiquetas",
-                "type": "n8n-nodes-base.httpRequest",
-                "typeVersion": 4.2,
-                "position": [
-                    912,
-                    304
-                ],
-                "parameters": {
-                    "method": "GET",
-                    "url": "={{ $json.chatwoot_url }}/api/v1/accounts/{{ $json.chatwoot_account_id }}/conversations/{{ $json.conversation_id }}/labels",
-                    "authentication": "predefinedCredentialType",
-                    "nodeCredentialType": "chatwootApi",
-                    "options": {}
-                },
-                "credentials": {
-                    "chatwootApi": {
-                        "id": "6RGRnozwwfQx8hHl",
-                        "name": "ChatWoot account"
-                    }
-                },
-                "onError": "continueRegularOutput"
-            },
-            {
-                "id": "http-labels-post-s04",
-                "name": "Aplicar label aguardando_reagendamento",
-                "type": "n8n-nodes-base.httpRequest",
-                "typeVersion": 4.2,
-                "position": [
-                    1136,
-                    304
-                ],
-                "parameters": {
-                    "method": "POST",
-                    "url": "={{ $('Formatar dados').first().json.chatwoot_url }}/api/v1/accounts/{{ $('Formatar dados').first().json.chatwoot_account_id }}/conversations/{{ $('Formatar dados').first().json.conversation_id }}/labels",
-                    "authentication": "predefinedCredentialType",
-                    "nodeCredentialType": "chatwootApi",
-                    "sendBody": true,
-                    "bodyParameters": {
-                        "parameters": [
-                            {
-                                "name": "labels",
-                                "value": "={{ Array.from(new Set([...(($json.payload || []).filter(l => l !== 'agente-off')), 'aguardando_reagendamento'])) }}"
-                            }
-                        ]
-                    },
-                    "options": {}
-                },
-                "credentials": {
-                    "chatwootApi": {
-                        "id": "6RGRnozwwfQx8hHl",
-                        "name": "ChatWoot account"
-                    }
-                },
-                "onError": "continueRegularOutput"
-            },
-            {
-                "id": "http-msg-paciente-s04",
-                "name": "Enviar mensagem ao paciente",
-                "type": "n8n-nodes-base.httpRequest",
-                "typeVersion": 4.2,
-                "position": [
-                    1360,
-                    304
-                ],
-                "parameters": {
-                    "method": "POST",
-                    "url": "={{ $('Formatar dados').first().json.chatwoot_url }}/api/v1/accounts/{{ $('Formatar dados').first().json.chatwoot_account_id }}/conversations/{{ $('Formatar dados').first().json.conversation_id }}/messages",
-                    "authentication": "predefinedCredentialType",
-                    "nodeCredentialType": "chatwootApi",
-                    "sendBody": true,
-                    "bodyParameters": {
-                        "parameters": [
-                            {
-                                "name": "content",
-                                "value": "={{ $('Formatar dados').first().json.mensagem_paciente }}"
-                            },
-                            {
-                                "name": "message_type",
-                                "value": "outgoing"
-                            }
-                        ]
-                    },
-                    "options": {}
-                },
-                "credentials": {
-                    "chatwootApi": {
-                        "id": "6RGRnozwwfQx8hHl",
-                        "name": "ChatWoot account"
-                    }
-                }
-            },
-            {
-                "id": "http-nota-interna-s04",
-                "name": "Nota interna Chatwoot",
-                "type": "n8n-nodes-base.httpRequest",
-                "typeVersion": 4.2,
-                "position": [
-                    1584,
-                    304
-                ],
-                "parameters": {
-                    "method": "POST",
-                    "url": "={{ $('Formatar dados').first().json.chatwoot_url }}/api/v1/accounts/{{ $('Formatar dados').first().json.chatwoot_account_id }}/conversations/{{ $('Formatar dados').first().json.conversation_id }}/messages",
-                    "authentication": "predefinedCredentialType",
-                    "nodeCredentialType": "chatwootApi",
-                    "sendBody": true,
-                    "contentType": "json",
-                    "specifyBody": "json",
-                    "jsonBody": "={\n  \"content\": {{ JSON.stringify($('Formatar dados').first().json.nota_interna) }},\n  \"message_type\": \"outgoing\",\n  \"private\": true\n}",
-                    "options": {}
-                },
-                "credentials": {
-                    "chatwootApi": {
-                        "id": "6RGRnozwwfQx8hHl",
-                        "name": "ChatWoot account"
-                    }
-                },
-                "onError": "continueRegularOutput"
-            },
-            {
-                "id": "telegram-notify-s04",
-                "name": "Notificar Telegram",
-                "type": "n8n-nodes-base.telegram",
-                "typeVersion": 1.2,
-                "position": [
-                    1808,
-                    304
-                ],
-                "parameters": {
-                    "resource": "message",
-                    "operation": "sendMessage",
-                    "chatId": "={{ $('Formatar dados').first().json.telegram_chat_id }}",
-                    "text": "={{ $('Formatar dados').first().json.telegram_msg }}",
-                    "additionalFields": {
-                        "parse_mode": "Markdown"
-                    }
-                },
-                "credentials": {
-                    "telegramApi": {
-                        "id": "sDb6ROA0185exLKN",
-                        "name": "Telegram account"
-                    }
-                },
-                "onError": "continueRegularOutput",
-                "webhookId": "60470842-00b2-4ba9-b5f3-9890b85ecd45"
-            },
-            {
-                "id": "set-response-s04",
-                "name": "Resposta Webhook",
-                "type": "n8n-nodes-base.set",
-                "typeVersion": 3.4,
-                "position": [
-                    2032,
-                    304
-                ],
-                "parameters": {
-                    "assignments": {
-                        "assignments": [
-                            {
-                                "id": "r1",
-                                "name": "success",
-                                "value": true,
-                                "type": "boolean"
-                            },
-                            {
-                                "id": "r2",
-                                "name": "booking_id",
-                                "value": "={{ $('Formatar dados').first().json.booking_id }}",
-                                "type": "string"
-                            },
-                            {
-                                "id": "r3",
-                                "name": "message",
-                                "value": "Proposta enviada ao paciente e notificacao Telegram disparada.",
-                                "type": "string"
-                            }
-                        ]
-                    },
-                    "options": {}
-                }
-            },
-            {
-                "id": "sticky-s04-doc",
-                "name": "Sticky Note Doc",
-                "type": "n8n-nodes-base.stickyNote",
-                "typeVersion": 1,
-                "position": [
-                    240,
-                    80
-                ],
-                "parameters": {
-                    "content": "## S04 - Proposta de Reagendamento (UI -> WhatsApp)\n\nFluxo Fase 3 do feature \"sugerir novo horario via painel\":\n\n1. Painel envia POST /api/painel/agenda/events/[id]/propose-reschedule\n2. API Vercel atualiza booking pra pending_confirmation + dispara webhook deste workflow\n3. Este workflow envia WhatsApp ao paciente + aplica label aguardando_reagendamento + notifica Telegram do tenant\n4. P01 (Secretaria IA) reconhece a label e roteia resposta do paciente pra fluxo de confirmacao (Fase 4)\n\nWebhook URL (producao):\nhttps://n8n.singulare.org/webhook/s04-propose-reschedule\n\nSetar como N8N_S04_RESCHEDULE_WEBHOOK_URL no Vercel.",
-                    "height": 220,
-                    "width": 600,
-                    "color": 4
-                }
-            }
-        ],
-        "connections": {
-            "Webhook Proposta": {
-                "main": [
-                    [
-                        {
-                            "node": "Buscar Config Tenant",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Buscar Config Tenant": {
-                "main": [
-                    [
-                        {
-                            "node": "Formatar dados",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Formatar dados": {
-                "main": [
-                    [
-                        {
-                            "node": "Listar etiquetas",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Listar etiquetas": {
-                "main": [
-                    [
-                        {
-                            "node": "Aplicar label aguardando_reagendamento",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Aplicar label aguardando_reagendamento": {
-                "main": [
-                    [
-                        {
-                            "node": "Enviar mensagem ao paciente",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Enviar mensagem ao paciente": {
-                "main": [
-                    [
-                        {
-                            "node": "Nota interna Chatwoot",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Nota interna Chatwoot": {
-                "main": [
-                    [
-                        {
-                            "node": "Notificar Telegram",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            },
-            "Notificar Telegram": {
-                "main": [
-                    [
-                        {
-                            "node": "Resposta Webhook",
-                            "type": "main",
-                            "index": 0
-                        }
-                    ]
-                ]
-            }
-        },
-        "authors": "Luiz Flavio Sa",
-        "name": null,
-        "description": null,
-        "autosaved": false,
-        "workflowPublishHistory": [
-            {
-                "createdAt": "2026-05-16T21:25:19.206Z",
-                "id": 343,
-                "workflowId": "9ohdOh5Y4aUw4Htj",
-                "versionId": "42fe354b-d288-422c-b2c4-9c1c3872ef3a",
-                "event": "activated",
-                "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-            }
+          ]
         ]
-    }
+      },
+      "Buscar Config Tenant": {
+        "main": [
+          [
+            {
+              "node": "Formatar dados",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Formatar dados": {
+        "main": [
+          [
+            {
+              "node": "Listar etiquetas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Listar etiquetas": {
+        "main": [
+          [
+            {
+              "node": "Aplicar label aguardando_reagendamento",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Aplicar label aguardando_reagendamento": {
+        "main": [
+          [
+            {
+              "node": "Enviar mensagem ao paciente",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Enviar mensagem ao paciente": {
+        "main": [
+          [
+            {
+              "node": "Nota interna Chatwoot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Nota interna Chatwoot": {
+        "main": [
+          [
+            {
+              "node": "Notificar Telegram",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Notificar Telegram": {
+        "main": [
+          [
+            {
+              "node": "Resposta Webhook",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-05-16T21:25:19.206Z",
+        "id": 343,
+        "workflowId": "9ohdOh5Y4aUw4Htj",
+        "versionId": "42fe354b-d288-422c-b2c4-9c1c3872ef3a",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:27:00.947Z",
+        "id": 418,
+        "workflowId": "9ohdOh5Y4aUw4Htj",
+        "versionId": "42fe354b-d288-422c-b2c4-9c1c3872ef3a",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:27:00.966Z",
+        "id": 419,
+        "workflowId": "9ohdOh5Y4aUw4Htj",
+        "versionId": "42fe354b-d288-422c-b2c4-9c1c3872ef3a",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      }
+    ]
+  }
 }

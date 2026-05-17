@@ -1,6 +1,6 @@
 {
   "id": "t7d0reakz8IMPDBp",
-  "name": "safe_create_event — Reserva Atômica + Calendar Sync",
+  "name": "T02 — safe_create_event · v1.0",
   "description": "v5: aceita doctor_code (preferencial) + atomic booking + Calendar event + attach.",
   "active": true,
   "isArchived": false,
@@ -516,7 +516,8 @@
   },
   "settings": {
     "executionOrder": "v1",
-    "availableInMCP": true
+    "availableInMCP": true,
+    "errorWorkflow": "rONCEa2neV3XyBBX"
   },
   "staticData": null,
   "meta": {
@@ -525,7 +526,7 @@
   },
   "pinData": null,
   "activeVersionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
-  "versionCounter": 47,
+  "versionCounter": 53,
   "triggerCount": 0,
   "shared": [
     {
@@ -1078,6 +1079,38 @@
       {
         "createdAt": "2026-05-08T02:40:59.455Z",
         "id": 150,
+        "workflowId": "t7d0reakz8IMPDBp",
+        "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:51.049Z",
+        "id": 383,
+        "workflowId": "t7d0reakz8IMPDBp",
+        "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:51.065Z",
+        "id": 384,
+        "workflowId": "t7d0reakz8IMPDBp",
+        "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:27:02.553Z",
+        "id": 420,
+        "workflowId": "t7d0reakz8IMPDBp",
+        "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:27:02.586Z",
+        "id": 421,
         "workflowId": "t7d0reakz8IMPDBp",
         "versionId": "62d1d743-385d-4604-87cb-0b5e5dba18ca",
         "event": "activated",

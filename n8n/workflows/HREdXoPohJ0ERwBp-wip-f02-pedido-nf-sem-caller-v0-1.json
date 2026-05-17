@@ -1,6 +1,6 @@
 {
   "id": "HREdXoPohJ0ERwBp",
-  "name": "3. Registrar Pedido NF",
+  "name": "WIP — F02 Pedido NF · sem caller · v0.1",
   "description": "Subworkflow para registrar pedido de Nota Fiscal no Supabase e enviar email ao contador.",
   "active": true,
   "isArchived": false,
@@ -330,7 +330,7 @@
   },
   "pinData": {},
   "activeVersionId": "4fc9d410-09f5-4800-86bd-db856fe5d390",
-  "versionCounter": 4,
+  "versionCounter": 7,
   "triggerCount": 0,
   "shared": [
     {
@@ -680,6 +680,22 @@
       {
         "createdAt": "2026-05-04T22:34:49.821Z",
         "id": 19,
+        "workflowId": "HREdXoPohJ0ERwBp",
+        "versionId": "4fc9d410-09f5-4800-86bd-db856fe5d390",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:47.019Z",
+        "id": 377,
+        "workflowId": "HREdXoPohJ0ERwBp",
+        "versionId": "4fc9d410-09f5-4800-86bd-db856fe5d390",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:47.041Z",
+        "id": 378,
         "workflowId": "HREdXoPohJ0ERwBp",
         "versionId": "4fc9d410-09f5-4800-86bd-db856fe5d390",
         "event": "activated",

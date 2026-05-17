@@ -24,7 +24,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const b=$input.first().json.body;let d;try{d=typeof b==='string'?JSON.parse(b):b;}catch(e){d=$input.first().json;}const r=d.real_phone||d.phone||'';return{real_phone:r.replace(/[\\s\\-\\(\\)]/g,''),clinic_name:d.clinic_name||'',admin_email:d.admin_email||'',address:d.address||'',doctor_name:d.doctor_name||'',doctor_crm:d.doctor_crm||'',speciality:d.speciality||d.specialty||'',consultation_duration:(d.consultation_duration||'30').toString(),establishment_type:d.establishment_type||'small_clinic',plan_type:d.plan_type||'professional',addon_human_support:!!d.addon_human_support,is_sob_medida:!!d.is_sob_medida,api_key_chatwoot:d.api_key_chatwoot||'oZy1eCh7dt3YdSthzov7YsJ9'};"
+        "jsCode": "const b=$input.first().json.body;let d;try{d=typeof b==='string'?JSON.parse(b):b;}catch(e){d=$input.first().json;}\nconst r=d.real_phone||d.phone||'';\nreturn{\n  real_phone:r.replace(/[\\s\\-\\(\\)]/g,''),\n  clinic_name:d.clinic_name||'',\n  admin_email:d.admin_email||'',\n  address:d.address||'',\n  doctor_name:d.doctor_name||'',\n  doctor_crm:d.doctor_crm||'',\n  speciality:d.speciality||d.specialty||'',\n  consultation_duration:(d.consultation_duration||'30').toString(),\n  establishment_type:d.establishment_type||'small_clinic',\n  plan_type:d.plan_type||'professional',\n  addon_human_support:!!d.addon_human_support,\n  is_sob_medida:!!d.is_sob_medida,\n  api_key_chatwoot:d.api_key_chatwoot||'g5rHQRJTqG4RuwFFDc2eq2Dm',\n  admin_phone:(d.admin_phone||'').replace(/[\\s\\-\\(\\)]/g,''),\n  doctor_phone:(d.doctor_phone||'').replace(/[\\s\\-\\(\\)]/g,''),\n  magic_link_url:d.magic_link_url||'',\n  connect_url:d.connect_url||'',\n  connect_token:d.connect_token||'',\n  tenant_id_from_vercel:d.tenant_id||'',\n  pre_created_calendar_id:d.pre_created_calendar_id||''\n};"
       },
       "id": "e0d47563-fbe2-4b13-9411-dbb9f666c3d9",
       "name": "Processar Dados v4.4",
@@ -86,7 +86,7 @@
     },
     {
       "parameters": {
-        "jsCode": "try{const d=$json;if(!/^\\+\\d{10,15}$/.test(d.real_phone))throw new Error('Phone invalido:'+d.real_phone);if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(d.admin_email))throw new Error('Email invalido');const s=d.clinic_name.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');const tid=s+'-'+Date.now().toString(36);return[{tenant_id:tid,clinic_name:d.clinic_name,email:d.admin_email,admin_email:d.admin_email,address:d.address||'',phone:d.real_phone,plan_type:d.plan_type,establishment_type:d.establishment_type,version:'4.4',doctor_name:d.doctor_name,doctor_crm:d.doctor_crm,speciality:d.speciality,consultation_duration:parseInt(d.consultation_duration)||30,addon_human_support:!!d.addon_human_support,api_key_chatwoot:d.api_key_chatwoot,calendar_name:d.clinic_name+' - Agenda Singulare',evolution_instance_name:tid,evolution_phone:d.real_phone.replace(/\\D/g,''),evolution_webhook_url:'https://n8n.singulare.org/webhook/evolution-events-v44',telegram_link:'https://t.me/SingulareBot?start='+tid,chatwoot_strategy:d.plan_type==='enterprise'?'DEDICATED':'SHARED'}];}catch(e){return[{status:'error',error:e.message,version:'4.4'}];}"
+        "jsCode": "try{\n  const d=$json;\n  if(!/^\\+\\d{10,15}$/.test(d.real_phone))throw new Error('Phone invalido:'+d.real_phone);\n  if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(d.admin_email))throw new Error('Email invalido');\n  const s=d.clinic_name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');\n  const tid=d.tenant_id_from_vercel||(s+'-'+Date.now().toString(36));\n  return[{\n    tenant_id:tid,\n    clinic_name:d.clinic_name,\n    email:d.admin_email,\n    admin_email:d.admin_email,\n    address:d.address||'',\n    phone:d.real_phone,\n    admin_phone:d.admin_phone||'',\n    doctor_phone:d.doctor_phone||'',\n    magic_link_url:d.magic_link_url||'',\n    connect_url:d.connect_url||'',\n    connect_token:d.connect_token||'',\n    plan_type:d.plan_type,\n    establishment_type:d.establishment_type,\n    version:'4.5',\n    doctor_name:d.doctor_name,\n    doctor_crm:d.doctor_crm,\n    speciality:d.speciality,\n    consultation_duration:parseInt(d.consultation_duration)||30,\n    addon_human_support:!!d.addon_human_support,\n    api_key_chatwoot:d.api_key_chatwoot,\n    calendar_name:d.clinic_name+' - Agenda Singulare',\n    evolution_instance_name:tid,\n    pre_created_calendar_id:d.pre_created_calendar_id||'',\n    evolution_phone:d.real_phone.replace(/\\D/g,''),\n    evolution_webhook_url:'https://n8n.singulare.org/webhook/evolution-events-v44',\n    telegram_link:'https://t.me/SingulareBot?start='+tid,\n    chatwoot_strategy:d.plan_type==='enterprise'?'DEDICATED':'SHARED'\n  }];\n}catch(e){return[{status:'error',error:e.message,version:'4.5'}];}"
       },
       "id": "55d64cac-c603-4015-b18a-ccdd3bbe51e1",
       "name": "Configurar Tenant v4.4",
@@ -102,8 +102,10 @@
         "method": "POST",
         "url": "https://www.googleapis.com/calendar/v3/calendars",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "nodeCredentialType": "googleApi",
         "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypair",
         "bodyParameters": {
           "parameters": [
             {
@@ -119,6 +121,8 @@
         "options": {
           "response": {
             "response": {
+              "fullResponse": false,
+              "neverError": false,
               "responseFormat": "json"
             }
           }
@@ -133,18 +137,19 @@
         192
       ],
       "credentials": {
-        "googleCalendarOAuth2Api": {
-          "id": "OkOV7izIvJcvD3wl",
-          "name": "Google Calendar account"
+        "googleApi": {
+          "id": "co3SxRBKRqtJRGpa",
+          "name": "Google Service Account account"
         }
-      }
+      },
+      "disabled": true
     },
     {
       "parameters": {
         "method": "POST",
         "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Criar Calendar v4.4').item.json.id) }}/acl",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "nodeCredentialType": "googleApi",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\n  \"role\": \"writer\",\n  \"scope\": { \"type\": \"user\", \"value\": \"atendimento-singulare@grand-quarter-462319-i7.iam.gserviceaccount.com\" }\n}",
@@ -166,28 +171,20 @@
         192
       ],
       "credentials": {
-        "googleCalendarOAuth2Api": {
-          "id": "OkOV7izIvJcvD3wl",
-          "name": "Google Calendar account"
+        "googleApi": {
+          "id": "co3SxRBKRqtJRGpa",
+          "name": "Google Service Account account"
         }
       },
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "disabled": true
     },
     {
       "parameters": {
+        "authentication": "serviceAccount",
         "resource": "folder",
+        "operation": "create",
         "name": "={{ $('Configurar Tenant v4.4').item.json.tenant_id }}",
-        "driveId": {
-          "__rl": true,
-          "mode": "list",
-          "value": "My Drive"
-        },
-        "folderId": {
-          "__rl": true,
-          "mode": "list",
-          "value": "root",
-          "cachedResultName": "/ (Root folder)"
-        },
         "options": {}
       },
       "id": "d413c0e8-fc71-4f6a-9d5f-67fb2b591e47",
@@ -199,9 +196,9 @@
         192
       ],
       "credentials": {
-        "googleDriveOAuth2Api": {
-          "id": "ZegivNH5EouVTbBe",
-          "name": "Google Drive account"
+        "googleApi": {
+          "id": "co3SxRBKRqtJRGpa",
+          "name": "Google Service Account account"
         }
       }
     },
@@ -357,7 +354,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const t=$('Configurar Tenant v4.4').item.json;\nconst ev=$('Criar Instancia v4.4').item.json;\nconst con=$('Conectar Instancia v4.4').item.json;\nconst ca=$('Criar Calendar v4.4').item.json;\nconst dr=$('Drive Folder v4.4').item.json;\nlet acId='1',ibId='3',cwT='shared',cwD='https://chatwoot.singulare.org/';\ntry{const d=$('Criar Chatwoot Dedicado v4.4').item.json;if(d&&d.id){acId=d.id.toString();cwT='dedicated';}}catch(e){}\ntry{const ib=$input.item.json;if(ib&&ib.id)ibId=ib.id.toString();}catch(e){}\nconst qrCode=con?.data?.base64||con?.qrcode?.base64||null;\nconst qrString=con?.data?.code||con?.qrcode?.code||null;\nconst pairingCode=con?.data?.pairingCode||null;\nreturn[{\n  tenant_id:t.tenant_id,clinic_name:t.clinic_name,email:t.email,admin_email:t.admin_email,\n  address:t.address||'',\n  phone:t.phone,plan_type:t.plan_type,establishment_type:t.establishment_type,\n  doctor_name:t.doctor_name,doctor_crm:t.doctor_crm,speciality:t.speciality,\n  consultation_duration:t.consultation_duration,version:'4.4',status:'active',\n  subscription_status:'trial',\n  addon_human_support:!!t.addon_human_support,\n  calendar_id:ca?.id||'cal_'+Date.now(),\n  drive_folder_id:dr?.id||'drv_'+Date.now(),\n  evolution_instance_name:ev?.data?.instance?.instanceName||ev?.instance?.instanceName||t.tenant_id,\n  evolution_phone_number:t.evolution_phone,\n  evolution_qr_code:qrCode,\n  evolution_qr_string:qrString,\n  evolution_pairing_code:pairingCode,\n  evolution_status:ev?.data?.instance?.status||ev?.instance?.status||'created',\n  chatwoot_type:cwT,chatwoot_account_id:acId,chatwoot_inbox_id:ibId,\n  chatwoot_url:cwD,telegram_bot_link:t.telegram_link,\n  onboarding_status:'COMPLETO v4.4',provisioned_at:new Date().toISOString()\n}];"
+        "jsCode": "const t=$('Configurar Tenant v4.4').item.json;\nconst ev=$('Criar Instancia v4.4').item.json;\nconst con=$('Conectar Instancia v4.4').item.json;\nconst ca=$('Criar Calendar v4.4').item.json;\nconst dr=$('Drive Folder v4.4').item.json;\nlet acId='1',ibId='3',cwT='shared',cwD='https://chatwoot.singulare.org/';\ntry{const dd=$('Criar Chatwoot Dedicado v4.4').item.json;if(dd&&dd.id){acId=dd.id.toString();cwT='dedicated';}}catch(e){}\ntry{const ib=$input.item.json;if(ib&&ib.id)ibId=ib.id.toString();}catch(e){}\nconst qrCode=con?.data?.base64||con?.qrcode?.base64||null;\nconst qrString=con?.data?.code||con?.qrcode?.code||null;\nconst pairingCode=con?.data?.pairingCode||null;\nreturn[{\n  tenant_id:t.tenant_id,\n  clinic_name:t.clinic_name,\n  email:t.email,\n  admin_email:t.admin_email,\n  address:t.address||'',\n  phone:t.phone,\n  admin_phone:t.admin_phone||'',\n  doctor_phone:t.doctor_phone||'',\n  magic_link_url:t.magic_link_url||'',\n  plan_type:t.plan_type,\n  establishment_type:t.establishment_type,\n  doctor_name:t.doctor_name,\n  doctor_crm:t.doctor_crm,\n  speciality:t.speciality,\n  consultation_duration:t.consultation_duration,\n  version:'4.5',\n  status:'active',\n  subscription_status:'trial',\n  addon_human_support:!!t.addon_human_support,\n  calendar_id:t.pre_created_calendar_id||ca?.id||'cal_'+Date.now(),\n  drive_folder_id:dr?.id||'drv_'+Date.now(),\n  evolution_instance_name:ev?.data?.instance?.instanceName||ev?.instance?.instanceName||t.tenant_id,\n  evolution_phone_number:t.evolution_phone,\n  evolution_qr_code:qrCode,\n  evolution_qr_string:qrString,\n  evolution_pairing_code:pairingCode,\n  evolution_status:ev?.data?.instance?.status||ev?.instance?.status||'created',\n  chatwoot_type:cwT,\n  chatwoot_account_id:acId,\n  chatwoot_inbox_id:ibId,\n  chatwoot_url:cwD,\n  telegram_bot_link:t.telegram_link,\n  onboarding_status:'COMPLETO v4.5',\n  provisioned_at:new Date().toISOString()\n}];"
       },
       "id": "eb5ec113-64df-4a7e-90c6-d4babf47c458",
       "name": "Consolidar Dados v4.4",
@@ -397,12 +394,13 @@
           "name": "Postgres account"
         }
       },
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "disabled": true
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({success:true,tenant_id:$('Consolidar Dados v4.4').item.json.tenant_id,evolution_qr_code:$('Consolidar Dados v4.4').item.json.evolution_qr_code,evolution_qr_string:$('Consolidar Dados v4.4').item.json.evolution_qr_string,whatsapp_pairing_code:$('Consolidar Dados v4.4').item.json.evolution_pairing_code,evolution_instance_name:$('Consolidar Dados v4.4').item.json.evolution_instance_name,evolution_phone_number:$('Consolidar Dados v4.4').item.json.evolution_phone_number,evolution_status:$('Consolidar Dados v4.4').item.json.evolution_status,chatwoot_inbox_id:$('Consolidar Dados v4.4').item.json.chatwoot_inbox_id,telegram_bot_link:$('Consolidar Dados v4.4').item.json.telegram_bot_link,calendar_id:$('Consolidar Dados v4.4').item.json.calendar_id,drive_folder_id:$('Consolidar Dados v4.4').item.json.drive_folder_id,version:'4.4'}) }}",
+        "responseBody": "={{ JSON.stringify({success:true,tenant_id:$('Consolidar Dados v4.4').item.json.tenant_id,evolution_qr_code:$('Consolidar Dados v4.4').item.json.evolution_qr_code,evolution_qr_string:$('Consolidar Dados v4.4').item.json.evolution_qr_string,whatsapp_pairing_code:$('Consolidar Dados v4.4').item.json.evolution_pairing_code,evolution_instance_name:$('Consolidar Dados v4.4').item.json.evolution_instance_name,evolution_phone_number:$('Consolidar Dados v4.4').item.json.evolution_phone_number,evolution_status:$('Consolidar Dados v4.4').item.json.evolution_status,chatwoot_account_id:$('Consolidar Dados v4.4').item.json.chatwoot_account_id,chatwoot_inbox_id:$('Consolidar Dados v4.4').item.json.chatwoot_inbox_id,chatwoot_type:$('Consolidar Dados v4.4').item.json.chatwoot_type,chatwoot_domain:$('Consolidar Dados v4.4').item.json.chatwoot_url,telegram_bot_link:$('Consolidar Dados v4.4').item.json.telegram_bot_link,calendar_id:$('Consolidar Dados v4.4').item.json.calendar_id,drive_folder_id:$('Consolidar Dados v4.4').item.json.drive_folder_id,admin_phone:$('Consolidar Dados v4.4').item.json.admin_phone,doctor_phone:$('Consolidar Dados v4.4').item.json.doctor_phone,version:'4.5'}) }}",
         "options": {}
       },
       "id": "6ebfead4-98ee-4c59-b660-29b6841979f6",
@@ -484,6 +482,70 @@
         2464,
         288
       ],
+      "credentials": {
+        "evolutionApi": {
+          "id": "yFAQwH6wPqroKla0",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "email-welcome-1",
+      "name": "Email Welcome (SMTP)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        3360,
+        320
+      ],
+      "parameters": {
+        "fromEmail": "contato@singulare.org",
+        "toEmail": "={{ $('Configurar Tenant v4.4').item.json.admin_email }}",
+        "subject": "=Sua secretária IA está pronta — falta conectar o WhatsApp, Dr(a). {{ $('Configurar Tenant v4.4').item.json.doctor_name }}",
+        "html": "=<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Singulare</title><link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin><link href=\"https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&family=Space+Grotesk:wght@400;500;600&display=swap\" rel=\"stylesheet\"><style>body{margin:0;padding:32px 16px;background:#E9E5DC;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-text-size-adjust:100%}table{border-collapse:collapse}a{text-decoration:none}@media (max-width:620px){.px-40{padding-left:24px!important;padding-right:24px!important}.hero-pad{padding:32px 24px 28px!important}.h1{font-size:24px!important}.hero-tag{font-size:22px!important}.features-grid td{display:block!important;width:100%!important;padding-bottom:14px!important}}</style></head><body><div style=\"max-width:600px;margin:0 auto\"><table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:600px;max-width:100%;background:#F4EFE6;border:1px solid rgba(15,27,51,0.10)\"><tr><td class=\"hero-pad\" style=\"background:#0F1B33;padding:40px 40px 36px\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td valign=\"top\"><svg width=\"56\" height=\"38\" viewBox=\"0 0 120 80\" xmlns=\"http://www.w3.org/2000/svg\" style=\"display:block\"><rect x=\"2\" y=\"2\" width=\"40\" height=\"40\" stroke=\"#FFC62F\" stroke-width=\"3\" fill=\"none\"/><rect x=\"32\" y=\"32\" width=\"45\" height=\"45\" stroke=\"#FFC62F\" stroke-width=\"3\" fill=\"none\"/><rect x=\"65\" y=\"15\" width=\"25\" height=\"25\" stroke=\"#FFC62F\" stroke-width=\"3\" fill=\"none\"/></svg></td><td align=\"right\" valign=\"top\"><div style=\"font-family:'Poppins',sans-serif;color:#FFC62F;font-size:11px;letter-spacing:0.28em;font-weight:700;text-transform:uppercase\">Passo 02 / 03</div></td></tr></table><div style=\"margin-top:22px;font-family:'Poppins',sans-serif;color:#FFFFFF;letter-spacing:0.32em;font-size:15px;font-weight:700;text-transform:uppercase\">SINGULARE</div><div class=\"hero-tag\" style=\"margin-top:32px;font-family:'Poppins',sans-serif;font-size:30px;line-height:1.2;color:#FFFFFF;font-weight:700;letter-spacing:-0.015em;max-width:460px\">Conexões que <span style=\"color:#FFC62F\">transformam</span> o seu consultório.</div></td></tr><tr><td class=\"px-40\" style=\"padding:44px 40px 8px\"><div style=\"font-family:'Poppins',sans-serif;font-size:11px;letter-spacing:0.28em;color:#0F1B33;font-weight:700;text-transform:uppercase\">— Pra começar</div><h1 class=\"h1\" style=\"font-family:'Poppins',sans-serif;font-size:30px;line-height:1.2;margin:14px 0 14px;font-weight:700;letter-spacing:-0.02em;color:#0F1B33\">Sua secretária IA está pronta.<br><span style=\"color:#1F1F1F;opacity:0.5;font-weight:400\">Falta só conectar seu WhatsApp.</span></h1><p style=\"font-family:'Space Grotesk',sans-serif;font-size:15px;line-height:1.65;color:#1F1F1F;margin:0 0 32px;opacity:0.82\">Olá, Dr(a). {{ $('Configurar Tenant v4.4').item.json.doctor_name }}. A <strong style=\"font-weight:600;color:#0F1B33\">{{ $('Configurar Tenant v4.4').item.json.clinic_name }}</strong> foi configurada. A próxima ação leva menos de um minuto.</p>{{ $('Configurar Tenant v4.4').item.json.connect_url ? '<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td style=\"background:#FFC62F;border-radius:999px\"><a href=\"' + $('Configurar Tenant v4.4').item.json.connect_url + '\" style=\"display:inline-block;padding:15px 30px;font-family:Poppins,sans-serif;font-size:12px;font-weight:700;color:#0F1B33;letter-spacing:0.18em;text-transform:uppercase;text-decoration:none\">Conectar meu WhatsApp</a></td></tr></table>' : '' }}<p style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.6;margin:16px 0 0;line-height:1.55\">Abre uma página com o QR pra você escanear no app do WhatsApp do chip da clínica.</p></td></tr><tr><td class=\"px-40\" style=\"padding:36px 40px 8px\"><div style=\"border-top:1px solid rgba(15,27,51,0.14);padding-top:30px\"><div style=\"font-family:'Poppins',sans-serif;font-size:11px;letter-spacing:0.28em;color:#0F1B33;font-weight:700;text-transform:uppercase;margin-bottom:24px\">— O que vem depois</div><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td width=\"48\" valign=\"top\" style=\"padding-bottom:16px;font-family:'Poppins',sans-serif;font-size:22px;color:#FFC62F;font-weight:700;line-height:1\">01</td><td valign=\"top\" style=\"padding-bottom:16px;padding-top:4px;font-family:'Space Grotesk',sans-serif;font-size:14px;line-height:1.55;color:#0F1B33\">Escaneia o QR e a IA fica online.</td></tr><tr><td width=\"48\" valign=\"top\" style=\"padding-bottom:16px;font-family:'Poppins',sans-serif;font-size:22px;color:#FFC62F;font-weight:700;line-height:1\">02</td><td valign=\"top\" style=\"padding-bottom:16px;padding-top:4px;font-family:'Space Grotesk',sans-serif;font-size:14px;line-height:1.55;color:#0F1B33\">Primeira mensagem do paciente — a IA responde no seu tom, com base no que você cadastrou.</td></tr><tr><td width=\"48\" valign=\"top\" style=\"font-family:'Poppins',sans-serif;font-size:22px;color:#FFC62F;font-weight:700;line-height:1\">03</td><td valign=\"top\" style=\"padding-top:4px;font-family:'Space Grotesk',sans-serif;font-size:14px;line-height:1.55;color:#0F1B33\">Agendamentos vão direto pra sua agenda Google.</td></tr></table></div></td></tr><tr><td class=\"px-40\" style=\"padding:28px 40px 36px\"><div style=\"border-top:1px solid rgba(15,27,51,0.14);padding-top:30px\"><div style=\"font-family:'Poppins',sans-serif;font-size:11px;letter-spacing:0.28em;color:#0F1B33;font-weight:700;text-transform:uppercase;margin-bottom:24px\">— O que a IA já faz por você</div><table role=\"presentation\" class=\"features-grid\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td width=\"50%\" valign=\"top\" style=\"padding:0 12px 22px 0\"><div style=\"font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:#0F1B33;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em\">Atendimento</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.7;line-height:1.55\">Responde dúvidas em segundos, no seu tom.</div></td><td width=\"50%\" valign=\"top\" style=\"padding:0 0 22px 12px\"><div style=\"font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:#0F1B33;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em\">Agenda</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.7;line-height:1.55\">Marca, confirma D-1 e lembra na hora.</div></td></tr><tr><td width=\"50%\" valign=\"top\" style=\"padding:0 12px 22px 0\"><div style=\"font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:#0F1B33;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em\">Cobrança</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.7;line-height:1.55\">Pix, cartão ou boleto, acompanha o pagamento.</div></td><td width=\"50%\" valign=\"top\" style=\"padding:0 0 22px 12px\"><div style=\"font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:#0F1B33;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em\">Nota fiscal</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.7;line-height:1.55\">Solicita ao seu contador automaticamente.</div></td></tr><tr><td width=\"50%\" valign=\"top\" style=\"padding:0 12px 0 0\"><div style=\"font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:#0F1B33;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em\">Documentos</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.7;line-height:1.55\">Recebe exames sem você ter que organizar.</div></td><td width=\"50%\" valign=\"top\" style=\"padding:0 0 0 12px\"><div style=\"font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:#0F1B33;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em\">Marketing</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.7;line-height:1.55\">Envia NPS, reativa pacientes, sugere posts.</div></td></tr></table></div></td></tr><tr><td style=\"background:#BFD0E3;padding:28px 40px\"><div style=\"font-family:'Poppins',sans-serif;font-size:11px;letter-spacing:0.28em;color:#0F1B33;font-weight:700;text-transform:uppercase;margin-bottom:12px\">— Precisa de ajuda</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:14px;color:#0F1B33;line-height:1.7\">WhatsApp <strong style=\"font-weight:600\">(11) 98939-0155</strong> ou responda este email.<br>12 dúvidas mais comuns: <a href=\"https://singulare.org/bem-vindo\" style=\"color:#0F1B33;text-decoration:underline;font-weight:500\">singulare.org/bem-vindo</a></div></td></tr><tr><td style=\"background:#0F1B33;padding:32px 40px 32px\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td valign=\"top\"><svg width=\"44\" height=\"30\" viewBox=\"0 0 120 80\" xmlns=\"http://www.w3.org/2000/svg\" style=\"display:block\"><rect x=\"2\" y=\"2\" width=\"40\" height=\"40\" stroke=\"#FFC62F\" stroke-width=\"3\" fill=\"none\"/><rect x=\"32\" y=\"32\" width=\"45\" height=\"45\" stroke=\"#FFC62F\" stroke-width=\"3\" fill=\"none\"/><rect x=\"65\" y=\"15\" width=\"25\" height=\"25\" stroke=\"#FFC62F\" stroke-width=\"3\" fill=\"none\"/></svg></td><td align=\"right\" valign=\"top\"><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#F4EFE6;line-height:1.65\">Boas consultas,<br><span style=\"color:#FFFFFF;font-weight:500\">Equipe Singulare</span></div></td></tr></table><div style=\"border-top:1px solid rgba(255,198,47,0.20);margin-top:24px;padding-top:18px;font-family:'Space Grotesk',sans-serif;font-size:10.5px;line-height:1.65;color:#F4EFE6;opacity:0.65;letter-spacing:0.02em\">Singulare é marca operada por MEDICAL SAO PAULO SERVICOS MEDICOS LTDA · CNPJ 20.247.908/0001-01 · Jundiaí, SP · CEP 13201-840 · (17) 3305-9030.</div></td></tr></table></div></body></html>",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "5yb9C6LlQav7qYp8",
+          "name": "SMTP account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "webhookId": "ee6dc7d7-8721-49ec-9ae6-b4fc3611b02a"
+    },
+    {
+      "id": "build-admin-recipients",
+      "name": "Build Admin Recipients",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        -96
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const t = $('Consolidar Dados v4.4').item.json;\nconst norm = (p) => (p||'').toString().replace(/\\D/g,'');\nconst admin = norm(t.admin_phone);\nconst doctor = norm(t.doctor_phone);\nconst seen = new Set();\nconst out = [];\nif (admin) { seen.add(admin); out.push({ phone: admin, label: 'admin' }); }\nif (doctor && !seen.has(doctor)) { seen.add(doctor); out.push({ phone: doctor, label: 'medico' }); }\nreturn out.map(r => ({ json: { phone: r.phone, label: r.label, doctor_name: t.doctor_name || '', clinic_name: t.clinic_name || '', magic_link_url: t.magic_link_url || '', tenant_id: t.tenant_id || '' } }));"
+      }
+    },
+    {
+      "id": "send-admin-welcome",
+      "name": "Send Admin Welcome (Singulare)",
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        3584,
+        -96
+      ],
+      "parameters": {
+        "resource": "messages-api",
+        "operation": "send-text",
+        "instanceName": "singulare-admin",
+        "remoteJid": "={{ $json.phone }}@s.whatsapp.net",
+        "messageText": "=Dr(a). {{ $json.doctor_name }}, sua conta Singulare está pronta 🎉\n\nA *{{ $json.clinic_name }}* foi configurada. Falta um último passo pra IA começar a atender:\n\n*1º) Acesse o painel*\nhttps://app.singulare.org/painel\n(use o magic link que você recebeu no email)\n\n*2º) Conecte seu WhatsApp* do chip que você cadastrou — escaneie o QR Code que aparece no painel\n\n*3º) Pronto* — a IA começa a atender 24/7\n\nGuia rápido com as 12 dúvidas mais comuns:\nhttps://singulare.org/bem-vindo\n\nDisponível 24h, todos os dias. Qualquer dúvida, é só responder esta mensagem.\n\n— Time Singulare"
+      },
       "credentials": {
         "evolutionApi": {
           "id": "yFAQwH6wPqroKla0",
@@ -669,6 +731,11 @@
             "node": "Notif Admin v4.4",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Email Welcome (SMTP)",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -694,12 +761,35 @@
           }
         ]
       ]
+    },
+    "Email Welcome (SMTP)": {
+      "main": [
+        [
+          {
+            "node": "Build Admin Recipients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Admin Recipients": {
+      "main": [
+        [
+          {
+            "node": "Send Admin Welcome (Singulare)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1",
     "availableInMCP": true,
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "errorWorkflow": "rONCEa2neV3XyBBX"
   },
   "staticData": null,
   "meta": {
@@ -707,8 +797,8 @@
     "builderVariant": "mcp"
   },
   "pinData": {},
-  "activeVersionId": "7f559a25-8022-41a9-9019-591e538a3b7d",
-  "versionCounter": 19,
+  "activeVersionId": "c70ecd62-6e32-4142-a81c-7532b8b59b56",
+  "versionCounter": 61,
   "triggerCount": 1,
   "shared": [
     {
@@ -731,9 +821,9 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-05-04T21:45:41.954Z",
-    "createdAt": "2026-05-04T21:18:47.436Z",
-    "versionId": "7f559a25-8022-41a9-9019-591e538a3b7d",
+    "updatedAt": "2026-05-17T15:01:40.485Z",
+    "createdAt": "2026-05-17T15:01:40.485Z",
+    "versionId": "c70ecd62-6e32-4142-a81c-7532b8b59b56",
     "workflowId": "F0Af54451BmanCfu",
     "nodes": [
       {
@@ -755,7 +845,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const b=$input.first().json.body;let d;try{d=typeof b==='string'?JSON.parse(b):b;}catch(e){d=$input.first().json;}const r=d.real_phone||d.phone||'';return{real_phone:r.replace(/[\\s\\-\\(\\)]/g,''),clinic_name:d.clinic_name||'',admin_email:d.admin_email||'',address:d.address||'',doctor_name:d.doctor_name||'',doctor_crm:d.doctor_crm||'',speciality:d.speciality||d.specialty||'',consultation_duration:(d.consultation_duration||'30').toString(),establishment_type:d.establishment_type||'small_clinic',plan_type:d.plan_type||'professional',addon_human_support:!!d.addon_human_support,is_sob_medida:!!d.is_sob_medida,api_key_chatwoot:d.api_key_chatwoot||'oZy1eCh7dt3YdSthzov7YsJ9'};"
+          "jsCode": "const b=$input.first().json.body;let d;try{d=typeof b==='string'?JSON.parse(b):b;}catch(e){d=$input.first().json;}\nconst r=d.real_phone||d.phone||'';\nreturn{\n  real_phone:r.replace(/[\\s\\-\\(\\)]/g,''),\n  clinic_name:d.clinic_name||'',\n  admin_email:d.admin_email||'',\n  address:d.address||'',\n  doctor_name:d.doctor_name||'',\n  doctor_crm:d.doctor_crm||'',\n  speciality:d.speciality||d.specialty||'',\n  consultation_duration:(d.consultation_duration||'30').toString(),\n  establishment_type:d.establishment_type||'small_clinic',\n  plan_type:d.plan_type||'professional',\n  addon_human_support:!!d.addon_human_support,\n  is_sob_medida:!!d.is_sob_medida,\n  api_key_chatwoot:d.api_key_chatwoot||'g5rHQRJTqG4RuwFFDc2eq2Dm',\n  admin_phone:(d.admin_phone||'').replace(/[\\s\\-\\(\\)]/g,''),\n  doctor_phone:(d.doctor_phone||'').replace(/[\\s\\-\\(\\)]/g,''),\n  magic_link_url:d.magic_link_url||'',\n  connect_url:d.connect_url||'',\n  connect_token:d.connect_token||'',\n  tenant_id_from_vercel:d.tenant_id||'',\n  pre_created_calendar_id:d.pre_created_calendar_id||''\n};"
         },
         "id": "e0d47563-fbe2-4b13-9411-dbb9f666c3d9",
         "name": "Processar Dados v4.4",
@@ -817,7 +907,7 @@
       },
       {
         "parameters": {
-          "jsCode": "try{const d=$json;if(!/^\\+\\d{10,15}$/.test(d.real_phone))throw new Error('Phone invalido:'+d.real_phone);if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(d.admin_email))throw new Error('Email invalido');const s=d.clinic_name.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');const tid=s+'-'+Date.now().toString(36);return[{tenant_id:tid,clinic_name:d.clinic_name,email:d.admin_email,admin_email:d.admin_email,address:d.address||'',phone:d.real_phone,plan_type:d.plan_type,establishment_type:d.establishment_type,version:'4.4',doctor_name:d.doctor_name,doctor_crm:d.doctor_crm,speciality:d.speciality,consultation_duration:parseInt(d.consultation_duration)||30,addon_human_support:!!d.addon_human_support,api_key_chatwoot:d.api_key_chatwoot,calendar_name:d.clinic_name+' - Agenda Singulare',evolution_instance_name:tid,evolution_phone:d.real_phone.replace(/\\D/g,''),evolution_webhook_url:'https://n8n.singulare.org/webhook/evolution-events-v44',telegram_link:'https://t.me/SingulareBot?start='+tid,chatwoot_strategy:d.plan_type==='enterprise'?'DEDICATED':'SHARED'}];}catch(e){return[{status:'error',error:e.message,version:'4.4'}];}"
+          "jsCode": "try{\n  const d=$json;\n  if(!/^\\+\\d{10,15}$/.test(d.real_phone))throw new Error('Phone invalido:'+d.real_phone);\n  if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(d.admin_email))throw new Error('Email invalido');\n  const s=d.clinic_name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');\n  const tid=d.tenant_id_from_vercel||(s+'-'+Date.now().toString(36));\n  return[{\n    tenant_id:tid,\n    clinic_name:d.clinic_name,\n    email:d.admin_email,\n    admin_email:d.admin_email,\n    address:d.address||'',\n    phone:d.real_phone,\n    admin_phone:d.admin_phone||'',\n    doctor_phone:d.doctor_phone||'',\n    magic_link_url:d.magic_link_url||'',\n    connect_url:d.connect_url||'',\n    connect_token:d.connect_token||'',\n    plan_type:d.plan_type,\n    establishment_type:d.establishment_type,\n    version:'4.5',\n    doctor_name:d.doctor_name,\n    doctor_crm:d.doctor_crm,\n    speciality:d.speciality,\n    consultation_duration:parseInt(d.consultation_duration)||30,\n    addon_human_support:!!d.addon_human_support,\n    api_key_chatwoot:d.api_key_chatwoot,\n    calendar_name:d.clinic_name+' - Agenda Singulare',\n    evolution_instance_name:tid,\n    pre_created_calendar_id:d.pre_created_calendar_id||'',\n    evolution_phone:d.real_phone.replace(/\\D/g,''),\n    evolution_webhook_url:'https://n8n.singulare.org/webhook/evolution-events-v44',\n    telegram_link:'https://t.me/SingulareBot?start='+tid,\n    chatwoot_strategy:d.plan_type==='enterprise'?'DEDICATED':'SHARED'\n  }];\n}catch(e){return[{status:'error',error:e.message,version:'4.5'}];}"
         },
         "id": "55d64cac-c603-4015-b18a-ccdd3bbe51e1",
         "name": "Configurar Tenant v4.4",
@@ -833,8 +923,10 @@
           "method": "POST",
           "url": "https://www.googleapis.com/calendar/v3/calendars",
           "authentication": "predefinedCredentialType",
-          "nodeCredentialType": "googleCalendarOAuth2Api",
+          "nodeCredentialType": "googleApi",
           "sendBody": true,
+          "contentType": "json",
+          "specifyBody": "keypair",
           "bodyParameters": {
             "parameters": [
               {
@@ -850,6 +942,8 @@
           "options": {
             "response": {
               "response": {
+                "fullResponse": false,
+                "neverError": false,
                 "responseFormat": "json"
               }
             }
@@ -864,18 +958,19 @@
           192
         ],
         "credentials": {
-          "googleCalendarOAuth2Api": {
-            "id": "OkOV7izIvJcvD3wl",
-            "name": "Google Calendar account"
+          "googleApi": {
+            "id": "co3SxRBKRqtJRGpa",
+            "name": "Google Service Account account"
           }
-        }
+        },
+        "disabled": true
       },
       {
         "parameters": {
           "method": "POST",
           "url": "=https://www.googleapis.com/calendar/v3/calendars/{{ encodeURIComponent($('Criar Calendar v4.4').item.json.id) }}/acl",
           "authentication": "predefinedCredentialType",
-          "nodeCredentialType": "googleCalendarOAuth2Api",
+          "nodeCredentialType": "googleApi",
           "sendBody": true,
           "specifyBody": "json",
           "jsonBody": "={\n  \"role\": \"writer\",\n  \"scope\": { \"type\": \"user\", \"value\": \"atendimento-singulare@grand-quarter-462319-i7.iam.gserviceaccount.com\" }\n}",
@@ -897,28 +992,20 @@
           192
         ],
         "credentials": {
-          "googleCalendarOAuth2Api": {
-            "id": "OkOV7izIvJcvD3wl",
-            "name": "Google Calendar account"
+          "googleApi": {
+            "id": "co3SxRBKRqtJRGpa",
+            "name": "Google Service Account account"
           }
         },
-        "onError": "continueRegularOutput"
+        "onError": "continueRegularOutput",
+        "disabled": true
       },
       {
         "parameters": {
+          "authentication": "serviceAccount",
           "resource": "folder",
+          "operation": "create",
           "name": "={{ $('Configurar Tenant v4.4').item.json.tenant_id }}",
-          "driveId": {
-            "__rl": true,
-            "mode": "list",
-            "value": "My Drive"
-          },
-          "folderId": {
-            "__rl": true,
-            "mode": "list",
-            "value": "root",
-            "cachedResultName": "/ (Root folder)"
-          },
           "options": {}
         },
         "id": "d413c0e8-fc71-4f6a-9d5f-67fb2b591e47",
@@ -930,9 +1017,9 @@
           192
         ],
         "credentials": {
-          "googleDriveOAuth2Api": {
-            "id": "ZegivNH5EouVTbBe",
-            "name": "Google Drive account"
+          "googleApi": {
+            "id": "co3SxRBKRqtJRGpa",
+            "name": "Google Service Account account"
           }
         }
       },
@@ -1088,7 +1175,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const t=$('Configurar Tenant v4.4').item.json;\nconst ev=$('Criar Instancia v4.4').item.json;\nconst con=$('Conectar Instancia v4.4').item.json;\nconst ca=$('Criar Calendar v4.4').item.json;\nconst dr=$('Drive Folder v4.4').item.json;\nlet acId='1',ibId='3',cwT='shared',cwD='https://chatwoot.singulare.org/';\ntry{const d=$('Criar Chatwoot Dedicado v4.4').item.json;if(d&&d.id){acId=d.id.toString();cwT='dedicated';}}catch(e){}\ntry{const ib=$input.item.json;if(ib&&ib.id)ibId=ib.id.toString();}catch(e){}\nconst qrCode=con?.data?.base64||con?.qrcode?.base64||null;\nconst qrString=con?.data?.code||con?.qrcode?.code||null;\nconst pairingCode=con?.data?.pairingCode||null;\nreturn[{\n  tenant_id:t.tenant_id,clinic_name:t.clinic_name,email:t.email,admin_email:t.admin_email,\n  address:t.address||'',\n  phone:t.phone,plan_type:t.plan_type,establishment_type:t.establishment_type,\n  doctor_name:t.doctor_name,doctor_crm:t.doctor_crm,speciality:t.speciality,\n  consultation_duration:t.consultation_duration,version:'4.4',status:'active',\n  subscription_status:'trial',\n  addon_human_support:!!t.addon_human_support,\n  calendar_id:ca?.id||'cal_'+Date.now(),\n  drive_folder_id:dr?.id||'drv_'+Date.now(),\n  evolution_instance_name:ev?.data?.instance?.instanceName||ev?.instance?.instanceName||t.tenant_id,\n  evolution_phone_number:t.evolution_phone,\n  evolution_qr_code:qrCode,\n  evolution_qr_string:qrString,\n  evolution_pairing_code:pairingCode,\n  evolution_status:ev?.data?.instance?.status||ev?.instance?.status||'created',\n  chatwoot_type:cwT,chatwoot_account_id:acId,chatwoot_inbox_id:ibId,\n  chatwoot_url:cwD,telegram_bot_link:t.telegram_link,\n  onboarding_status:'COMPLETO v4.4',provisioned_at:new Date().toISOString()\n}];"
+          "jsCode": "const t=$('Configurar Tenant v4.4').item.json;\nconst ev=$('Criar Instancia v4.4').item.json;\nconst con=$('Conectar Instancia v4.4').item.json;\nconst ca=$('Criar Calendar v4.4').item.json;\nconst dr=$('Drive Folder v4.4').item.json;\nlet acId='1',ibId='3',cwT='shared',cwD='https://chatwoot.singulare.org/';\ntry{const dd=$('Criar Chatwoot Dedicado v4.4').item.json;if(dd&&dd.id){acId=dd.id.toString();cwT='dedicated';}}catch(e){}\ntry{const ib=$input.item.json;if(ib&&ib.id)ibId=ib.id.toString();}catch(e){}\nconst qrCode=con?.data?.base64||con?.qrcode?.base64||null;\nconst qrString=con?.data?.code||con?.qrcode?.code||null;\nconst pairingCode=con?.data?.pairingCode||null;\nreturn[{\n  tenant_id:t.tenant_id,\n  clinic_name:t.clinic_name,\n  email:t.email,\n  admin_email:t.admin_email,\n  address:t.address||'',\n  phone:t.phone,\n  admin_phone:t.admin_phone||'',\n  doctor_phone:t.doctor_phone||'',\n  magic_link_url:t.magic_link_url||'',\n  plan_type:t.plan_type,\n  establishment_type:t.establishment_type,\n  doctor_name:t.doctor_name,\n  doctor_crm:t.doctor_crm,\n  speciality:t.speciality,\n  consultation_duration:t.consultation_duration,\n  version:'4.5',\n  status:'active',\n  subscription_status:'trial',\n  addon_human_support:!!t.addon_human_support,\n  calendar_id:t.pre_created_calendar_id||ca?.id||'cal_'+Date.now(),\n  drive_folder_id:dr?.id||'drv_'+Date.now(),\n  evolution_instance_name:ev?.data?.instance?.instanceName||ev?.instance?.instanceName||t.tenant_id,\n  evolution_phone_number:t.evolution_phone,\n  evolution_qr_code:qrCode,\n  evolution_qr_string:qrString,\n  evolution_pairing_code:pairingCode,\n  evolution_status:ev?.data?.instance?.status||ev?.instance?.status||'created',\n  chatwoot_type:cwT,\n  chatwoot_account_id:acId,\n  chatwoot_inbox_id:ibId,\n  chatwoot_url:cwD,\n  telegram_bot_link:t.telegram_link,\n  onboarding_status:'COMPLETO v4.5',\n  provisioned_at:new Date().toISOString()\n}];"
         },
         "id": "eb5ec113-64df-4a7e-90c6-d4babf47c458",
         "name": "Consolidar Dados v4.4",
@@ -1128,12 +1215,13 @@
             "name": "Postgres account"
           }
         },
-        "onError": "continueRegularOutput"
+        "onError": "continueRegularOutput",
+        "disabled": true
       },
       {
         "parameters": {
           "respondWith": "json",
-          "responseBody": "={{ JSON.stringify({success:true,tenant_id:$('Consolidar Dados v4.4').item.json.tenant_id,evolution_qr_code:$('Consolidar Dados v4.4').item.json.evolution_qr_code,evolution_qr_string:$('Consolidar Dados v4.4').item.json.evolution_qr_string,whatsapp_pairing_code:$('Consolidar Dados v4.4').item.json.evolution_pairing_code,evolution_instance_name:$('Consolidar Dados v4.4').item.json.evolution_instance_name,evolution_phone_number:$('Consolidar Dados v4.4').item.json.evolution_phone_number,evolution_status:$('Consolidar Dados v4.4').item.json.evolution_status,chatwoot_inbox_id:$('Consolidar Dados v4.4').item.json.chatwoot_inbox_id,telegram_bot_link:$('Consolidar Dados v4.4').item.json.telegram_bot_link,calendar_id:$('Consolidar Dados v4.4').item.json.calendar_id,drive_folder_id:$('Consolidar Dados v4.4').item.json.drive_folder_id,version:'4.4'}) }}",
+          "responseBody": "={{ JSON.stringify({success:true,tenant_id:$('Consolidar Dados v4.4').item.json.tenant_id,evolution_qr_code:$('Consolidar Dados v4.4').item.json.evolution_qr_code,evolution_qr_string:$('Consolidar Dados v4.4').item.json.evolution_qr_string,whatsapp_pairing_code:$('Consolidar Dados v4.4').item.json.evolution_pairing_code,evolution_instance_name:$('Consolidar Dados v4.4').item.json.evolution_instance_name,evolution_phone_number:$('Consolidar Dados v4.4').item.json.evolution_phone_number,evolution_status:$('Consolidar Dados v4.4').item.json.evolution_status,chatwoot_account_id:$('Consolidar Dados v4.4').item.json.chatwoot_account_id,chatwoot_inbox_id:$('Consolidar Dados v4.4').item.json.chatwoot_inbox_id,chatwoot_type:$('Consolidar Dados v4.4').item.json.chatwoot_type,chatwoot_domain:$('Consolidar Dados v4.4').item.json.chatwoot_url,telegram_bot_link:$('Consolidar Dados v4.4').item.json.telegram_bot_link,calendar_id:$('Consolidar Dados v4.4').item.json.calendar_id,drive_folder_id:$('Consolidar Dados v4.4').item.json.drive_folder_id,admin_phone:$('Consolidar Dados v4.4').item.json.admin_phone,doctor_phone:$('Consolidar Dados v4.4').item.json.doctor_phone,version:'4.5'}) }}",
           "options": {}
         },
         "id": "6ebfead4-98ee-4c59-b660-29b6841979f6",
@@ -1215,6 +1303,70 @@
           2464,
           288
         ],
+        "credentials": {
+          "evolutionApi": {
+            "id": "yFAQwH6wPqroKla0",
+            "name": "Evolution account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "email-welcome-1",
+        "name": "Email Welcome (SMTP)",
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2.1,
+        "position": [
+          3360,
+          320
+        ],
+        "parameters": {
+          "fromEmail": "contato@singulare.org",
+          "toEmail": "={{ $('Configurar Tenant v4.4').item.json.admin_email }}",
+          "subject": "=Sua secretária IA está pronta — falta conectar o WhatsApp, Dr(a). {{ $('Configurar Tenant v4.4').item.json.doctor_name }}",
+          "html": "=<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Singulare</title><link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin><link href=\"https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&family=Space+Grotesk:wght@400;500;600&display=swap\" rel=\"stylesheet\"><style>body{margin:0;padding:32px 16px;background:#E9E5DC;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-text-size-adjust:100%}table{border-collapse:collapse}a{text-decoration:none}@media (max-width:620px){.px-40{padding-left:24px!important;padding-right:24px!important}.hero-pad{padding:32px 24px 28px!important}.h1{font-size:24px!important}.hero-tag{font-size:22px!important}.features-grid td{display:block!important;width:100%!important;padding-bottom:14px!important}}</style></head><body><div style=\"max-width:600px;margin:0 auto\"><table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:600px;max-width:100%;background:#F4EFE6;border:1px solid rgba(15,27,51,0.10)\"><tr><td class=\"hero-pad\" style=\"background:#0F1B33;padding:40px 40px 36px\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td valign=\"top\"><svg width=\"56\" height=\"38\" viewBox=\"0 0 120 80\" xmlns=\"http://www.w3.org/2000/svg\" style=\"display:block\"><rect x=\"2\" y=\"2\" width=\"40\" height=\"40\" stroke=\"#FFC62F\" stroke-width=\"3\" fill=\"none\"/><rect x=\"32\" y=\"32\" width=\"45\" height=\"45\" stroke=\"#FFC62F\" stroke-width=\"3\" fill=\"none\"/><rect x=\"65\" y=\"15\" width=\"25\" height=\"25\" stroke=\"#FFC62F\" stroke-width=\"3\" fill=\"none\"/></svg></td><td align=\"right\" valign=\"top\"><div style=\"font-family:'Poppins',sans-serif;color:#FFC62F;font-size:11px;letter-spacing:0.28em;font-weight:700;text-transform:uppercase\">Passo 02 / 03</div></td></tr></table><div style=\"margin-top:22px;font-family:'Poppins',sans-serif;color:#FFFFFF;letter-spacing:0.32em;font-size:15px;font-weight:700;text-transform:uppercase\">SINGULARE</div><div class=\"hero-tag\" style=\"margin-top:32px;font-family:'Poppins',sans-serif;font-size:30px;line-height:1.2;color:#FFFFFF;font-weight:700;letter-spacing:-0.015em;max-width:460px\">Conexões que <span style=\"color:#FFC62F\">transformam</span> o seu consultório.</div></td></tr><tr><td class=\"px-40\" style=\"padding:44px 40px 8px\"><div style=\"font-family:'Poppins',sans-serif;font-size:11px;letter-spacing:0.28em;color:#0F1B33;font-weight:700;text-transform:uppercase\">— Pra começar</div><h1 class=\"h1\" style=\"font-family:'Poppins',sans-serif;font-size:30px;line-height:1.2;margin:14px 0 14px;font-weight:700;letter-spacing:-0.02em;color:#0F1B33\">Sua secretária IA está pronta.<br><span style=\"color:#1F1F1F;opacity:0.5;font-weight:400\">Falta só conectar seu WhatsApp.</span></h1><p style=\"font-family:'Space Grotesk',sans-serif;font-size:15px;line-height:1.65;color:#1F1F1F;margin:0 0 32px;opacity:0.82\">Olá, Dr(a). {{ $('Configurar Tenant v4.4').item.json.doctor_name }}. A <strong style=\"font-weight:600;color:#0F1B33\">{{ $('Configurar Tenant v4.4').item.json.clinic_name }}</strong> foi configurada. A próxima ação leva menos de um minuto.</p>{{ $('Configurar Tenant v4.4').item.json.connect_url ? '<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td style=\"background:#FFC62F;border-radius:999px\"><a href=\"' + $('Configurar Tenant v4.4').item.json.connect_url + '\" style=\"display:inline-block;padding:15px 30px;font-family:Poppins,sans-serif;font-size:12px;font-weight:700;color:#0F1B33;letter-spacing:0.18em;text-transform:uppercase;text-decoration:none\">Conectar meu WhatsApp</a></td></tr></table>' : '' }}<p style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.6;margin:16px 0 0;line-height:1.55\">Abre uma página com o QR pra você escanear no app do WhatsApp do chip da clínica.</p></td></tr><tr><td class=\"px-40\" style=\"padding:36px 40px 8px\"><div style=\"border-top:1px solid rgba(15,27,51,0.14);padding-top:30px\"><div style=\"font-family:'Poppins',sans-serif;font-size:11px;letter-spacing:0.28em;color:#0F1B33;font-weight:700;text-transform:uppercase;margin-bottom:24px\">— O que vem depois</div><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td width=\"48\" valign=\"top\" style=\"padding-bottom:16px;font-family:'Poppins',sans-serif;font-size:22px;color:#FFC62F;font-weight:700;line-height:1\">01</td><td valign=\"top\" style=\"padding-bottom:16px;padding-top:4px;font-family:'Space Grotesk',sans-serif;font-size:14px;line-height:1.55;color:#0F1B33\">Escaneia o QR e a IA fica online.</td></tr><tr><td width=\"48\" valign=\"top\" style=\"padding-bottom:16px;font-family:'Poppins',sans-serif;font-size:22px;color:#FFC62F;font-weight:700;line-height:1\">02</td><td valign=\"top\" style=\"padding-bottom:16px;padding-top:4px;font-family:'Space Grotesk',sans-serif;font-size:14px;line-height:1.55;color:#0F1B33\">Primeira mensagem do paciente — a IA responde no seu tom, com base no que você cadastrou.</td></tr><tr><td width=\"48\" valign=\"top\" style=\"font-family:'Poppins',sans-serif;font-size:22px;color:#FFC62F;font-weight:700;line-height:1\">03</td><td valign=\"top\" style=\"padding-top:4px;font-family:'Space Grotesk',sans-serif;font-size:14px;line-height:1.55;color:#0F1B33\">Agendamentos vão direto pra sua agenda Google.</td></tr></table></div></td></tr><tr><td class=\"px-40\" style=\"padding:28px 40px 36px\"><div style=\"border-top:1px solid rgba(15,27,51,0.14);padding-top:30px\"><div style=\"font-family:'Poppins',sans-serif;font-size:11px;letter-spacing:0.28em;color:#0F1B33;font-weight:700;text-transform:uppercase;margin-bottom:24px\">— O que a IA já faz por você</div><table role=\"presentation\" class=\"features-grid\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td width=\"50%\" valign=\"top\" style=\"padding:0 12px 22px 0\"><div style=\"font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:#0F1B33;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em\">Atendimento</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.7;line-height:1.55\">Responde dúvidas em segundos, no seu tom.</div></td><td width=\"50%\" valign=\"top\" style=\"padding:0 0 22px 12px\"><div style=\"font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:#0F1B33;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em\">Agenda</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.7;line-height:1.55\">Marca, confirma D-1 e lembra na hora.</div></td></tr><tr><td width=\"50%\" valign=\"top\" style=\"padding:0 12px 22px 0\"><div style=\"font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:#0F1B33;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em\">Cobrança</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.7;line-height:1.55\">Pix, cartão ou boleto, acompanha o pagamento.</div></td><td width=\"50%\" valign=\"top\" style=\"padding:0 0 22px 12px\"><div style=\"font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:#0F1B33;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em\">Nota fiscal</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.7;line-height:1.55\">Solicita ao seu contador automaticamente.</div></td></tr><tr><td width=\"50%\" valign=\"top\" style=\"padding:0 12px 0 0\"><div style=\"font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:#0F1B33;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em\">Documentos</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.7;line-height:1.55\">Recebe exames sem você ter que organizar.</div></td><td width=\"50%\" valign=\"top\" style=\"padding:0 0 0 12px\"><div style=\"font-family:'Poppins',sans-serif;font-size:13px;font-weight:700;color:#0F1B33;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em\">Marketing</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#1F1F1F;opacity:0.7;line-height:1.55\">Envia NPS, reativa pacientes, sugere posts.</div></td></tr></table></div></td></tr><tr><td style=\"background:#BFD0E3;padding:28px 40px\"><div style=\"font-family:'Poppins',sans-serif;font-size:11px;letter-spacing:0.28em;color:#0F1B33;font-weight:700;text-transform:uppercase;margin-bottom:12px\">— Precisa de ajuda</div><div style=\"font-family:'Space Grotesk',sans-serif;font-size:14px;color:#0F1B33;line-height:1.7\">WhatsApp <strong style=\"font-weight:600\">(11) 98939-0155</strong> ou responda este email.<br>12 dúvidas mais comuns: <a href=\"https://singulare.org/bem-vindo\" style=\"color:#0F1B33;text-decoration:underline;font-weight:500\">singulare.org/bem-vindo</a></div></td></tr><tr><td style=\"background:#0F1B33;padding:32px 40px 32px\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td valign=\"top\"><svg width=\"44\" height=\"30\" viewBox=\"0 0 120 80\" xmlns=\"http://www.w3.org/2000/svg\" style=\"display:block\"><rect x=\"2\" y=\"2\" width=\"40\" height=\"40\" stroke=\"#FFC62F\" stroke-width=\"3\" fill=\"none\"/><rect x=\"32\" y=\"32\" width=\"45\" height=\"45\" stroke=\"#FFC62F\" stroke-width=\"3\" fill=\"none\"/><rect x=\"65\" y=\"15\" width=\"25\" height=\"25\" stroke=\"#FFC62F\" stroke-width=\"3\" fill=\"none\"/></svg></td><td align=\"right\" valign=\"top\"><div style=\"font-family:'Space Grotesk',sans-serif;font-size:13px;color:#F4EFE6;line-height:1.65\">Boas consultas,<br><span style=\"color:#FFFFFF;font-weight:500\">Equipe Singulare</span></div></td></tr></table><div style=\"border-top:1px solid rgba(255,198,47,0.20);margin-top:24px;padding-top:18px;font-family:'Space Grotesk',sans-serif;font-size:10.5px;line-height:1.65;color:#F4EFE6;opacity:0.65;letter-spacing:0.02em\">Singulare é marca operada por MEDICAL SAO PAULO SERVICOS MEDICOS LTDA · CNPJ 20.247.908/0001-01 · Jundiaí, SP · CEP 13201-840 · (17) 3305-9030.</div></td></tr></table></div></body></html>",
+          "options": {}
+        },
+        "credentials": {
+          "smtp": {
+            "id": "5yb9C6LlQav7qYp8",
+            "name": "SMTP account"
+          }
+        },
+        "onError": "continueRegularOutput",
+        "webhookId": "ee6dc7d7-8721-49ec-9ae6-b4fc3611b02a"
+      },
+      {
+        "id": "build-admin-recipients",
+        "name": "Build Admin Recipients",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3360,
+          -96
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const t = $('Consolidar Dados v4.4').item.json;\nconst norm = (p) => (p||'').toString().replace(/\\D/g,'');\nconst admin = norm(t.admin_phone);\nconst doctor = norm(t.doctor_phone);\nconst seen = new Set();\nconst out = [];\nif (admin) { seen.add(admin); out.push({ phone: admin, label: 'admin' }); }\nif (doctor && !seen.has(doctor)) { seen.add(doctor); out.push({ phone: doctor, label: 'medico' }); }\nreturn out.map(r => ({ json: { phone: r.phone, label: r.label, doctor_name: t.doctor_name || '', clinic_name: t.clinic_name || '', magic_link_url: t.magic_link_url || '', tenant_id: t.tenant_id || '' } }));"
+        }
+      },
+      {
+        "id": "send-admin-welcome",
+        "name": "Send Admin Welcome (Singulare)",
+        "type": "n8n-nodes-evolution-api.evolutionApi",
+        "typeVersion": 1,
+        "position": [
+          3584,
+          -96
+        ],
+        "parameters": {
+          "resource": "messages-api",
+          "operation": "send-text",
+          "instanceName": "singulare-admin",
+          "remoteJid": "={{ $json.phone }}@s.whatsapp.net",
+          "messageText": "=Dr(a). {{ $json.doctor_name }}, sua conta Singulare está pronta 🎉\n\nA *{{ $json.clinic_name }}* foi configurada. Falta um último passo pra IA começar a atender:\n\n*1º) Acesse o painel*\nhttps://app.singulare.org/painel\n(use o magic link que você recebeu no email)\n\n*2º) Conecte seu WhatsApp* do chip que você cadastrou — escaneie o QR Code que aparece no painel\n\n*3º) Pronto* — a IA começa a atender 24/7\n\nGuia rápido com as 12 dúvidas mais comuns:\nhttps://singulare.org/bem-vindo\n\nDisponível 24h, todos os dias. Qualquer dúvida, é só responder esta mensagem.\n\n— Time Singulare"
+        },
         "credentials": {
           "evolutionApi": {
             "id": "yFAQwH6wPqroKla0",
@@ -1400,6 +1552,11 @@
               "node": "Notif Admin v4.4",
               "type": "main",
               "index": 0
+            },
+            {
+              "node": "Email Welcome (SMTP)",
+              "type": "main",
+              "index": 0
             }
           ]
         ]
@@ -1425,34 +1582,48 @@
             }
           ]
         ]
+      },
+      "Email Welcome (SMTP)": {
+        "main": [
+          [
+            {
+              "node": "Build Admin Recipients",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Admin Recipients": {
+        "main": [
+          [
+            {
+              "node": "Send Admin Welcome (Singulare)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
-    "authors": "import",
-    "name": "Version fdf225cc",
-    "description": "",
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-05-04T21:45:41.948Z",
-        "id": 5,
+        "createdAt": "2026-05-17T15:01:40.606Z",
+        "id": 437,
         "workflowId": "F0Af54451BmanCfu",
-        "versionId": "7f559a25-8022-41a9-9019-591e538a3b7d",
-        "event": "activated",
-        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
-      },
-      {
-        "createdAt": "2026-05-08T23:36:29.677Z",
-        "id": 214,
-        "workflowId": "F0Af54451BmanCfu",
-        "versionId": "7f559a25-8022-41a9-9019-591e538a3b7d",
+        "versionId": "c70ecd62-6e32-4142-a81c-7532b8b59b56",
         "event": "deactivated",
         "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
       },
       {
-        "createdAt": "2026-05-08T23:36:29.706Z",
-        "id": 215,
+        "createdAt": "2026-05-17T15:01:40.700Z",
+        "id": 438,
         "workflowId": "F0Af54451BmanCfu",
-        "versionId": "7f559a25-8022-41a9-9019-591e538a3b7d",
+        "versionId": "c70ecd62-6e32-4142-a81c-7532b8b59b56",
         "event": "activated",
         "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
       }

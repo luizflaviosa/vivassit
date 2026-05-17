@@ -1,6 +1,6 @@
 {
   "id": "772IvPKr0P610BtS",
-  "name": "renew_doctor_calendar_watches — Self-Healing Daily",
+  "name": "I02 — Bridge · Renovação Calendar Watches · v1.0",
   "description": null,
   "active": true,
   "isArchived": false,
@@ -108,7 +108,8 @@
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "errorWorkflow": "rONCEa2neV3XyBBX"
   },
   "staticData": {
     "node:A cada 24h (03:00 UTC)": {
@@ -118,7 +119,7 @@
   "meta": null,
   "pinData": null,
   "activeVersionId": "f9002a3f-d68b-4cff-8800-3727f50990b6",
-  "versionCounter": 4,
+  "versionCounter": 13,
   "triggerCount": 1,
   "shared": [
     {
@@ -256,6 +257,54 @@
       {
         "createdAt": "2026-05-09T15:06:51.906Z",
         "id": 238,
+        "workflowId": "772IvPKr0P610BtS",
+        "versionId": "f9002a3f-d68b-4cff-8800-3727f50990b6",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:02:39.114Z",
+        "id": 375,
+        "workflowId": "772IvPKr0P610BtS",
+        "versionId": "f9002a3f-d68b-4cff-8800-3727f50990b6",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:02:41.721Z",
+        "id": 376,
+        "workflowId": "772IvPKr0P610BtS",
+        "versionId": "f9002a3f-d68b-4cff-8800-3727f50990b6",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:49.720Z",
+        "id": 381,
+        "workflowId": "772IvPKr0P610BtS",
+        "versionId": "f9002a3f-d68b-4cff-8800-3727f50990b6",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:49.737Z",
+        "id": 382,
+        "workflowId": "772IvPKr0P610BtS",
+        "versionId": "f9002a3f-d68b-4cff-8800-3727f50990b6",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:26:59.463Z",
+        "id": 416,
+        "workflowId": "772IvPKr0P610BtS",
+        "versionId": "f9002a3f-d68b-4cff-8800-3727f50990b6",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:26:59.480Z",
+        "id": 417,
         "workflowId": "772IvPKr0P610BtS",
         "versionId": "f9002a3f-d68b-4cff-8800-3727f50990b6",
         "event": "activated",

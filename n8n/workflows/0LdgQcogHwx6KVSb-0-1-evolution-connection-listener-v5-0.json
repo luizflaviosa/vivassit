@@ -1,6 +1,6 @@
 {
   "id": "0LdgQcogHwx6KVSb",
-  "name": "0.1 Evolution Connection Listener v4.5",
+  "name": "0.1 Evolution Connection Listener v5.0",
   "description": "Listener Evolution path estatico evolution/v44. Identifica tenant via body.instance. Atualiza tenants.evolution_status, envia welcome WA, notifica Telegram. Idempotente via welcomed_at.",
   "active": true,
   "isArchived": false,
@@ -51,7 +51,8 @@
           "options": {
             "caseSensitive": true,
             "typeValidation": "loose",
-            "version": 2
+            "version": 2,
+            "leftValue": ""
           },
           "conditions": [
             {
@@ -80,7 +81,7 @@
       ],
       "parameters": {
         "operation": "executeQuery",
-        "query": "=SELECT tenant_id, doctor_name, clinic_name, phone, welcomed_at FROM public.tenants WHERE evolution_instance_name = '{{ $json.instance }}' OR tenant_id = '{{ $json.instance }}' LIMIT 1",
+        "query": "=SELECT tenant_id, doctor_name, clinic_name, phone, admin_phone, doctor_phone, welcomed_at FROM public.tenants WHERE evolution_instance_name = '{{ $json.instance }}' OR tenant_id = '{{ $json.instance }}' LIMIT 1",
         "options": {}
       },
       "alwaysOutputData": true,
@@ -106,7 +107,8 @@
           "options": {
             "caseSensitive": true,
             "typeValidation": "loose",
-            "version": 2
+            "version": 2,
+            "leftValue": ""
           },
           "conditions": [
             {
@@ -157,20 +159,35 @@
       }
     },
     {
+      "id": "build-recipients-1",
+      "name": "Build Recipients",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        -96
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const t=$('Lookup Tenant').item.json;\nconst norm=(p)=>(p||'').toString().replace(/\\D/g,'');\nconst clinic=norm(t.phone);\nconst admin=norm(t.admin_phone);\nconst doctor=norm(t.doctor_phone);\nconst seen=new Set();\nconst out=[];\nif(clinic){ seen.add(clinic); out.push({phone:clinic,label:'clínica'}); }\nif(admin && !seen.has(admin)){ seen.add(admin); out.push({phone:admin,label:'admin'}); }\nif(doctor && !seen.has(doctor)){ seen.add(doctor); out.push({phone:doctor,label:'médico'}); }\nreturn out.map(r=>({json:{phone:r.phone,label:r.label,doctor_name:t.doctor_name||'',clinic_name:t.clinic_name||'',tenant_id:t.tenant_id||''}}));"
+      }
+    },
+    {
       "id": "62da131c-ea19-467a-9ae4-da3be1632e66",
       "name": "Send Welcome WhatsApp",
       "type": "n8n-nodes-evolution-api.evolutionApi",
       "typeVersion": 1,
       "position": [
-        1344,
-        0
+        1568,
+        -96
       ],
       "parameters": {
         "resource": "messages-api",
         "operation": "send-text",
-        "instanceName": "={{ $('Lookup Tenant').item.json.tenant_id }}",
-        "remoteJid": "={{ ($('Lookup Tenant').item.json.phone || '').replace(/\\D/g,'') }}@s.whatsapp.net",
-        "messageText": "=Olá, Dr(a). {{ $('Lookup Tenant').item.json.doctor_name }}! 🎉\\n\\nA Singulare aqui. Sua secretária IA acabou de conectar com sucesso ao WhatsApp da {{ $('Lookup Tenant').item.json.clinic_name }}.\\n\\nA partir de agora ela atende seus pacientes 24/7: cota consulta, marca agendamento, manda lembrete.\\n\\nAcesse o painel: https://app.singulare.org/painel\\n\\nBoas consultas! 🩺"
+        "instanceName": "singulare-admin",
+        "remoteJid": "={{ $json.phone }}@s.whatsapp.net",
+        "messageText": "=Dr(a). {{ $json.doctor_name }}, sua clínica está no ar 🎉\n\nA *{{ $json.clinic_name }}* já tem secretária IA própria. Ela atende seus pacientes no WhatsApp da clínica 24/7 e cuida de agenda, cobrança e lembretes — você fica com o que importa.\n\n*Pra começar:*\n\n→ Painel da clínica: https://app.singulare.org/painel\n→ Guia rápido (12 dúvidas comuns): https://singulare.org/bem-vindo\n\nQualquer coisa, responda este número — somos a Singulare e te ajudamos direto.\n\nBoas consultas. 🩺"
       },
       "onError": "continueRegularOutput",
       "credentials": {
@@ -186,14 +203,14 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1568,
-        0
+        1344,
+        96
       ],
       "parameters": {
         "resource": "message",
         "operation": "sendMessage",
         "chatId": "5749317361",
-        "text": "=✅ WhatsApp CONECTADO\\n\\n🏥 {{ $('Lookup Tenant').item.json.clinic_name }}\\n👨‍⚕️ {{ $('Lookup Tenant').item.json.doctor_name }}\\n🆔 {{ $('Lookup Tenant').item.json.tenant_id }}\\n📱 {{ $('Lookup Tenant').item.json.phone }}\\n\\n⚡ IA atendendo agora.\\n💬 Welcome msg enviada.",
+        "text": "=✅ WhatsApp CONECTADO\\n\\n🏥 {{ $('Lookup Tenant').item.json.clinic_name }}\\n👨‍⚕️ {{ $('Lookup Tenant').item.json.doctor_name }}\\n🆔 {{ $('Lookup Tenant').item.json.tenant_id }}\\n📱 Clínica: {{ $('Lookup Tenant').item.json.phone }}\\n👤 Admin: {{ $('Lookup Tenant').item.json.admin_phone || '(não informado)' }}\\n🩺 Médico: {{ $('Lookup Tenant').item.json.doctor_phone || '(igual ao admin)' }}\\n\\n⚡ IA atendendo agora.\\n💬 Welcome msg enviada via singulare-admin.",
         "additionalFields": {
           "parse_mode": "HTML"
         }
@@ -209,7 +226,7 @@
     },
     {
       "id": "47711d90-9112-497d-b91e-f755b46bca73",
-      "name": "Already Welcomed (skip)",
+      "name": "Skip (no tenant or already welcomed)",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
@@ -223,7 +240,7 @@
             {
               "id": "skip",
               "name": "skipped_reason",
-              "value": "already_welcomed",
+              "value": "no_tenant_or_already_welcomed",
               "type": "string"
             }
           ]
@@ -325,7 +342,7 @@
         ],
         [
           {
-            "node": "Already Welcomed (skip)",
+            "node": "Skip (no tenant or already welcomed)",
             "type": "main",
             "index": 0
           }
@@ -336,18 +353,23 @@
       "main": [
         [
           {
-            "node": "Send Welcome WhatsApp",
+            "node": "Build Recipients",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Admin",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send Welcome WhatsApp": {
+    "Build Recipients": {
       "main": [
         [
           {
-            "node": "Notify Admin",
+            "node": "Send Welcome WhatsApp",
             "type": "main",
             "index": 0
           }
@@ -357,7 +379,8 @@
   },
   "settings": {
     "executionOrder": "v1",
-    "availableInMCP": true
+    "availableInMCP": true,
+    "errorWorkflow": "rONCEa2neV3XyBBX"
   },
   "staticData": null,
   "meta": {
@@ -365,8 +388,8 @@
     "builderVariant": "mcp"
   },
   "pinData": null,
-  "activeVersionId": "6fe66080-9554-49dc-a784-431c6f5947cd",
-  "versionCounter": 7,
+  "activeVersionId": "c0ff7b03-3ee7-4b0f-baf6-3a942fc2730b",
+  "versionCounter": 16,
   "triggerCount": 1,
   "shared": [
     {
@@ -389,9 +412,9 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-05-04T21:45:54.409Z",
-    "createdAt": "2026-05-04T21:18:47.436Z",
-    "versionId": "6fe66080-9554-49dc-a784-431c6f5947cd",
+    "updatedAt": "2026-05-15T18:51:49.198Z",
+    "createdAt": "2026-05-15T18:51:49.198Z",
+    "versionId": "c0ff7b03-3ee7-4b0f-baf6-3a942fc2730b",
     "workflowId": "0LdgQcogHwx6KVSb",
     "nodes": [
       {
@@ -440,7 +463,8 @@
             "options": {
               "caseSensitive": true,
               "typeValidation": "loose",
-              "version": 2
+              "version": 2,
+              "leftValue": ""
             },
             "conditions": [
               {
@@ -469,7 +493,7 @@
         ],
         "parameters": {
           "operation": "executeQuery",
-          "query": "=SELECT tenant_id, doctor_name, clinic_name, phone, welcomed_at FROM public.tenants WHERE evolution_instance_name = '{{ $json.instance }}' OR tenant_id = '{{ $json.instance }}' LIMIT 1",
+          "query": "=SELECT tenant_id, doctor_name, clinic_name, phone, admin_phone, doctor_phone, welcomed_at FROM public.tenants WHERE evolution_instance_name = '{{ $json.instance }}' OR tenant_id = '{{ $json.instance }}' LIMIT 1",
           "options": {}
         },
         "alwaysOutputData": true,
@@ -495,7 +519,8 @@
             "options": {
               "caseSensitive": true,
               "typeValidation": "loose",
-              "version": 2
+              "version": 2,
+              "leftValue": ""
             },
             "conditions": [
               {
@@ -546,20 +571,35 @@
         }
       },
       {
+        "id": "build-recipients-1",
+        "name": "Build Recipients",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1344,
+          -96
+        ],
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "language": "javaScript",
+          "jsCode": "const t=$('Lookup Tenant').item.json;\nconst norm=(p)=>(p||'').toString().replace(/\\D/g,'');\nconst clinic=norm(t.phone);\nconst admin=norm(t.admin_phone);\nconst doctor=norm(t.doctor_phone);\nconst seen=new Set();\nconst out=[];\nif(clinic){ seen.add(clinic); out.push({phone:clinic,label:'clínica'}); }\nif(admin && !seen.has(admin)){ seen.add(admin); out.push({phone:admin,label:'admin'}); }\nif(doctor && !seen.has(doctor)){ seen.add(doctor); out.push({phone:doctor,label:'médico'}); }\nreturn out.map(r=>({json:{phone:r.phone,label:r.label,doctor_name:t.doctor_name||'',clinic_name:t.clinic_name||'',tenant_id:t.tenant_id||''}}));"
+        }
+      },
+      {
         "id": "62da131c-ea19-467a-9ae4-da3be1632e66",
         "name": "Send Welcome WhatsApp",
         "type": "n8n-nodes-evolution-api.evolutionApi",
         "typeVersion": 1,
         "position": [
-          1344,
-          0
+          1568,
+          -96
         ],
         "parameters": {
           "resource": "messages-api",
           "operation": "send-text",
-          "instanceName": "={{ $('Lookup Tenant').item.json.tenant_id }}",
-          "remoteJid": "={{ ($('Lookup Tenant').item.json.phone || '').replace(/\\D/g,'') }}@s.whatsapp.net",
-          "messageText": "=Olá, Dr(a). {{ $('Lookup Tenant').item.json.doctor_name }}! 🎉\\n\\nA Singulare aqui. Sua secretária IA acabou de conectar com sucesso ao WhatsApp da {{ $('Lookup Tenant').item.json.clinic_name }}.\\n\\nA partir de agora ela atende seus pacientes 24/7: cota consulta, marca agendamento, manda lembrete.\\n\\nAcesse o painel: https://app.singulare.org/painel\\n\\nBoas consultas! 🩺"
+          "instanceName": "singulare-admin",
+          "remoteJid": "={{ $json.phone }}@s.whatsapp.net",
+          "messageText": "=Dr(a). {{ $json.doctor_name }}, sua clínica está no ar 🎉\n\nA *{{ $json.clinic_name }}* já tem secretária IA própria. Ela atende seus pacientes no WhatsApp da clínica 24/7 e cuida de agenda, cobrança e lembretes — você fica com o que importa.\n\n*Pra começar:*\n\n→ Painel da clínica: https://app.singulare.org/painel\n→ Guia rápido (12 dúvidas comuns): https://singulare.org/bem-vindo\n\nQualquer coisa, responda este número — somos a Singulare e te ajudamos direto.\n\nBoas consultas. 🩺"
         },
         "onError": "continueRegularOutput",
         "credentials": {
@@ -575,14 +615,14 @@
         "type": "n8n-nodes-base.telegram",
         "typeVersion": 1.2,
         "position": [
-          1568,
-          0
+          1344,
+          96
         ],
         "parameters": {
           "resource": "message",
           "operation": "sendMessage",
           "chatId": "5749317361",
-          "text": "=✅ WhatsApp CONECTADO\\n\\n🏥 {{ $('Lookup Tenant').item.json.clinic_name }}\\n👨‍⚕️ {{ $('Lookup Tenant').item.json.doctor_name }}\\n🆔 {{ $('Lookup Tenant').item.json.tenant_id }}\\n📱 {{ $('Lookup Tenant').item.json.phone }}\\n\\n⚡ IA atendendo agora.\\n💬 Welcome msg enviada.",
+          "text": "=✅ WhatsApp CONECTADO\\n\\n🏥 {{ $('Lookup Tenant').item.json.clinic_name }}\\n👨‍⚕️ {{ $('Lookup Tenant').item.json.doctor_name }}\\n🆔 {{ $('Lookup Tenant').item.json.tenant_id }}\\n📱 Clínica: {{ $('Lookup Tenant').item.json.phone }}\\n👤 Admin: {{ $('Lookup Tenant').item.json.admin_phone || '(não informado)' }}\\n🩺 Médico: {{ $('Lookup Tenant').item.json.doctor_phone || '(igual ao admin)' }}\\n\\n⚡ IA atendendo agora.\\n💬 Welcome msg enviada via singulare-admin.",
           "additionalFields": {
             "parse_mode": "HTML"
           }
@@ -598,7 +638,7 @@
       },
       {
         "id": "47711d90-9112-497d-b91e-f755b46bca73",
-        "name": "Already Welcomed (skip)",
+        "name": "Skip (no tenant or already welcomed)",
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
@@ -612,7 +652,7 @@
               {
                 "id": "skip",
                 "name": "skipped_reason",
-                "value": "already_welcomed",
+                "value": "no_tenant_or_already_welcomed",
                 "type": "string"
               }
             ]
@@ -714,7 +754,7 @@
           ],
           [
             {
-              "node": "Already Welcomed (skip)",
+              "node": "Skip (no tenant or already welcomed)",
               "type": "main",
               "index": 0
             }
@@ -725,16 +765,10 @@
         "main": [
           [
             {
-              "node": "Send Welcome WhatsApp",
+              "node": "Build Recipients",
               "type": "main",
               "index": 0
-            }
-          ]
-        ]
-      },
-      "Send Welcome WhatsApp": {
-        "main": [
-          [
+            },
             {
               "node": "Notify Admin",
               "type": "main",
@@ -742,18 +776,53 @@
             }
           ]
         ]
+      },
+      "Build Recipients": {
+        "main": [
+          [
+            {
+              "node": "Send Welcome WhatsApp",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
-    "authors": "import",
-    "name": "Version 6fe66080",
-    "description": "",
+    "authors": "Luiz Flavio Sa",
+    "name": null,
+    "description": null,
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-05-04T21:45:54.404Z",
-        "id": 6,
+        "createdAt": "2026-05-15T18:51:49.251Z",
+        "id": 306,
         "workflowId": "0LdgQcogHwx6KVSb",
-        "versionId": "6fe66080-9554-49dc-a784-431c6f5947cd",
+        "versionId": "c0ff7b03-3ee7-4b0f-baf6-3a942fc2730b",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-15T18:51:49.275Z",
+        "id": 307,
+        "workflowId": "0LdgQcogHwx6KVSb",
+        "versionId": "c0ff7b03-3ee7-4b0f-baf6-3a942fc2730b",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:27:04.096Z",
+        "id": 422,
+        "workflowId": "0LdgQcogHwx6KVSb",
+        "versionId": "c0ff7b03-3ee7-4b0f-baf6-3a942fc2730b",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:27:04.117Z",
+        "id": 423,
+        "workflowId": "0LdgQcogHwx6KVSb",
+        "versionId": "c0ff7b03-3ee7-4b0f-baf6-3a942fc2730b",
         "event": "activated",
         "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
       }

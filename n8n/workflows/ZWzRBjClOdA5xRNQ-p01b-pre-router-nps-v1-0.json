@@ -1,6 +1,6 @@
 {
   "id": "ZWzRBjClOdA5xRNQ",
-  "name": "Master Secretária — NPS Pre-Router",
+  "name": "P01b — Pre-Router · NPS · v1.0",
   "description": "FIX v2: COALESCE força valores não-NULL — n8n Postgres descartava row com todos NULLs. Lookup agora retorna id=0/has_pending=false quando sem pending NPS.",
   "active": true,
   "isArchived": false,
@@ -851,7 +851,8 @@
   },
   "settings": {
     "executionOrder": "v1",
-    "availableInMCP": true
+    "availableInMCP": true,
+    "errorWorkflow": "rONCEa2neV3XyBBX"
   },
   "staticData": null,
   "meta": {
@@ -860,7 +861,7 @@
   },
   "pinData": null,
   "activeVersionId": "b3e7f53c-ad17-4174-936d-fde888d9510c",
-  "versionCounter": 20,
+  "versionCounter": 26,
   "triggerCount": 0,
   "shared": [
     {
@@ -1748,6 +1749,38 @@
       {
         "createdAt": "2026-05-10T00:54:08.884Z",
         "id": 252,
+        "workflowId": "ZWzRBjClOdA5xRNQ",
+        "versionId": "b3e7f53c-ad17-4174-936d-fde888d9510c",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:54.348Z",
+        "id": 387,
+        "workflowId": "ZWzRBjClOdA5xRNQ",
+        "versionId": "b3e7f53c-ad17-4174-936d-fde888d9510c",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:04:54.370Z",
+        "id": 388,
+        "workflowId": "ZWzRBjClOdA5xRNQ",
+        "versionId": "b3e7f53c-ad17-4174-936d-fde888d9510c",
+        "event": "activated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:26:55.219Z",
+        "id": 410,
+        "workflowId": "ZWzRBjClOdA5xRNQ",
+        "versionId": "b3e7f53c-ad17-4174-936d-fde888d9510c",
+        "event": "deactivated",
+        "userId": "103f46e2-d012-4edc-bf20-496ec57af330"
+      },
+      {
+        "createdAt": "2026-05-17T14:26:55.246Z",
+        "id": 411,
         "workflowId": "ZWzRBjClOdA5xRNQ",
         "versionId": "b3e7f53c-ad17-4174-936d-fde888d9510c",
         "event": "activated",
