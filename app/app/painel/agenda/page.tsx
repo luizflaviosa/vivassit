@@ -11,20 +11,9 @@ import AgendaView from './AgendaView';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-interface DoctorOption {
-  id: string;
-  doctor_name: string;
-  is_primary?: boolean;
-  has_calendar?: boolean;
-}
-
-interface SetupIssue {
-  type: string;
-  message?: string;
-  share_with?: string;
-  doctor?: any;
-  calendar_id?: string;
-}
+// Tipos minimos pra Server logic. AgendaView tem suas proprias interfaces
+// completas (DoctorOption com name, specialty etc) — passamos os dados
+// como any e deixamos a interface do Client tipar a recepcao.
 
 async function fetchInternal(path: string): Promise<any | null> {
   const cookieStore = cookies();
@@ -50,22 +39,22 @@ async function fetchInternal(path: string): Promise<any | null> {
 export default async function AgendaPage() {
   // 1. Lista de profissionais
   const doctorsJson = await fetchInternal('/api/painel/agenda/doctors');
-  const initialDoctors: DoctorOption[] | null = doctorsJson?.success
+  const initialDoctors: any[] | null = doctorsJson?.success
     ? (doctorsJson.doctors ?? [])
     : null;
 
   // 2. Replica logica de escolha do active doctor
   let initialActiveDoctor: string | null = null;
   if (initialDoctors && initialDoctors.length > 0) {
-    const primary = initialDoctors.find((d) => d.is_primary && d.has_calendar);
+    const primary = initialDoctors.find(
+      (d: any) => d.is_primary && d.has_calendar,
+    );
     initialActiveDoctor = primary?.id ?? initialDoctors[0].id;
   }
 
-  // 3. Eventos do active doctor (em paralelo seria ideal, mas dependencia
-  // de activeDoctor obriga sequencial). Se Server falhou em pegar doctors,
-  // pula events.
+  // 3. Eventos do active doctor.
   let initialEvents: any[] | null = null;
-  let initialSetupIssue: SetupIssue | null = null;
+  let initialSetupIssue: any | null = null;
   if (initialActiveDoctor) {
     const url = `/api/painel/agenda/events?doctor=${initialActiveDoctor}&back=2&forward=60`;
     const eventsJson = await fetchInternal(url);
@@ -77,7 +66,8 @@ export default async function AgendaPage() {
         message: eventsJson.message,
         share_with: eventsJson.share_with,
         doctor: eventsJson.doctor,
-        calendar_id: eventsJson.calendar_id ?? eventsJson.doctor?.calendar_id,
+        calendar_id:
+          eventsJson.calendar_id ?? eventsJson.doctor?.calendar_id,
       };
     } else if (eventsJson?.error === 'no_doctor') {
       initialSetupIssue = { type: 'no_doctor', message: eventsJson.message };
@@ -86,9 +76,9 @@ export default async function AgendaPage() {
 
   return (
     <AgendaView
-      initialDoctors={initialDoctors}
+      initialDoctors={initialDoctors as any}
       initialActiveDoctor={initialActiveDoctor}
-      initialEvents={initialEvents}
+      initialEvents={initialEvents as any}
       initialSetupIssue={initialSetupIssue}
     />
   );
