@@ -172,16 +172,23 @@ function dateOffset(days: number): string {
 /**
  * Coleta um snapshot completo dos últimos N dias.
  * Padrão N=7 (rolling week).
+ *
+ * dataState='all' inclui dados frescos (últimas 48h) que ainda não estão
+ * consolidados — útil pra ter sinal mais cedo em sites novos.
  */
-export async function collectSnapshot(siteUrl: string, days = 7): Promise<GscSnapshot> {
-  // GSC tem latência de ~2-3 dias. Defasagem inicial garante dados consolidados.
-  const endDate = dateOffset(3);
-  const startDate = dateOffset(3 + days);
+export async function collectSnapshot(
+  siteUrl: string,
+  days = 7,
+  dataState: 'all' | 'final' = 'all',
+): Promise<GscSnapshot> {
+  // GSC tem latência de ~2-3 dias mesmo com dataState=all (apenas reduzida).
+  const endDate = dateOffset(2);
+  const startDate = dateOffset(2 + days);
 
   const [summaryRows, queryRows, pageRows] = await Promise.all([
-    queryGsc({ siteUrl, startDate, endDate, dimensions: [], rowLimit: 1 }),
-    queryGsc({ siteUrl, startDate, endDate, dimensions: ['query'], rowLimit: 50 }),
-    queryGsc({ siteUrl, startDate, endDate, dimensions: ['page'], rowLimit: 50 }),
+    queryGsc({ siteUrl, startDate, endDate, dimensions: [], rowLimit: 1, dataState }),
+    queryGsc({ siteUrl, startDate, endDate, dimensions: ['query'], rowLimit: 50, dataState }),
+    queryGsc({ siteUrl, startDate, endDate, dimensions: ['page'], rowLimit: 50, dataState }),
   ]);
 
   const summary = summaryRows[0] ?? { clicks: 0, impressions: 0, ctr: 0, position: 0, keys: [] };

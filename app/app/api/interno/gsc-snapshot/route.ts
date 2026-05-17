@@ -47,8 +47,13 @@ async function handler(req: NextRequest) {
 
   const t0 = Date.now();
 
+  // Query param ?days=N pra teste manual com janela maior (default 7).
+  const url = new URL(req.url);
+  const daysParam = url.searchParams.get('days');
+  const days = daysParam ? Math.max(1, Math.min(490, parseInt(daysParam, 10))) : 7;
+
   try {
-    const snapshot = await collectSnapshot(SITE_URL, 7);
+    const snapshot = await collectSnapshot(SITE_URL, days);
     const latencyMs = Date.now() - t0;
 
     const supabase = supabaseAdmin();
